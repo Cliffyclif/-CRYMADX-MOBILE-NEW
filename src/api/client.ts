@@ -719,12 +719,13 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
     }
   },
 
-  // Markets trades — direct Binance public API (CORS-enabled)
+  // Markets trades — backend proxy /api/binance/trades (Binance is geo-blocked
+  // in some markets, so we always go through our gateway).
   'api.markets.trades': async ({ pathParams, query }) => {
     const pair = String(pathParams.pair || '').replace('/', '').toUpperCase()
     const limit = Math.min(parseInt(String(query.limit || 30), 10) || 30, 50)
     if (!pair) return { items: [] }
-    const url = `https://api.binance.com/api/v3/trades?symbol=${encodeURIComponent(pair)}&limit=${limit}`
+    const url = `${API_BASE_URL}/binance/trades?symbol=${encodeURIComponent(pair)}&limit=${limit}`
     try {
       const res = await fetch(url)
       if (!res.ok) return { items: [] }
@@ -740,23 +741,26 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
     } catch { return { items: [] } }
   },
 
-  // Markets candles — direct Binance public API (CORS-enabled)
+  // Markets candles — backend proxy /api/binance/klines (same reason as
+  // trades — direct Binance is blocked for many users).
   'api.markets.candles': async ({ pathParams, query }) => {
     const pair = String(pathParams.pair || '').replace('/', '').toUpperCase()
     const interval = (query.interval as string) || '15m'
     if (!pair) return { items: [] }
-    const url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=${encodeURIComponent(interval)}&limit=100`
-    const res = await fetch(url)
-    if (!res.ok) return { items: [] }
-    const raw = await res.json() as Array<any[]>
-    const items = raw.map(k => ({
-      t: k[0] as number,
-      o: parseFloat(k[1]),
-      h: parseFloat(k[2]),
-      l: parseFloat(k[3]),
-      c: parseFloat(k[4]),
-    }))
-    return { items }
+    const url = `${API_BASE_URL}/binance/klines?symbol=${encodeURIComponent(pair)}&interval=${encodeURIComponent(interval)}&limit=100`
+    try {
+      const res = await fetch(url)
+      if (!res.ok) return { items: [] }
+      const raw = await res.json() as Array<any[]>
+      const items = raw.map(k => ({
+        t: k[0] as number,
+        o: parseFloat(k[1]),
+        h: parseFloat(k[2]),
+        l: parseFloat(k[3]),
+        c: parseFloat(k[4]),
+      }))
+      return { items }
+    } catch { return { items: [] } }
   },
 
   // Beneficiaries CRUD — localStorage

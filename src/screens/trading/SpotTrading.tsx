@@ -10,6 +10,7 @@ import { ROUTES, routeFor } from '../../routes'
 import { fmt } from '../../lib/format'
 import { haptics } from '../../lib/haptics'
 import { checkReserveViolation } from '../../lib/chainReserves'
+import { getActivePairs, type TradingPairConfig } from '../../config/tradingPairs'
 import type { Balance, MarketPair, Transaction } from '../../api/endpoints'
 
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'] as const
@@ -20,7 +21,11 @@ interface Candle { t: number; o: number; h: number; l: number; c: number }
 interface OrderRow { id: string; pair: string; side: 'buy' | 'sell'; type: 'limit' | 'market' | 'stop-limit'; price: string; amount: string; filled?: string; status: string; createdAt: string }
 
 const FAV_KEY = 'crymadx.trading.favorites'
-const POPULAR_PAIRS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'XRP/USDT', 'BNB/USDT', 'DOGE/USDT', 'ADA/USDT', 'AVAX/USDT', 'MATIC/USDT', 'DOT/USDT', 'LINK/USDT', 'LTC/USDT']
+
+/** "BTCUSDT" → "BTC/USDT" using the pair config so we display correctly. */
+function configToDisplay(p: TradingPairConfig): string {
+  return `${p.baseAsset}/${p.quoteAsset}`
+}
 
 function loadFavs(): string[] {
   try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]') } catch { return [] }
@@ -478,12 +483,49 @@ function TradesFeed({ trades }: { trades: Trade[] }) {
 // Pair picker bottom sheet
 // ─────────────────────────────────────────────────────────────────────────────
 
+type PickerTab = 'all' | 'favs' | string
+
 function PairPicker({ current, favs, setFavs, onPick, onClose }: { current: string; favs: string[]; setFavs: (f: string[]) => void; onPick: (p: string) => void; onClose: () => void }) {
   const [q, setQ] = useState('')
   const dismiss = useSheetDismiss({ onDismiss: onClose })
-  const [tab, setTab] = useState<'all' | 'favs'>(favs.length > 0 ? 'favs' : 'all')
-  const allPairs = useMemo(() => Array.from(new Set([...favs, ...POPULAR_PAIRS])), [favs])
-  const visible = (tab === 'favs' ? favs : allPairs).filter(p => !q || p.toLowerCase().includes(q.toLowerCase()))
+
+  // The full list of active trading pairs comes from the same shared config
+  // the production website uses (src/config/tradingPairs.ts — 146 pairs).
+  const allConfigured = useMemo(() => {
+    return getActivePairs().map(p => ({
+      display: configToDisplay(p),
+      base: p.baseAsset,
+      name: p.baseName,
+      category: p.category,
+    }))
+  }, [])
+
+  const categories = useMemo(() => {
+    const set = new Set(allConfigured.map(p => p.category))
+    return Array.from(set).sort()
+  }, [allConfigured])
+
+  const [tab, setTab] = useState<PickerTab>(favs.length > 0 ? 'favs' : 'all')
+
+  const visible = useMemo(() => {
+    let list = allConfigured
+    if (tab === 'favs') list = list.filter(p => favs.includes(p.display))
+    else if (tab !== 'all') list = list.filter(p => p.category === tab)
+    if (q.trim()) {
+      const needle = q.toLowerCase()
+      list = list.filter(p =>
+        p.display.toLowerCase().includes(needle) ||
+        p.base.toLowerCase().includes(needle) ||
+        p.name.toLowerCase().includes(needle),
+      )
+    }
+    // Star’d pairs first
+    return list.slice().sort((a, b) => {
+      const af = favs.includes(a.display) ? 0 : 1
+      const bf = favs.includes(b.display) ? 0 : 1
+      return af - bf
+    })
+  }, [allConfigured, tab, favs, q])
 
   return (
     <div
@@ -517,9 +559,12 @@ function PairPicker({ current, favs, setFavs, onPick, onClose }: { current: stri
           <Icon name="search" size={13} color="var(--text-mid-30)" />
           <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search pairs (e.g. BTC, ETH/USDT)" style={{ flex: 1 }} />
         </div>
-        <div className="tabs" style={{ fontSize: 12, marginBottom: 4 }}>
-          <button className={`tab ${tab === 'favs' ? 'a' : ''}`} onClick={() => setTab('favs')}>★ Favorites ({favs.length})</button>
-          <button className={`tab ${tab === 'all' ? 'a' : ''}`} onClick={() => setTab('all')}>Popular</button>
+        <div className="tabs" style={{ fontSize: 11, marginBottom: 4, overflowX: 'auto', flexWrap: 'nowrap' }}>
+          <button className={`tab ${tab === 'favs' ? 'a' : ''}`} onClick={() => setTab('favs')}>★ ({favs.length})</button>
+          <button className={`tab ${tab === 'all' ? 'a' : ''}`} onClick={() => setTab('all')}>All ({allConfigured.length})</button>
+          {categories.map(c => (
+            <button key={c} className={`tab ${tab === c ? 'a' : ''}`} onClick={() => setTab(c)} style={{ textTransform: 'capitalize' }}>{c}</button>
+          ))}
         </div>
         <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {visible.length === 0 && (
@@ -528,20 +573,20 @@ function PairPicker({ current, favs, setFavs, onPick, onClose }: { current: stri
             </div>
           )}
           {visible.map(p => {
-            const [b] = p.split('/')
-            const isFav = favs.includes(p)
-            const isActive = p === current
+            const isFav = favs.includes(p.display)
+            const isActive = p.display === current
             return (
-              <div key={p} className="li" style={{ width: '100%', cursor: 'pointer', background: isActive ? 'rgba(0,200,83,.06)' : undefined, border: isActive ? '1px solid rgba(0,200,83,.35)' : 'none' }}>
-                <button onClick={() => onPick(p)} style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 10, flex: 1, cursor: 'pointer', textAlign: 'left' }}>
-                  <CoinIcon symbol={b} size={28} />
+              <div key={p.display} className="li" style={{ width: '100%', cursor: 'pointer', background: isActive ? 'rgba(0,200,83,.06)' : undefined, border: isActive ? '1px solid rgba(0,200,83,.35)' : 'none' }}>
+                <button onClick={() => onPick(p.display)} style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 10, flex: 1, cursor: 'pointer', textAlign: 'left' }}>
+                  <CoinIcon symbol={p.base} size={28} />
                   <div className="li-c">
-                    <div className="li-n">{p} {isActive && <span className="grn" style={{ fontSize: 13 }}>✓</span>}</div>
-                    <div className="li-s">{b}</div>
+                    <div className="li-n">{p.display} {isActive && <span className="grn" style={{ fontSize: 13 }}>✓</span>}</div>
+                    <div className="li-s">{p.name}</div>
                   </div>
+                  <span className="badge" style={{ fontSize: 8, marginRight: 4, opacity: 0.6, textTransform: 'capitalize' }}>{p.category}</span>
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); haptics.selection(); setFavs(isFav ? favs.filter(x => x !== p) : [p, ...favs]) }}
+                  onClick={(e) => { e.stopPropagation(); haptics.selection(); setFavs(isFav ? favs.filter(x => x !== p.display) : [p.display, ...favs]) }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: isFav ? 'var(--gd)' : 'var(--text-mid-30)', fontSize: 18 }}
                   aria-label={isFav ? 'Remove favorite' : 'Add favorite'}
                 >
