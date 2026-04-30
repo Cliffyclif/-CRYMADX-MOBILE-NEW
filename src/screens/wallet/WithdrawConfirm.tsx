@@ -49,6 +49,10 @@ export function WithdrawConfirm() {
     { enabled: !!state },
   )
   const isWhitelisted = !!wl?.whitelisted
+  // True if the address is in the whitelist in ANY status (pending or active).
+  // Used to hide the "Whitelist this address" toggle so the user doesn't try
+  // to add it again and trigger a 409 conflict.
+  const alreadyOnWhitelist = !!wl?.status
 
   const sendOtp = useEndpointMutation<{ body: { purpose: string } }, unknown>('api.otp.send')
   const withdraw = useEndpointMutation<{ body: WithdrawState & { otpCode?: string } }, Transaction>('api.wallet.withdraw.create', {
@@ -94,7 +98,11 @@ export function WithdrawConfirm() {
     return null
   }
 
-  const total = fmt(parseFloat(state.amount) + parseFloat(state.fee))
+  // Fee is taken OUT of the amount (not on top). The amount the user
+  // entered IS the total debited; the recipient receives `amount - fee`.
+  const amountNum = parseFloat(state.amount) || 0
+  const feeNum = parseFloat(state.fee) || 0
+  const recipientReceives = fmt(Math.max(0, amountNum - feeNum))
 
   const handleResend = async () => {
     if (resendIn > 0) return
@@ -124,7 +132,7 @@ export function WithdrawConfirm() {
       // Save to address book if the user opted in. The disclaimer modal has
       // already been agreed-to in the toggle handler below — that's why we
       // can include the acknowledgedAt stamp directly here.
-      if (!isWhitelisted && saveAddress && savedName.trim()) {
+      if (!alreadyOnWhitelist && saveAddress && savedName.trim()) {
         try {
           await saveBeneficiary.mutateAsync({
             body: {
@@ -146,7 +154,12 @@ export function WithdrawConfirm() {
         }
       }
 
-      nav(routeFor('route.wallet.tx-detail', { txId: tx.id }), { replace: true })
+      // Pass the freshly-created tx as state so the detail screen can show
+      // it even if /transactions hasn't picked it up yet.
+      nav(routeFor('route.wallet.tx-detail', { txId: tx.id }), {
+        replace: true,
+        state: { justSubmitted: tx, asset: state.asset, amount: state.amount, address: state.address, network: state.network },
+      })
     } catch (err) {
       haptics.error()
       setError((err as Error).message)
@@ -172,9 +185,9 @@ export function WithdrawConfirm() {
         {[
           [t('common.to'), shorten(state.address)],
           [t('common.network'), state.network],
-          [t('common.amount'), `${state.amount} ${state.asset}`],
-          [t('withdraw.networkFee'), `${state.fee} ${state.asset}`],
-          [t('withdraw.totalDeducted'), `${total} ${state.asset}`],
+          ['You send', `${fmt(amountNum)} ${state.asset}`],
+          [t('withdraw.networkFee'), `${fmt(feeNum)} ${state.asset}`],
+          ['Recipient receives', `${recipientReceives} ${state.asset}`],
         ].map(([k, v]) => (
           <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, margin: '4px 0' }}>
             <span className="t3">{k}</span>
@@ -211,8 +224,34 @@ export function WithdrawConfirm() {
         </div>
       )}
 
-      {/* Save-to-address-book toggle — hidden when already whitelisted */}
-      {!isWhitelisted && (
+      {/* Pending entry — show countdown instead of the "Whitelist" toggle. */}
+      {alreadyOnWhitelist && !isWhitelisted && (
+        <div
+          className="g"
+          style={{
+            padding: 10,
+            marginTop: 6,
+            borderLeft: '3px solid var(--gd)',
+            background: 'rgba(255,193,7,.06)',
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+          }}
+        >
+          <Icon name="clock" size={16} color="var(--gd)" />
+          <div className="t3" style={{ flex: 1, fontSize: 12 }}>
+            {wl?.name ? `${wl.name} — ` : ''}already saved.{' '}
+            {wl?.cooldownEndsAt
+              ? `Becomes a trusted address ${trustedIn(wl.cooldownEndsAt)}.`
+              : 'Will become a trusted address shortly.'}
+            {' '}This withdrawal still needs your email code.
+          </div>
+        </div>
+      )}
+
+      {/* Save-to-address-book toggle — hidden when address is already on
+          the whitelist in any state (active or pending). */}
+      {!alreadyOnWhitelist && (
         <div className="g" style={{ padding: 10, marginTop: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
@@ -273,6 +312,47 @@ export function WithdrawConfirm() {
 
           <div className="pdots">
             {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className={`pdot ${otp.length > i ? 'f' : ''}`} />)}
+          </div>
+
+          {/* Paste from clipboard — pulls a 6-digit code out of whatever is
+              copied (e.g. "Your code is 482931") and fills the keypad. */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const raw = await navigator.clipboard.readText()
+                  const digits = (raw || '').replace(/\D/g, '').slice(0, 6)
+                  if (digits.length === 0) {
+                    toast.error('Clipboard has no digits')
+                    return
+                  }
+                  setOtp(digits)
+                  if (digits.length < 6) {
+                    toast.error(`Only ${digits.length} digit${digits.length === 1 ? '' : 's'} found — paste the full 6-digit code`)
+                  }
+                } catch {
+                  toast.error('Could not read clipboard')
+                }
+              }}
+              style={{
+                background: 'rgba(0,200,83,.1)',
+                color: 'var(--gl)',
+                border: '1px solid rgba(0,200,83,.3)',
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 700,
+                padding: '6px 14px',
+                cursor: 'pointer',
+                fontFamily: 'Outfit',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <Icon name="copy" size={12} color="var(--gl)" />
+              Paste code
+            </button>
           </div>
 
           <div className="kpad">
@@ -343,4 +423,13 @@ export function WithdrawConfirm() {
 function shorten(addr: string): string {
   if (addr.length < 14) return addr
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+}
+
+/** "in 23h" / "in 14m" / "any moment now" */
+function trustedIn(iso: string): string {
+  const ms = new Date(iso).getTime() - Date.now()
+  if (ms <= 0) return 'any moment now'
+  const hours = Math.floor(ms / 3_600_000)
+  if (hours >= 1) return `in ${hours}h`
+  return `in ${Math.max(1, Math.floor(ms / 60_000))}m`
 }

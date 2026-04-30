@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { PhoneShell } from '../../components/PhoneShell'
@@ -60,15 +60,139 @@ function explorerUrl(network: string | undefined, hash: string): string | null {
 export function TxDetail() {
   const { t } = useTranslation()
   const nav = useNavigate()
+  const loc = useLocation()
   const { txId = '' } = useParams()
-  const { data: list, isLoading } = useEndpoint<{ items: Transaction[] }>('api.tx.list')
-  const tx = list?.items?.find(t => t.id === txId || t.id === decodeURIComponent(txId))
+  // Auto-refetch every 4s — newly-submitted txs often haven't propagated to
+  // the list yet. Stop once we find it.
+  // Fallback for brand-new submissions: WithdrawConfirm passes the tx via
+  // navigation state so the screen has something useful to show before the
+  // /transactions list catches up.
+  const submitted = (loc.state as any)?.justSubmitted as Transaction | undefined
+  const justState = (loc.state as any) as { asset?: string; amount?: string; address?: string; network?: string } | null
+  const decoded = decodeURIComponent(txId)
 
-  if (isLoading && !tx) {
+  // Auto-refetch every 4s as long as we don't have the tx yet — newly
+  // submitted withdrawals often haven't propagated to /transactions for
+  // 10-30 s. Once we find it, polling stops automatically.
+  const { data: list, isLoading } = useEndpoint<{ items: Transaction[] }>(
+    'api.tx.list',
+    {},
+    {
+      refetchInterval: (query) => {
+        const items = (query.state.data as { items?: Transaction[] } | undefined)?.items
+        const found = items?.some(t => t.id === txId || t.id === decoded)
+        return found ? false : 4_000
+      },
+    },
+  )
+  const tx = list?.items?.find(t => t.id === txId || t.id === decoded)
+
+  if (isLoading && !tx && !submitted) {
     return <PhoneShell noTabs><ScreenHeader title={t('tx.transaction')} /><div className="g" style={{ padding: 14, marginTop: 8, textAlign: 'center' }}><div className="t3">{t('common.loading')}</div></div></PhoneShell>
   }
+
+  // No tx in list yet, but we know the user just submitted one — render a
+  // friendly "Submitted" state. This is much better UX than a red error.
+  if (!tx && submitted) {
+    return (
+      <PhoneShell noTabs>
+        <ScreenHeader title={t('tx.transaction')} />
+
+        <div className="g" style={{ padding: 18, marginTop: 8, textAlign: 'center' }}>
+          <div
+            className="ic"
+            style={{
+              width: 56,
+              height: 56,
+              margin: '0 auto',
+              background: 'rgba(0,200,83,.18)',
+              boxShadow: '0 0 24px rgba(0,200,83,.25)',
+            }}
+          >
+            <Icon name="check" size={28} color="var(--gl)" />
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-strong)', marginTop: 10 }}>
+            {t('tx.submittedTitle') || 'Withdrawal submitted'}
+          </div>
+          <div className="t3" style={{ marginTop: 4, fontSize: 13 }}>
+            {t('tx.submittedBody') ||
+              'We\'re sending it on-chain now. This usually takes a few minutes.'}
+          </div>
+        </div>
+
+        <div className="g" style={{ padding: 12, marginTop: 6 }}>
+          {justState?.amount && justState?.asset && (
+            <Row k="Amount" v={`${justState.amount} ${justState.asset}`} />
+          )}
+          {justState?.network && <Row k="Network" v={justState.network} />}
+          {justState?.address && <Row k="To" v={shorten(justState.address)} />}
+          <Row k="Status" v="Processing" />
+        </div>
+
+        <div className="g" style={{ padding: 10, marginTop: 6, display: 'flex', gap: 6, alignItems: 'center', borderLeft: '3px solid var(--gd)' }}>
+          <Icon name="clock" size={16} color="var(--gd)" />
+          <div className="t3" style={{ fontSize: 12, lineHeight: 1.5 }}>
+            {t('tx.submittedHint') ||
+              'You can leave this screen — full details (transaction hash, confirmations, explorer link) appear once the network confirms it.'}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+          <button
+            onClick={() => nav(ROUTES['route.wallet.tx-history'].path)}
+            className="btn btn-o"
+            style={{ flex: 1, padding: 10, margin: 0 }}
+          >
+            <Icon name="clock" size={12} /> {t('tx.viewHistory') || 'View history'}
+          </button>
+          <button
+            onClick={() => nav(ROUTES['route.tab.wallet'].path)}
+            className="btn btn-g"
+            style={{ flex: 1, padding: 10, margin: 0 }}
+          >
+            {t('common.done') || 'Done'}
+          </button>
+        </div>
+      </PhoneShell>
+    )
+  }
+
   if (!tx) {
-    return <PhoneShell noTabs><ScreenHeader title={t('tx.transaction')} /><div className="g" style={{ padding: 14, marginTop: 8, textAlign: 'center', color: 'var(--r)' }}>{t('tx.txNotFound')}</div></PhoneShell>
+    // No tx in list and no nav state. Genuinely missing — friendly empty
+    // state, not a red error wall.
+    return (
+      <PhoneShell noTabs>
+        <ScreenHeader title={t('tx.transaction')} />
+        <div className="g" style={{ padding: 18, marginTop: 8, textAlign: 'center' }}>
+          <div className="ic" style={{ width: 56, height: 56, margin: '0 auto', background: 'rgba(255,193,7,.15)' }}>
+            <Icon name="clock" size={28} color="var(--gd)" />
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-strong)', marginTop: 10 }}>
+            {t('tx.notReadyTitle') || 'Transaction is still processing'}
+          </div>
+          <div className="t3" style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5 }}>
+            {t('tx.notReadyBody') ||
+              'It hasn\'t shown up in your history yet. Try again in a moment, or open your transaction history.'}
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
+            <button
+              onClick={() => nav(ROUTES['route.wallet.tx-history'].path)}
+              className="btn btn-o"
+              style={{ flex: 1, padding: 10, margin: 0 }}
+            >
+              {t('tx.viewHistory') || 'View history'}
+            </button>
+            <button
+              onClick={() => nav(ROUTES['route.tab.wallet'].path)}
+              className="btn btn-g"
+              style={{ flex: 1, padding: 10, margin: 0 }}
+            >
+              {t('common.done') || 'Done'}
+            </button>
+          </div>
+        </div>
+      </PhoneShell>
+    )
   }
 
   const isPos = tx.type === 'deposit' || tx.type === 'reward'
@@ -191,4 +315,13 @@ export function TxDetail() {
 function shorten(addr: string): string {
   if (!addr || addr.length < 14) return addr
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, margin: '3px 0' }}>
+      <span className="t3">{k}</span>
+      <span style={{ color: 'var(--text-strong)', textAlign: 'right' }}>{v}</span>
+    </div>
+  )
 }

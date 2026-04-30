@@ -59,7 +59,15 @@ export function Withdraw() {
     { enabled: !!asset && !!network },
   )
   const fee = feeData?.fee ?? '0'
-  const totalNum = (parseFloat(amount || '0') || 0) + (parseFloat(fee) || 0)
+  // Backend behavior: the fee is taken OUT of the amount the user enters,
+  // not on top of it. So total-debited = amount, recipient-receives =
+  // amount - fee. (Backend returns `receiveAmount` directly when it has it.)
+  const amountNum = parseFloat(amount || '0') || 0
+  const feeNum = parseFloat(fee) || 0
+  const receiveNum =
+    feeData?.receiveAmount && parseFloat(feeData.receiveAmount) > 0
+      ? parseFloat(feeData.receiveAmount)
+      : Math.max(0, amountNum - feeNum)
 
   // Recent withdrawals of the selected asset (with permissive matching:
   // case-insensitive, plus aliases like MATIC↔POL).
@@ -195,12 +203,12 @@ export function Withdraw() {
 
       <div className="g" style={{ padding: 10, marginTop: 8 }}>
         <Row k="Network" v={networkLabel || '—'} />
-        <Row k="Network Fee" v={`${fee} ${asset}${feeData?.feeUsd && parseFloat(feeData.feeUsd) > 0 ? ` ≈ $${feeData.feeUsd}` : ''}`} />
+        <Row k="Network Fee" v={`${fmt(feeNum)} ${asset}${feeData?.feeUsd && parseFloat(feeData.feeUsd) > 0 ? ` ≈ $${feeData.feeUsd}` : ''}`} />
         <Row k="Estimated arrival" v={feeData?.estimatedTime ?? '—'} />
-        <Row k="You Receive" v={`${fmt(parseFloat(amount || '0') || 0)} ${asset}`} valueClass="grn" />
+        <Row k="You Send" v={`${fmt(amountNum)} ${asset}`} />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, margin: '8px 0 0', paddingTop: 8, borderTop: '1px solid var(--divider)' }}>
-          <span style={{ color: 'var(--text-strong)', fontWeight: 700 }}>Total Deducted</span>
-          <span className="grn" style={{ fontWeight: 700 }}>{fmt(totalNum)} {asset}</span>
+          <span style={{ color: 'var(--text-strong)', fontWeight: 700 }}>Recipient receives</span>
+          <span className="grn" style={{ fontWeight: 700 }}>{fmt(receiveNum)} {asset}</span>
         </div>
       </div>
 
