@@ -11,6 +11,7 @@ import { fmt } from '../../lib/format'
 import { haptics } from '../../lib/haptics'
 import { checkReserveViolation } from '../../lib/chainReserves'
 import { getActivePairs, type TradingPairConfig } from '../../config/tradingPairs'
+import { TradingViewChart } from '../../components/TradingViewChart'
 import type { Balance, MarketPair, Transaction } from '../../api/endpoints'
 
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'] as const
@@ -21,6 +22,40 @@ interface Candle { t: number; o: number; h: number; l: number; c: number }
 interface OrderRow { id: string; pair: string; side: 'buy' | 'sell'; type: 'limit' | 'market' | 'stop-limit'; price: string; amount: string; filled?: string; status: string; createdAt: string }
 
 const FAV_KEY = 'crymadx.trading.favorites'
+const STUDIES_KEY = 'crymadx.trading.studies'      // selected indicator IDs
+const CHART_MODE_KEY = 'crymadx.trading.chartMode' // 'simple' | 'advanced'
+
+/** TradingView indicator catalog — what we expose as toggleable chips.
+ *  IDs are TradingView's built-in study identifiers. */
+const INDICATORS: Array<{ id: string; label: string; short: string }> = [
+  { id: 'MASimple@tv-basicstudies',      label: 'Moving Average (SMA)', short: 'MA' },
+  { id: 'MAExp@tv-basicstudies',         label: 'Exponential MA',       short: 'EMA' },
+  { id: 'BB@tv-basicstudies',            label: 'Bollinger Bands',      short: 'BB' },
+  { id: 'RSI@tv-basicstudies',           label: 'RSI',                  short: 'RSI' },
+  { id: 'MACD@tv-basicstudies',          label: 'MACD',                 short: 'MACD' },
+  { id: 'Stochastic@tv-basicstudies',    label: 'Stochastic',           short: 'STOCH' },
+  { id: 'Volume@tv-basicstudies',        label: 'Volume',               short: 'VOL' },
+  { id: 'IchimokuCloud@tv-basicstudies', label: 'Ichimoku Cloud',       short: 'ICHI' },
+  { id: 'AwesomeOscillator@tv-basicstudies', label: 'Awesome Oscillator', short: 'AO' },
+  { id: 'ATR@tv-basicstudies',           label: 'Average True Range',   short: 'ATR' },
+  { id: 'CCI@tv-basicstudies',           label: 'CCI',                  short: 'CCI' },
+  { id: 'OBV@tv-basicstudies',           label: 'On-Balance Volume',    short: 'OBV' },
+  { id: 'VWAP@tv-basicstudies',          label: 'VWAP',                 short: 'VWAP' },
+  { id: 'PivotPointsHighLow@tv-basicstudies', label: 'Pivot Points',    short: 'PIV' },
+]
+
+function loadStudies(): string[] {
+  try { return JSON.parse(localStorage.getItem(STUDIES_KEY) || '[]') } catch { return [] }
+}
+function saveStudies(list: string[]) {
+  try { localStorage.setItem(STUDIES_KEY, JSON.stringify(list)) } catch { /* ignore */ }
+}
+function loadChartMode(): 'simple' | 'advanced' {
+  try { return localStorage.getItem(CHART_MODE_KEY) === 'advanced' ? 'advanced' : 'simple' } catch { return 'simple' }
+}
+function saveChartMode(m: 'simple' | 'advanced') {
+  try { localStorage.setItem(CHART_MODE_KEY, m) } catch { /* ignore */ }
+}
 
 /** "BTCUSDT" → "BTC/USDT" using the pair config so we display correctly. */
 function configToDisplay(p: TradingPairConfig): string {
@@ -89,6 +124,22 @@ export function SpotTrading() {
   const [bottomTab, setBottomTab] = useState<'open' | 'history'>('open')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [favs, setFavs] = useState<string[]>(() => loadFavs())
+
+  // Chart mode (persisted): 'simple' = our SVG candles, 'advanced' = TradingView
+  // Studies (persisted): TV indicator IDs that apply to ALL pairs the user views.
+  const [chartMode, setChartMode] = useState<'simple' | 'advanced'>(() => loadChartMode())
+  const [studies, setStudies] = useState<string[]>(() => loadStudies())
+  const [studiesOpen, setStudiesOpen] = useState(false)
+  const toggleChartMode = () => {
+    haptics.selection()
+    const next = chartMode === 'simple' ? 'advanced' : 'simple'
+    setChartMode(next); saveChartMode(next)
+  }
+  const toggleStudy = (id: string) => {
+    haptics.selection()
+    const next = studies.includes(id) ? studies.filter(s => s !== id) : [...studies, id]
+    setStudies(next); saveStudies(next)
+  }
   const isFav = favs.includes(pairStr)
   const toggleFav = () => {
     haptics.selection()
@@ -195,13 +246,48 @@ export function SpotTrading() {
         <Stat label="Volume" value={pair ? formatBig(pair.volume24h) : '—'} />
       </div>
 
-      {/* Chart */}
-      <div className="tabs" style={{ fontSize: 11, marginTop: 6 }}>
-        {INTERVALS.map(i => (
-          <button key={i} className={`tab ${interval === i ? 'a' : ''}`} onClick={() => { haptics.selection(); setInterval(i) }}>{i}</button>
-        ))}
+      {/* Chart — interval row with mode-toggle + studies button on the right */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+        <div className="tabs" style={{ fontSize: 11, flex: 1 }}>
+          {INTERVALS.map(i => (
+            <button key={i} className={`tab ${interval === i ? 'a' : ''}`} onClick={() => { haptics.selection(); setInterval(i) }}>{i}</button>
+          ))}
+        </div>
+        {chartMode === 'advanced' && (
+          <button
+            type="button"
+            onClick={() => { haptics.selection(); setStudiesOpen(true) }}
+            aria-label="Indicators"
+            title="Indicators"
+            style={{ background: studies.length > 0 ? 'rgba(0,200,83,.12)' : 'var(--surface-soft)', border: '1px solid var(--divider)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 11, color: 'var(--text-strong)', display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            ƒₓ {studies.length > 0 && <span className="grn" style={{ fontSize: 10 }}>{studies.length}</span>}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={toggleChartMode}
+          aria-label={chartMode === 'simple' ? 'Advanced chart' : 'Simple chart'}
+          title={chartMode === 'simple' ? 'Open advanced chart' : 'Switch to simple view'}
+          style={{ background: chartMode === 'advanced' ? 'rgba(0,200,83,.12)' : 'var(--surface-soft)', border: '1px solid var(--divider)', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <ChartGlyph active={chartMode === 'advanced'} />
+        </button>
       </div>
-      <CandleChart candles={candles} positive={!!positive} />
+
+      {chartMode === 'simple'
+        ? <CandleChart candles={candles} positive={!!positive} />
+        : <TradingViewChart symbol={pairStr} interval={interval} studies={studies} height={360} theme="dark" />
+      }
+
+      {studiesOpen && chartMode === 'advanced' && (
+        <IndicatorsSheet
+          selected={studies}
+          onToggle={toggleStudy}
+          onClear={() => { setStudies([]); saveStudies([]) }}
+          onClose={() => setStudiesOpen(false)}
+        />
+      )}
 
       {/* Order book + live trades — side-by-side on phone */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 8 }}>
@@ -595,6 +681,102 @@ function PairPicker({ current, favs, setFavs, onPick, onClose }: { current: stri
               </div>
             )
           })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chart-mode toggle glyph + indicators sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ChartGlyph({ active }: { active: boolean }) {
+  const c = active ? 'var(--gl)' : 'var(--text-mid-50)'
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
+      <path d="M2 12V8h2v4H2zm3 0V4h2v8H5zm3 0V6h2v6H8zm3 0V2h2v10h-2z" fill={c} />
+    </svg>
+  )
+}
+
+function IndicatorsSheet({ selected, onToggle, onClear, onClose }: {
+  selected: string[]
+  onToggle: (id: string) => void
+  onClear: () => void
+  onClose: () => void
+}) {
+  const dismiss = useSheetDismiss({ onDismiss: onClose })
+  return (
+    <div
+      role="dialog" aria-modal="true" data-no-swipe-back
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 480, maxHeight: '80vh',
+          background: 'var(--bg)',
+          borderRadius: '20px 20px 0 0',
+          padding: '12px 14px calc(14px + var(--safe-bottom, 0px))',
+          boxShadow: '0 -10px 40px rgba(0,0,0,.4)',
+          display: 'flex', flexDirection: 'column',
+          transform: `translateY(${dismiss.translateY}px)`,
+          transition: dismiss.dragging ? 'none' : 'transform 0.18s ease-out',
+        }}
+      >
+        <div {...dismiss.bind} style={{ padding: '4px 0 6px', cursor: 'grab', touchAction: 'none' }}>
+          <div style={{ width: 48, height: 4, borderRadius: 2, background: 'var(--text-mid-15)', margin: '0 auto' }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ margin: 0 }}>Indicators</h3>
+            <div className="t3" style={{ marginTop: 2 }}>Persists across all your charts. Tap to toggle.</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '6px 0' }}>
+          {INDICATORS.map(ind => {
+            const on = selected.includes(ind.id)
+            return (
+              <button
+                key={ind.id}
+                onClick={() => onToggle(ind.id)}
+                style={{
+                  background: on ? 'var(--gl)' : 'var(--surface-soft)',
+                  color: on ? '#fff' : 'var(--text-strong)',
+                  border: '1px solid ' + (on ? 'var(--gl)' : 'var(--divider)'),
+                  borderRadius: 999,
+                  padding: '6px 12px',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+                title={ind.label}
+              >
+                {on && <span style={{ fontSize: 10 }}>✓</span>} {ind.short}
+              </button>
+            )
+          })}
+        </div>
+        <div style={{ marginTop: 'auto', display: 'flex', gap: 8, paddingTop: 12, borderTop: '1px solid var(--divider-soft)' }}>
+          <button
+            onClick={onClear}
+            disabled={selected.length === 0}
+            className="btn btn-o"
+            style={{ flex: 1, padding: 10, margin: 0, fontSize: 13, opacity: selected.length === 0 ? 0.5 : 1 }}
+          >
+            Clear all
+          </button>
+          <button onClick={onClose} className="btn btn-g" style={{ flex: 2, padding: 10, margin: 0, fontSize: 13 }}>
+            Apply{selected.length > 0 ? ` (${selected.length})` : ''}
+          </button>
         </div>
       </div>
     </div>
