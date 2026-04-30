@@ -1151,6 +1151,18 @@ const RESPONSE_ADAPTERS: Partial<Record<EndpointId, (raw: any) => any>> = {
       userId: raw.userId,
     }
   },
+  // Google sign-in returns the same JWT session shape as /login.
+  'api.auth.google': (raw) => {
+    const tokens = raw.tokens ?? raw
+    const expiresIn = tokens.expiresIn ?? 3600
+    return {
+      accessToken: tokens.accessToken ?? raw.accessToken,
+      refreshToken: tokens.refreshToken ?? raw.refreshToken,
+      expiresAt: tokens.expiresAt ?? new Date(Date.now() + expiresIn * 1000).toISOString(),
+      user: adaptUser(raw.user ?? raw.profile),
+      isNewUser: !!raw.isNewUser,
+    }
+  },
   'api.auth.verify-2fa': (raw) => {
     const tokens = raw.tokens ?? raw
     const expiresIn = tokens.expiresIn ?? 3600

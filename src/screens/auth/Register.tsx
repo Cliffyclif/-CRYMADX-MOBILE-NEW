@@ -5,6 +5,8 @@ import { PhoneShell } from '../../components/PhoneShell'
 import { Icon } from '../../components/Icon'
 import { ROUTES } from '../../routes'
 import { useEndpointMutation } from '../../api/hooks'
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn'
+import { haptics } from '../../lib/haptics'
 
 export function Register() {
   const { t } = useTranslation()
@@ -15,6 +17,21 @@ export function Register() {
   const [referral, setReferral] = useState('')
   const [error, setError] = useState<string | null>(null)
   const m = useEndpointMutation('api.auth.register')
+  const google = useGoogleSignIn()
+
+  const googleClick = async () => {
+    setError(null)
+    haptics.selection()
+    try {
+      const session = await google.signIn()
+      if (!session) return
+      haptics.success()
+      nav(ROUTES['route.tab.home'].path, { replace: true })
+    } catch (e: any) {
+      haptics.error()
+      setError(e?.message ?? 'Google sign-in failed')
+    }
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -76,10 +93,18 @@ export function Register() {
           <span style={{ padding: '0 8px', letterSpacing: 1 }}>{t('auth.orSignUpWith')}</span>
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" className="btn btn-o" style={{ flex: 1, fontSize: 14, padding: '14px 8px', margin: 0 }}>G&nbsp;&nbsp;{t('auth.google')}</button>
-          <button type="button" className="btn btn-o" style={{ flex: 1, fontSize: 14, padding: '14px 8px', margin: 0 }}>&nbsp;&nbsp;{t('auth.apple')}</button>
-        </div>
+        {google.isAvailable && (
+          <button
+            type="button"
+            className="btn btn-o"
+            style={{ width: '100%', fontSize: 14, padding: '14px 12px', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+            onClick={googleClick}
+            disabled={google.isLoading}
+          >
+            <GoogleGlyph />
+            <span>{google.isLoading ? (t('auth.creating') as string) : `${t('auth.google')} →`}</span>
+          </button>
+        )}
 
         <div className="t2" style={{ textAlign: 'center', marginTop: 16, fontSize: 14 }}>
           {t('auth.haveAccount')} <span className="grn" style={{ cursor: 'pointer' }} onClick={() => nav(ROUTES['route.auth.login'].path)}>{t('auth.signIn')}</span>
@@ -87,5 +112,16 @@ export function Register() {
        </div>
       </form>
     </PhoneShell>
+  )
+}
+
+function GoogleGlyph() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.83.86-3.04.86a5.27 5.27 0 0 1-4.95-3.64H1.04v2.34A8.99 8.99 0 0 0 9 18z"/>
+      <path fill="#FBBC05" d="M4.05 10.78A5.4 5.4 0 0 1 3.77 9c0-.62.1-1.22.28-1.78V4.88H1.04a8.99 8.99 0 0 0 0 8.24l3.01-2.34z"/>
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.34l2.58-2.58A8.99 8.99 0 0 0 9 0a8.99 8.99 0 0 0-7.96 4.88l3.01 2.34A5.27 5.27 0 0 1 9 3.58z"/>
+    </svg>
   )
 }

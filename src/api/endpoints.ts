@@ -110,6 +110,9 @@ export const ENDPOINTS = {
   'api.auth.resend-code':      { method: 'POST', path: '/auth/resend-code' },
   'api.auth.complete-profile': { method: 'POST', path: '/auth/complete-profile' },
   'api.auth.login':            { method: 'POST', path: '/auth/login' },
+  /** Google sign-in. Body: { credential: <Google access token> }. Returns the
+   *  same AuthSession shape as /auth/login. Works for both new + existing users. */
+  'api.auth.google':           { method: 'POST', path: '/auth/google' },
   'api.auth.verify-2fa':       { method: 'POST', path: '/auth/verify-2fa' },
   'api.auth.forgot-password':  { method: 'POST', path: '/auth/forgot-password' },
   'api.auth.reset-password':   { method: 'POST', path: '/auth/reset-password' },

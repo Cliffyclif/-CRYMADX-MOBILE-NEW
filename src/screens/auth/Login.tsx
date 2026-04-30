@@ -9,6 +9,7 @@ import { ROUTES } from '../../routes'
 import { useEndpointMutation } from '../../api/hooks'
 import { useAuth } from '../../stores/auth'
 import { useBiometricLock } from '../../hooks/useBiometricLock'
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn'
 import { haptics } from '../../lib/haptics'
 import type { AuthSession } from '../../api/endpoints'
 
@@ -25,6 +26,22 @@ export function Login() {
 
   const login = useEndpointMutation<{ body: { email: string; password: string; captchaToken?: string } }, AuthSession>('api.auth.login')
   const { biometricEnabled, biometricAvailable, authenticate } = useBiometricLock(false)
+  const google = useGoogleSignIn()
+
+  const googleClick = async () => {
+    setError(null)
+    haptics.selection()
+    try {
+      const session = await google.signIn()
+      if (!session) return // user cancelled
+      haptics.success()
+      const from = (loc.state as { from?: string } | null)?.from
+      nav(from && from !== ROUTES['route.auth.login'].path ? from : ROUTES['route.tab.home'].path, { replace: true })
+    } catch (e: any) {
+      haptics.error()
+      setError(e?.message ?? 'Google sign-in failed')
+    }
+  }
 
   const biometricSignIn = async () => {
     if (!biometricEnabled) {
@@ -122,10 +139,18 @@ export function Login() {
           <span style={{ padding: '0 8px', letterSpacing: 1 }}>{t('auth.orContinueWith')}</span>
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" className="btn btn-o" style={{ flex: 1, fontSize: 14, padding: '14px 8px', margin: 0 }}>G&nbsp;&nbsp;Google</button>
-          <button type="button" className="btn btn-o" style={{ flex: 1, fontSize: 14, padding: '14px 8px', margin: 0 }}>&nbsp;&nbsp;Apple</button>
-        </div>
+        {google.isAvailable && (
+          <button
+            type="button"
+            className="btn btn-o"
+            style={{ width: '100%', fontSize: 14, padding: '14px 12px', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+            onClick={googleClick}
+            disabled={google.isLoading}
+          >
+            <GoogleGlyph />
+            <span>{google.isLoading ? (t('auth.signingIn') as string) : 'Continue with Google'}</span>
+          </button>
+        )}
 
         {biometricAvailable && biometricEnabled && (
           <button type="button" className="btn btn-o" style={{ marginTop: 10, fontSize: 14 }} onClick={biometricSignIn}>
@@ -139,5 +164,16 @@ export function Login() {
        </div>
       </form>
     </PhoneShell>
+  )
+}
+
+function GoogleGlyph() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.83.86-3.04.86a5.27 5.27 0 0 1-4.95-3.64H1.04v2.34A8.99 8.99 0 0 0 9 18z"/>
+      <path fill="#FBBC05" d="M4.05 10.78A5.4 5.4 0 0 1 3.77 9c0-.62.1-1.22.28-1.78V4.88H1.04a8.99 8.99 0 0 0 0 8.24l3.01-2.34z"/>
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.34l2.58-2.58A8.99 8.99 0 0 0 9 0a8.99 8.99 0 0 0-7.96 4.88l3.01 2.34A5.27 5.27 0 0 1 9 3.58z"/>
+    </svg>
   )
 }
