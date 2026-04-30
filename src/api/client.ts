@@ -260,6 +260,71 @@ function writeLS<T>(key: string, value: T): void {
   try { localStorage.setItem(LS(key), JSON.stringify(value)) } catch { /* noop */ }
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Whitelist helper: real backend with graceful fallback when the route
+// hasn't been deployed yet (returns sentinel '__fallback__' on 404/503).
+// ─────────────────────────────────────────────────────────────────────────
+const WHITELIST_FALLBACK = '__fallback__' as const
+let _whitelistDisabled = false
+async function whitelistFetch<T>(
+  method: string,
+  path: string,
+  token: string | null | undefined,
+  body?: any,
+): Promise<T | typeof WHITELIST_FALLBACK> {
+  if (_whitelistDisabled) return WHITELIST_FALLBACK
+  const headers: Record<string, string> = { 'Accept': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    })
+    if (res.status === 404) {
+      // Route not deployed — disable for the rest of this session
+      _whitelistDisabled = true
+      return WHITELIST_FALLBACK
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      let parsed: any = {}
+      try { parsed = text ? JSON.parse(text) : {} } catch {}
+      throw new ApiError(
+        parsed.error || 'WHITELIST_ERROR',
+        parsed.message || parsed.error || `HTTP ${res.status}`,
+        res.status,
+      )
+    }
+    if (res.status === 204) return null as any
+    const data = await res.json()
+    // Server may return { items } | item | array directly — caller normalizes.
+    if (Array.isArray(data)) return data as T
+    if (data?.items && Array.isArray(data.items)) return data.items as T
+    return data as T
+  } catch (e) {
+    if (e instanceof ApiError) throw e
+    return WHITELIST_FALLBACK
+  }
+}
+
+function toClientBeneficiary(raw: any): any {
+  if (!raw) return raw
+  return {
+    id: raw.id ?? raw._id ?? raw.beneficiaryId,
+    name: raw.name,
+    asset: raw.asset,
+    network: raw.chain ?? raw.network,
+    address: raw.address,
+    status: raw.status ?? 'active',
+    favorite: !!raw.favorite,
+    createdAt: raw.addedAt ?? raw.createdAt,
+    activatedAt: raw.activatedAt,
+    cooldownEndsAt: raw.cooldownEndsAt,
+  }
+}
+
 // In-memory price cache (refreshed ~30s)
 let _priceCache: { at: number; map: Record<string, { price: number; change24h: number }> } | null = null
 async function fetchPrices(token: string | null | undefined): Promise<Record<string, { price: number; change24h: number }>> {
@@ -766,29 +831,116 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
     } catch { return { items: [] } }
   },
 
-  // Beneficiaries CRUD — localStorage
-  'api.beneficiaries.list': async () => {
-    return { items: readLS<any[]>('beneficiaries', []) }
-  },
-  'api.beneficiaries.create': async ({ body }) => {
-    const list = readLS<any[]>('beneficiaries', [])
-    const item = {
-      id: `ben_${Date.now()}`,
-      name: body.name,
-      asset: body.asset,
-      network: body.network,
-      address: body.address,
-      favorite: !!body.favorite,
-      createdAt: new Date().toISOString(),
+  // Beneficiaries / Whitelist — real backend (balance-service /whitelist).
+  // Falls through to localStorage on the first request after login if the
+  // backend route 404s (e.g. backend hasn't been redeployed yet) — this lets
+  // the screen still work while the patch is pending.
+  'api.beneficiaries.list': async ({ token }) => {
+    const items = await whitelistFetch<any[]>('GET', '/balance/whitelist', token)
+    if (items === '__fallback__') {
+      return { items: readLS<any[]>('beneficiaries', []) }
     }
-    list.unshift(item)
-    writeLS('beneficiaries', list)
-    return item
+    return {
+      items: (items ?? []).map(toClientBeneficiary),
+    }
   },
-  'api.beneficiaries.delete': async ({ pathParams }) => {
-    const list = readLS<any[]>('beneficiaries', []).filter(b => b.id !== pathParams.id)
-    writeLS('beneficiaries', list)
-    return { ok: true }
+  'api.beneficiaries.create': async ({ body, token }) => {
+    const payload = {
+      name: body.name,
+      asset: String(body.asset || '').toUpperCase(),
+      chain: String(body.network || body.chain || '').toLowerCase(),
+      address: body.address,
+      twoFactorCode: body.twoFactorCode,
+    }
+    const created = await whitelistFetch<any>('POST', '/balance/whitelist', token, payload)
+    if (created === '__fallback__') {
+      // Backend missing — fall back to localStorage so the user isn't blocked.
+      const list = readLS<any[]>('beneficiaries', [])
+      const item = {
+        id: `ben_${Date.now()}`,
+        name: body.name,
+        asset: body.asset,
+        network: body.network ?? body.chain,
+        address: body.address,
+        status: 'active',
+        favorite: !!body.favorite,
+        createdAt: new Date().toISOString(),
+      }
+      list.unshift(item)
+      writeLS('beneficiaries', list)
+      return item
+    }
+    return toClientBeneficiary(created.item ?? created)
+  },
+  'api.beneficiaries.delete': async ({ pathParams, token }) => {
+    const id = pathParams.id
+    if (id.startsWith('ben_')) {
+      // Old localStorage entry
+      const list = readLS<any[]>('beneficiaries', []).filter(b => b.id !== id)
+      writeLS('beneficiaries', list)
+      return { ok: true }
+    }
+    const r = await whitelistFetch<any>('DELETE', `/balance/whitelist/${encodeURIComponent(id)}`, token)
+    if (r === '__fallback__') return { ok: true }
+    return r ?? { ok: true }
+  },
+
+  // Explicit whitelist endpoints (used by Withdraw to check status)
+  'api.wallet.whitelist.list': async ({ token }) => {
+    const items = await whitelistFetch<any[]>('GET', '/balance/whitelist', token)
+    if (items === '__fallback__') {
+      return { items: readLS<any[]>('beneficiaries', []) }
+    }
+    return { items: (items ?? []).map(toClientBeneficiary) }
+  },
+  'api.wallet.whitelist.add': async ({ body, token }) => {
+    const payload = {
+      name: body.name,
+      asset: String(body.asset || '').toUpperCase(),
+      chain: String(body.network || body.chain || '').toLowerCase(),
+      address: body.address,
+      twoFactorCode: body.twoFactorCode,
+    }
+    const r = await whitelistFetch<any>('POST', '/balance/whitelist', token, payload)
+    if (r === '__fallback__') throw new ApiError('NOT_AVAILABLE', 'Whitelist backend not deployed yet', 503)
+    return r
+  },
+  'api.wallet.whitelist.update': async ({ pathParams, body, token }) => {
+    const r = await whitelistFetch<any>('PATCH', `/balance/whitelist/${encodeURIComponent(pathParams.id)}`, token, body)
+    if (r === '__fallback__') throw new ApiError('NOT_AVAILABLE', 'Whitelist backend not deployed yet', 503)
+    return r
+  },
+  'api.wallet.whitelist.remove': async ({ pathParams, token }) => {
+    const r = await whitelistFetch<any>('DELETE', `/balance/whitelist/${encodeURIComponent(pathParams.id)}`, token)
+    if (r === '__fallback__') return { ok: true }
+    return r ?? { ok: true }
+  },
+  'api.wallet.whitelist.confirm': async ({ pathParams, body }) => {
+    // No auth needed — token in body is the proof.
+    const res = await fetch(`${API_BASE_URL}/balance/whitelist/${encodeURIComponent(pathParams.id)}/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    })
+    if (!res.ok) throw new ApiError('CONFIRM_FAILED', 'Could not confirm address', res.status)
+    return await res.json()
+  },
+  'api.wallet.whitelist.check': async ({ query, token }) => {
+    const qs = new URLSearchParams({
+      asset: String(query.asset || '').toUpperCase(),
+      chain: String(query.chain || '').toLowerCase(),
+      address: query.address || '',
+    }).toString()
+    const r = await whitelistFetch<any>('GET', `/balance/whitelist/check?${qs}`, token)
+    if (r === '__fallback__') {
+      // Local check against localStorage
+      const list = readLS<any[]>('beneficiaries', [])
+      const a = String(query.address || '')
+      const sym = String(query.asset || '').toUpperCase()
+      const hit = list.find(b => b.address === a && String(b.asset).toUpperCase() === sym)
+      return { whitelisted: !!hit, status: hit ? 'active' : null }
+    }
+    return r ?? { whitelisted: false }
   },
 
   // System — hardcoded for now

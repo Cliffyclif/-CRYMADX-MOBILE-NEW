@@ -14,6 +14,7 @@ import { ROUTES, routeFor } from '../../routes'
 import { fmt } from '../../lib/format'
 import { haptics } from '../../lib/haptics'
 import type { Balance, Transaction } from '../../api/endpoints'
+import type { Beneficiary } from '../../mock/db'
 
 type Net = { id: string; name: string; description: string; recommended?: boolean }
 
@@ -26,7 +27,13 @@ export function Withdraw() {
   const [amount, setAmount] = useState('')
   const [network, setNetwork] = useState<string>('')
   const [scanOpen, setScanOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const { scan } = useQRScanner()
+
+  const { data: saved } = useEndpoint<{ items: Beneficiary[] }>('api.beneficiaries.list')
+  const savedForAsset = (saved?.items ?? []).filter(
+    b => String(b.asset).toUpperCase() === asset.toUpperCase(),
+  )
 
   const onScanClick = async () => {
     haptics.selection()
@@ -128,14 +135,31 @@ export function Withdraw() {
             <Icon name="camera" size={14} color="var(--gl)" />
           </button>
         </div>
-        <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+        <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+          {savedForAsset.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="badge badge-g"
+              style={{
+                cursor: 'pointer',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                fontWeight: 700,
+              }}
+            >
+              📋 {t('withdraw.pickSaved') || 'Pick from saved'} ({savedForAsset.length})
+            </button>
+          )}
           <button
             type="button"
             onClick={() => nav(ROUTES['route.wallet.beneficiaries'].path)}
-            className="badge badge-g"
+            className="badge badge-gd"
             style={{ cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
           >
-            📋 {t('common.saved')}
+            ⚙️ {t('wallet.manageSaved') || 'Manage'}
           </button>
         </div>
       </div>
@@ -225,8 +249,135 @@ export function Withdraw() {
         ))
       )}
       <QRScanModal open={scanOpen} onClose={() => setScanOpen(false)} onResult={onScanResult} />
+
+      {pickerOpen && (
+        <SavedAddressSheet
+          asset={asset}
+          items={savedForAsset}
+          onPick={b => {
+            setAddress(b.address)
+            // If this address has a network we know about, lock it in.
+            if (b.network && (nets?.networks ?? []).some(n => n.id === b.network)) {
+              setNetwork(b.network)
+            }
+            setPickerOpen(false)
+            haptics.success()
+            toast.success(b.name + ' selected')
+          }}
+          onClose={() => setPickerOpen(false)}
+          onManage={() => {
+            setPickerOpen(false)
+            nav(ROUTES['route.wallet.beneficiaries'].path)
+          }}
+        />
+      )}
     </PhoneShell>
   )
+}
+
+function SavedAddressSheet({
+  asset, items, onPick, onClose, onManage,
+}: {
+  asset: string
+  items: Beneficiary[]
+  onPick: (b: Beneficiary) => void
+  onClose: () => void
+  onManage: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Pick saved address"
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        zIndex: 1000,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--surface)', width: '100%', maxWidth: 420,
+          borderTopLeftRadius: 18, borderTopRightRadius: 18,
+          padding: 16, maxHeight: '70vh', overflowY: 'auto',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <h3 style={{ margin: 0 }}>
+            {t('withdraw.pickSavedTitle') || 'Saved'} {asset} {t('withdraw.addresses') || 'addresses'}
+          </h3>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text-mid)' }}
+          >
+            ×
+          </button>
+        </div>
+        {items.length === 0 ? (
+          <div className="t3" style={{ padding: 16, textAlign: 'center' }}>
+            {t('withdraw.noSavedForAsset', { asset }) || `No saved ${asset} addresses yet.`}
+          </div>
+        ) : (
+          items.map(b => {
+            const isPending = b.status === 'pending'
+            return (
+              <button
+                key={b.id}
+                onClick={() => !isPending && onPick(b)}
+                disabled={isPending}
+                className="li"
+                style={{
+                  width: '100%',
+                  border: 'none',
+                  textAlign: 'left',
+                  background: 'transparent',
+                  cursor: isPending ? 'not-allowed' : 'pointer',
+                  opacity: isPending ? 0.55 : 1,
+                  padding: 8,
+                }}
+              >
+                <div className="li-c">
+                  <div className="li-n" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {b.name}
+                    {isPending && (
+                      <span className="badge badge-gd" style={{ fontSize: 9 }}>pending</span>
+                    )}
+                  </div>
+                  <div className="li-s" style={{ fontFamily: 'monospace', fontSize: 11 }}>
+                    {b.address.length > 18 ? `${b.address.slice(0, 10)}...${b.address.slice(-6)}` : b.address}
+                  </div>
+                  {isPending && b.cooldownEndsAt && (
+                    <div className="t3" style={{ fontSize: 10, color: 'var(--gd)' }}>
+                      ⏳ Active in {hoursLeft(b.cooldownEndsAt)}h
+                    </div>
+                  )}
+                </div>
+                {b.network && (
+                  <span className="badge badge-g" style={{ fontSize: 9 }}>{b.network}</span>
+                )}
+              </button>
+            )
+          })
+        )}
+        <button
+          onClick={onManage}
+          className="btn btn-o"
+          style={{ width: '100%', marginTop: 8 }}
+        >
+          {t('wallet.manageSaved') || 'Manage saved addresses'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function hoursLeft(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now()
+  return Math.max(1, Math.ceil(ms / 3_600_000))
 }
 
 /** Strip URI-style prefixes from a scanned crypto QR ("bitcoin:bc1q...?amount=0.1" → "bc1q...").

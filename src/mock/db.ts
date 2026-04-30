@@ -27,12 +27,17 @@ export type DepositAddress = {
 
 export type Beneficiary = {
   id: string
-  userId: string
+  userId?: string
   name: string
   asset: string
   network: string
   address: string
-  favorite: boolean
+  favorite?: boolean
+  status?: 'pending' | 'active'
+  /** ISO date when a `pending` entry will auto-promote to `active`. */
+  cooldownEndsAt?: string | null
+  createdAt?: string
+  activatedAt?: string | null
 }
 
 export type SecuritySummary = {

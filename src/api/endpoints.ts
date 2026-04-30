@@ -143,10 +143,20 @@ export const ENDPOINTS = {
   'api.tx.list':               { method: 'GET',  path: '/transactions' },
   'api.tx.get':                { method: 'GET',  path: '/transactions/:txId' },
 
-  // ---- Beneficiaries ----
+  // ---- Beneficiaries / Whitelist ----
+  // The mobile UI calls these "beneficiaries" but the backend stores them as
+  // an address whitelist. Aliased so existing screens keep working while new
+  // ones can use the explicit `whitelist.*` names.
   'api.beneficiaries.list':    { method: 'GET',  path: '/beneficiaries' },
   'api.beneficiaries.create':  { method: 'POST', path: '/beneficiaries' },
   'api.beneficiaries.delete':  { method: 'DELETE', path: '/beneficiaries/:id' },
+  'api.wallet.whitelist.list':    { method: 'GET',    path: '/wallet/whitelist' },
+  'api.wallet.whitelist.add':     { method: 'POST',   path: '/wallet/whitelist' },
+  'api.wallet.whitelist.update':  { method: 'PATCH',  path: '/wallet/whitelist/:id' },
+  'api.wallet.whitelist.remove':  { method: 'DELETE', path: '/wallet/whitelist/:id' },
+  'api.wallet.whitelist.confirm': { method: 'POST',   path: '/wallet/whitelist/:id/confirm' },
+  /** Check if a single address is whitelisted (drives the "skip OTP" decision on Withdraw). */
+  'api.wallet.whitelist.check':   { method: 'GET',    path: '/wallet/whitelist/check' },
 
   // ---- OTP (email verification codes) ----
   /** Trigger an email OTP. Body: `{ purpose: 'withdrawal' | 'login' | ... }` */
