@@ -15,7 +15,7 @@ export type IconName =
   | 'info' | 'help' | 'gift' | 'pin' | 'archive' | 'bookmark' | 'thumbs-up'
   | 'flag' | 'sun' | 'moon' | 'tool' | 'trend-up' | 'users' | 'handshake'
   | 'wand' | 'paperclip' | 'trash' | 'edit' | 'link' | 'ext' | 'more' | 'rocket'
-  | 'briefcase' | 'piggy' | 'cards' | 'compass' | 'bot' | 'launch'
+  | 'briefcase' | 'piggy' | 'cards' | 'compass' | 'bot' | 'launch' | 'ai'
 
 interface Props {
   name: IconName
@@ -86,6 +86,17 @@ export function IconSprite() {
       <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
       <symbol id="i-dollar" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
       <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></symbol>
+      {/* AI / brain — two-lobe brain outline with neural-circuit dots inside.
+          The center divide + node connections suggest neural-network activity. */}
+      <symbol id="i-ai" viewBox="0 0 24 24">
+        <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
+        <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>
+        <path d="M9 13a4.5 4.5 0 0 0 3-4"/>
+        <path d="M15 13a4.5 4.5 0 0 1-3-4"/>
+        <circle cx="9" cy="13" r="0.8" fill="currentColor" stroke="none"/>
+        <circle cx="15" cy="13" r="0.8" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="9" r="0.8" fill="currentColor" stroke="none"/>
+      </symbol>
       <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
       <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
       <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>

@@ -25,7 +25,7 @@ export function BottomNav() {
       </button>
       <button className="bt" onClick={() => nav(ROUTES['route.tab.ai'].path)} aria-label="CrymadX AI">
         <span className="bt-c">
-          <Icon name="mic" />
+          <Icon name="ai" />
         </span>
       </button>
       <button className={`bt ${cur === ROUTES['route.tab.wallet'].path ? 'a' : ''}`} onClick={() => nav(ROUTES['route.tab.wallet'].path)}>
