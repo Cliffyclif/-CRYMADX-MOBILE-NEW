@@ -112,16 +112,44 @@ export function Referral() {
         ) : null
       } />
 
-      {/* Hero — gradient card with subtitle + commission */}
-      <div className="g" style={{ padding: 16, textAlign: 'center', background: 'linear-gradient(135deg, rgba(27,140,62,.16), rgba(0,200,83,.04))', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ fontSize: 36 }}>🎁</div>
-        <div style={{ fontSize: 18, color: 'var(--text-strong)', fontWeight: 800, marginTop: 4 }}>
+      {/* Hero — gradient card with commission + subtitle. Kept structurally
+          identical to other cards on the page so it can't be squished by a
+          flex parent: no overflow:hidden, no position:relative. */}
+      <div
+        className="g"
+        style={{
+          padding: '20px 16px',
+          textAlign: 'center',
+          background: 'linear-gradient(135deg, rgba(27,140,62,.16), rgba(0,200,83,.04))',
+          marginTop: 4,
+          minHeight: 140,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            background: 'rgba(0,200,83,.18)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 10,
+          }}
+        >
+          <Icon name="trophy" size={28} color="var(--gl)" />
+        </div>
+        <div style={{ fontSize: 24, color: 'var(--text-strong)', fontWeight: 800, lineHeight: 1.2 }}>
           {commissionPct} commission
         </div>
-        <div className="t2" style={{ marginTop: 4, lineHeight: 1.4 }}>{subtitle}</div>
+        <div className="t2" style={{ marginTop: 6, lineHeight: 1.4, maxWidth: 320 }}>{subtitle}</div>
         {info?.minTradeVolume != null && (
-          <div className="t3" style={{ marginTop: 6, fontSize: 11 }}>
-            Min trade volume: ${parseFloat(String(info.minTradeVolume)).toFixed(0)}
+          <div className="t3" style={{ marginTop: 10, fontSize: 11 }}>
+            Min trade volume to qualify: ${parseFloat(String(info.minTradeVolume)).toFixed(0)}
           </div>
         )}
       </div>
