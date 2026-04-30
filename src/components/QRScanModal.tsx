@@ -5,7 +5,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BrowserMultiFormatReader } from '@zxing/browser'
+import { BrowserQRCodeReader } from '@zxing/browser'
 import { Icon } from './Icon'
 import { haptics } from '../lib/haptics'
 
@@ -18,7 +18,7 @@ interface Props {
 export function QRScanModal({ open, onClose, onResult }: Props) {
   const { t } = useTranslation()
   const videoRef = useRef<HTMLVideoElement>(null)
-  const readerRef = useRef<BrowserMultiFormatReader | null>(null)
+  const readerRef = useRef<BrowserQRCodeReader | null>(null)
   const controlsRef = useRef<{ stop: () => void } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -29,15 +29,23 @@ export function QRScanModal({ open, onClose, onResult }: Props) {
 
     ;(async () => {
       try {
-        const reader = new BrowserMultiFormatReader()
+        // QR-only reader (much faster than BrowserMultiFormatReader, which
+        // tries every barcode symbology).
+        const reader = new BrowserQRCodeReader()
         readerRef.current = reader
-        const devices = await BrowserMultiFormatReader.listVideoInputDevices()
-        const rear = devices.find(d => /back|rear|environment/i.test(d.label)) ?? devices[0]
-        if (!rear) throw new Error('No camera found')
         if (!videoRef.current) return
 
-        const controls = await reader.decodeFromVideoDevice(
-          rear.deviceId,
+        // One camera spin-up via constraints (skip listVideoInputDevices,
+        // which triggers a second getUserMedia call). Cap resolution to
+        // 720p — enough for QR and 2-3× faster to decode than 1080p/4K.
+        const controls = await reader.decodeFromConstraints(
+          {
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          },
           videoRef.current,
           (result, _err, ctrl) => {
             if (cancelled) return

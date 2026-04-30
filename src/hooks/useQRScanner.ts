@@ -10,7 +10,7 @@
  * decoded text or null if the user cancelled / no code found.
  */
 import { useCallback, useState } from 'react'
-import { BrowserMultiFormatReader } from '@zxing/browser'
+import { BrowserQRCodeReader } from '@zxing/browser'
 
 let cachedNative: any | null | undefined
 
@@ -54,7 +54,7 @@ async function nativeScan(): Promise<string | null> {
 
 /** Decode a single QR from a live camera stream rendered into the given <video>. */
 export async function scanFromVideo(video: HTMLVideoElement): Promise<string | null> {
-  const reader = new BrowserMultiFormatReader()
+  const reader = new BrowserQRCodeReader()
   try {
     const result = await reader.decodeOnceFromVideoElement(video)
     return result?.getText() ?? null
