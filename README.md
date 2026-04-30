@@ -2,7 +2,7 @@
 
 Mobile-first crypto exchange app built with React + Vite. Wraps with Capacitor for native Android (and iOS later) builds.
 
-- **Production:** https://app.crymadx.io
+- **Production:** https://mobile.crymadx.io
 - **Backend API:** https://backend.crymadx.io/api
 
 ## Stack
@@ -39,7 +39,7 @@ npm run start      # serves ./dist on $PORT (default 3000)
 1. Connect this repo to a Railway service.
 2. Set environment variables in Railway → see `.env.example` for the full list.
 3. Railway auto-detects Node + Nixpacks (`nixpacks.toml`) → builds and serves.
-4. Add a custom domain (e.g. `app.crymadx.io`) under Settings → Networking.
+4. Add a custom domain (e.g. `mobile.crymadx.io`) under Settings → Networking.
 5. In Cloudflare DNS, add a CNAME pointing the subdomain to Railway's domain.
 6. Railway auto-provisions SSL.
 
