@@ -257,7 +257,21 @@ export const ENDPOINTS = {
   'api.rewards.badges':        { method: 'GET',  path: '/rewards/badges' },
   'api.rewards.tiers':         { method: 'GET',  path: '/rewards/tiers' },
   'api.rewards.claim-daily':   { method: 'POST', path: '/rewards/daily' },
+  /** Aggregated referral data — kept for backward-compat. New code should
+   *  use the four endpoints below directly so we mirror production. */
   'api.referral.summary':      { method: 'GET',  path: '/referral' },
+  /** Public — program metadata (commission %, min trade volume, cooldown). */
+  'api.referral.info':         { method: 'GET',  path: '/referral/info' },
+  /** Auth — the user's referral code + share link. */
+  'api.referral.code':         { method: 'GET',  path: '/referral/code' },
+  /** Auth — list of users referred (referrals + total). */
+  'api.referral.referrals':    { method: 'GET',  path: '/referral/referrals' },
+  /** Auth — rewards summary { total, pending, paid } + payout history. */
+  'api.referral.rewards':      { method: 'GET',  path: '/referral/rewards' },
+  /** Auth — totals { totalReferrals, activeReferrals, totalEarned, totalVolume } */
+  'api.referral.stats':        { method: 'GET',  path: '/referral/stats' },
+  /** Auth — apply someone else's code at signup time. */
+  'api.referral.apply':        { method: 'POST', path: '/referral/apply' },
   'api.notifications.list':    { method: 'GET',  path: '/notifications' },
   'api.notifications.read':    { method: 'POST', path: '/notifications/read' },
   'api.notifications.read-one': { method: 'PATCH', path: '/notifications/:id/read' },

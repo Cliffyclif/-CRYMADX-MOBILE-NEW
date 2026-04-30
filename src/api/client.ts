@@ -136,7 +136,9 @@ const REAL_PATH_OVERRIDES: Partial<Record<EndpointId, string>> = {
   'api.rewards.summary':        '/rewards/summary',
   'api.rewards.tiers':          '/rewards/tiers',
   // No /badges, no /tasks endpoint exists in production — handled by fallback returning empty.
-  'api.referral.summary':       '/referral/info',
+  // (no override needed — the registry path /referral is correct, but no
+  // backend endpoint actually returns the composite shape; our screen now
+  // calls the four specific endpoints below instead)
   'api.notifications.list':     '/notifications',
   // PATCH /notifications/read-all (NOT POST /read)
   'api.notifications.read':     '/notifications/read-all',
