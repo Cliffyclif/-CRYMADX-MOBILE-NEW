@@ -1,0 +1,1079 @@
+/* =========================================================================
+   Bold Waves — global stylesheet for the CrymadX mobile app.
+   Lifted from the canvas (../crymadx-bold-waves.html), adapted to live at
+   the root of a real app (no `.waves` parent wrapper, light mode via body.light).
+   ========================================================================= */
+
+:root {
+  /* Brand */
+  --g: #1B8C3E;
+  --gl: #00C853;
+  --ga: #69f0ae;
+  --gd: #C9A84C;
+  --r: #ef4444;
+
+  /* Surfaces */
+  --bg: #060d09;
+  --bg-shell: #060d09;          /* Used for divider strips ("OR CONTINUE WITH" text background) */
+  --bg-elev: rgba(27, 140, 62, 0.04);
+  --bg-elev-2: rgba(27, 140, 62, 0.06);
+  --bg-deep: #0a160d;
+  --bg-input: rgba(27, 140, 62, 0.04);
+
+  /* Text — these flip in light mode */
+  --text: #ffffff;
+  --text-strong: #ffffff;       /* For values, balances, emphasis (was hardcoded #fff) */
+  --text-mid-80: rgba(255, 255, 255, 0.8);
+  --text-mid-60: rgba(255, 255, 255, 0.6);
+  --text-mid-50: rgba(255, 255, 255, 0.5);
+  --text-mid-40: rgba(255, 255, 255, 0.4);
+  --text-mid-35: rgba(255, 255, 255, 0.35);
+  --text-mid-30: rgba(255, 255, 255, 0.3);
+  --text-mid-25: rgba(255, 255, 255, 0.25);
+  --text-mid-15: rgba(255, 255, 255, 0.15);
+  --text-2: rgba(255, 255, 255, 0.4);  /* Legacy alias */
+  --text-3: rgba(255, 255, 255, 0.25); /* Legacy alias */
+
+  /* Borders / dividers */
+  --divider: rgba(255, 255, 255, 0.06);
+  --divider-soft: rgba(255, 255, 255, 0.03);
+  --divider-strong: rgba(255, 255, 255, 0.08);
+
+  /* Component-specific */
+  --surface-soft: rgba(255, 255, 255, 0.04);
+  --surface-mild: rgba(255, 255, 255, 0.06);
+  --surface-card-tint: rgba(255, 255, 255, 0.02);
+
+  /* Safe area */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Light-mode token overrides — every var that needs to flip lives here. */
+body.light {
+  --bg: #f5fbf6;
+  --bg-shell: #f7fcf8;
+  --bg-elev: rgba(27, 140, 62, 0.03);
+  --bg-elev-2: rgba(27, 140, 62, 0.05);
+  --bg-deep: #e8f5e9;
+  --bg-input: rgba(27, 140, 62, 0.02);
+
+  --text: #111111;
+  --text-strong: #111111;
+  --text-mid-80: #222222;
+  --text-mid-60: #555555;
+  --text-mid-50: #777777;
+  --text-mid-40: #888888;
+  --text-mid-35: #999999;
+  --text-mid-30: #999999;
+  --text-mid-25: #aaaaaa;
+  --text-mid-15: #cccccc;
+  --text-2: #666666;
+  --text-3: #999999;
+
+  --divider: rgba(27, 140, 62, 0.08);
+  --divider-soft: rgba(27, 140, 62, 0.05);
+  --divider-strong: rgba(27, 140, 62, 0.12);
+
+  --surface-soft: rgba(27, 140, 62, 0.04);
+  --surface-mild: rgba(27, 140, 62, 0.06);
+  --surface-card-tint: rgba(27, 140, 62, 0.02);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body, #root { height: 100%; width: 100%; }
+
+/* Display-size scaling. The display store sets `--ui-scale` on <html>:
+   small=1, medium=1.12, large=1.25. We multiply the root font-size so all
+   rem-based sizes scale, and any element using `font-size: calc(N * 1px * var(--ui-scale))`
+   scales explicitly. */
+html { font-size: calc(16px * var(--ui-scale, 1)); }
+
+body {
+  background: #08080f;
+  font-family: 'Outfit', sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  /* Native-feel polish: no text autosize on rotation, no double-tap zoom,
+     no iOS tap highlight flash, no callout (long-press to copy/share UI chrome). */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  /* No selecting UI chrome (buttons, headers, nav). Inputs/textareas re-enable below. */
+  -webkit-user-select: none;
+  user-select: none;
+  /* iOS bounce */
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* The app's actual scrollable areas need to allow scroll. PhoneShell already
+   handles its own scroll containers. Re-enable selection where a user might
+   reasonably expect to copy text. */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+.li-n, .li-s, .t2, .t3, code, pre, .copyable {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Hide scrollbars across the app — native apps don't show them. */
+::-webkit-scrollbar { width: 0; height: 0; background: transparent; }
+* { scrollbar-width: none; }
+
+/* When the QR scanner is active, hide the rest of the app behind the camera. */
+body.qr-scanner-active .app-root { visibility: hidden; }
+
+/* Vertical balance: any screen using <PhoneShell> with this class will use
+   space-evenly distribution so empty bottom space doesn't cluster.
+   Applied on a per-screen basis where needed. */
+.screen.balanced { justify-content: space-between; }
+.screen .grow { flex: 1 1 auto; min-height: 0; }
+.screen .pad-bottom { padding-bottom: max(48px, env(safe-area-inset-bottom)); }
+
+/* RTL support — Arabic flips horizontal alignment. */
+html[dir="rtl"] .li-i { margin-right: 0; margin-left: 8px; }
+html[dir="rtl"] .li-r { text-align: left; }
+html[dir="rtl"] .qa-b svg { transform: scaleX(-1); }
+
+/* Button reset — buttons that wear our utility classes shouldn't inherit
+   the browser's default border/font color. */
+button {
+  font-family: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: inherit;
+}
+button:focus-visible {
+  outline: 2px solid var(--gl);
+  outline-offset: 2px;
+}
+
+/* Anchor reset for any <a> we use */
+a { color: inherit; text-decoration: inherit; }
+
+/* Selection color */
+::selection { background: rgba(0, 200, 83, 0.3); color: #fff; }
+body.light ::selection { background: rgba(27, 140, 62, 0.2); color: #111; }
+
+/* =========================================================================
+   App shell — the phone-frame-feeling container that holds all screens.
+   On mobile: full bleed.
+   On desktop: centered max-width 480px with a faux phone frame for review.
+   ========================================================================= */
+
+.app-root {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  background: #08080f;
+}
+
+.app-shell {
+  width: 100%;
+  max-width: 480px;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--bg);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Wave decorations — top + bottom organic gradients */
+.app-shell::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 220px;
+  background: linear-gradient(180deg, rgba(27, 140, 62, 0.08), transparent);
+  clip-path: ellipse(130% 100% at 50% 0%);
+  pointer-events: none;
+  z-index: 0;
+}
+.app-shell::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 180px;
+  background: linear-gradient(0deg, rgba(27, 140, 62, 0.05), transparent);
+  clip-path: ellipse(130% 100% at 50% 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Soft blob accents */
+.app-shell .blob-1 {
+  position: absolute;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  top: -50px; right: -50px;
+  background: radial-gradient(circle, rgba(27, 140, 62, 0.08), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.app-shell .blob-2 {
+  position: absolute;
+  width: 160px; height: 160px;
+  border-radius: 50%;
+  bottom: 80px; left: -40px;
+  background: radial-gradient(circle, rgba(0, 200, 83, 0.05), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.screen {
+  flex: 1 1 0;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  /* Generous bottom padding ensures content has breathing room and doesn't
+     glue to the top of the viewport on tall phones. The last child can opt-in
+     to push to the bottom with `margin-top: auto`. */
+  padding: calc(var(--safe-top) + 16px) 14px 32px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  /* Vertical rhythm: any direct child gets a tiny bit of breathing room. This
+     also prevents the "everything stuck at the top" feel on short screens. */
+  gap: 0;
+}
+.screen::-webkit-scrollbar { display: none; }
+.screen.no-tabs { padding-bottom: calc(var(--safe-bottom, 0px) + 32px); }
+/* Last child (typically a CTA button) auto-pushes to the bottom of remaining
+   space — eliminates the awkward void below the fold. Opt in via `.balanced`
+   on the .screen container, or via `.push-bottom` on the last block. */
+.screen.balanced > *:last-child,
+.screen .push-bottom { margin-top: auto; }
+
+/* Subtle visual cue for the left-edge swipe-back zone — a soft 4px gradient
+   strip, almost invisible by default, that hints "you can swipe from here".
+   Hidden on tab-root screens where there's nothing to go back to. */
+.app-shell::after,
+.app-shell.is-tab-root::after { content: none; }
+/* Use a dedicated swipe-hint element rendered by JS-less CSS — keep it cheap. */
+.swipe-hint {
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 4px;
+  background: linear-gradient(180deg, transparent, rgba(0, 200, 83, 0.08) 40%, rgba(0, 200, 83, 0.08) 60%, transparent);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.5;
+}
+
+/* Toast slide-in from above the safe area */
+@keyframes toast-slide-in {
+  from { transform: translateY(-120%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Skip the slide; just fade so motion-sensitive users still see it */
+  @keyframes toast-slide-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+}
+
+/* ===== Page transitions =====
+   Tagged on the .app-shell by direction. When the user pushes a new screen
+   (forward navigation), the new screen slides in from the right. When they
+   go back (POP — swipe-back, ESC, or system back button), the new screen
+   slides in from the left, mimicking the popped screen revealing the one
+   beneath it. Duration matches iOS's interactive transition curve.
+*/
+@keyframes screen-slide-from-right {
+  from { transform: translateX(28%); opacity: 0.6; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes screen-slide-from-left {
+  from { transform: translateX(-28%); opacity: 0.6; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+.app-shell[data-nav="push"] .screen {
+  animation: screen-slide-from-right 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.app-shell[data-nav="pop"] .screen {
+  animation: screen-slide-from-left 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell[data-nav] .screen {
+    animation: none;
+  }
+}
+
+/* =========================================================================
+   Login screen — animated aurora background.
+
+   Three soft, blurred orbs in brand colors (bright green, deep green, gold)
+   drift slowly to give the otherwise-flat black backdrop a sense of life
+   without competing with the form. A faint grid mesh fades toward the edges
+   via a radial mask for technical depth (think Linear / Stripe / Vercel).
+   `pointer-events: none` so it never intercepts taps; `prefers-reduced-motion`
+   freezes the animations.
+   Render via <PhoneShell bgVariant="aurora">.
+   ========================================================================= */
+.app-shell .aurora-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.app-shell .aurora-bg .orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  will-change: transform, opacity;
+}
+.app-shell .aurora-bg .orb-1 {
+  width: 360px; height: 360px;
+  top: -8%; left: -18%;
+  background: radial-gradient(circle, rgba(0, 200, 83, 0.55), transparent 70%);
+  opacity: 0.65;
+  animation: aurora-drift-1 18s ease-in-out infinite alternate;
+}
+.app-shell .aurora-bg .orb-2 {
+  width: 320px; height: 320px;
+  bottom: -12%; right: -22%;
+  background: radial-gradient(circle, rgba(201, 168, 76, 0.42), transparent 70%);
+  opacity: 0.55;
+  animation: aurora-drift-2 22s ease-in-out infinite alternate;
+}
+.app-shell .aurora-bg .orb-3 {
+  width: 280px; height: 280px;
+  top: 38%; left: 50%;
+  margin-left: -140px;
+  margin-top: -140px;
+  background: radial-gradient(circle, rgba(27, 140, 62, 0.38), transparent 70%);
+  filter: blur(90px);
+  opacity: 0.45;
+  animation: aurora-pulse 9s ease-in-out infinite;
+}
+.app-shell .aurora-bg .grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 200, 83, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 200, 83, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at center, black 25%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 25%, transparent 80%);
+}
+.app-shell .aurora-bg .vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
+}
+@keyframes aurora-drift-1 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(40px, 60px) scale(1.15); }
+}
+@keyframes aurora-drift-2 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(-40px, -50px) scale(1.1); }
+}
+@keyframes aurora-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(1.18); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .aurora-bg .orb { animation: none; }
+}
+/* Light mode — slightly softer so it doesn't wash out a bright background */
+body.light .app-shell .aurora-bg .orb-1 { opacity: 0.4; }
+body.light .app-shell .aurora-bg .orb-2 { opacity: 0.35; }
+body.light .app-shell .aurora-bg .orb-3 { opacity: 0.3; }
+body.light .app-shell .aurora-bg .vignette {
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(255, 255, 255, 0.5) 100%);
+}
+
+/* Auth card — frosted-glass "pavement" that groups the auth form content
+   visually on top of the aurora background. Sits centered in the screen with
+   its own padding, soft border, ambient shadow, and a faint inner top highlight
+   for that glass-edge feel. Backdrop blur lets the aurora orbs bleed through
+   subtly without competing with the form.
+   Inside the card every text/control is scaled ~1.5× from the rest of the app
+   so the auth flow feels generous and uncluttered. */
+.auth-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 28px;
+  padding: 36px 24px 32px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 24px 60px rgba(0, 0, 0, 0.45),
+    0 4px 16px rgba(0, 0, 0, 0.25);
+}
+/* Scale up everything inside the card by ~1.5×. Selectors override the global
+   tiny-mobile sizes that the rest of the app uses. */
+.auth-card h2 { font-size: 26px; line-height: 1.15; margin-top: 14px; }
+.auth-card h3 { font-size: 18px; }
+.auth-card .t2 { font-size: 14px; line-height: 1.4; }
+.auth-card .t3 { font-size: 12px; line-height: 1.4; }
+.auth-card .inp {
+  padding: 14px 14px;
+  min-height: 56px;
+  border-radius: 14px;
+  margin: 8px 0;
+}
+.auth-card .inp svg { width: 18px; height: 18px; }
+.auth-card .inp input,
+.auth-card .inp textarea { font-size: 15px; }
+.auth-card .btn {
+  min-height: 56px;
+  padding: 16px 18px;
+  font-size: 16px;
+  border-radius: 16px;
+  margin-top: 12px;
+}
+.auth-card label { font-size: 13px !important; }
+.auth-card .grn { font-size: 13px; }
+/* Subtle gradient overlay so the card has depth from top to bottom */
+.auth-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(0, 200, 83, 0.04), transparent 40%);
+  pointer-events: none;
+}
+/* Glow halo just outside the border for a premium edge */
+.auth-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(0, 200, 83, 0.18), rgba(201, 168, 76, 0.1) 60%, transparent);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.6;
+}
+body.light .auth-card {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(27, 140, 62, 0.12);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 24px 60px rgba(27, 140, 62, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* Desktop frame — give the appearance of a phone for review */
+@media (min-width: 768px) {
+  .app-root { padding: 24px; align-items: flex-start; }
+  .app-shell {
+    max-width: 420px;
+    height: calc(100vh - 48px);
+    border-radius: 32px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* =========================================================================
+   Typography
+   ========================================================================= */
+h1 { font-family: 'Outfit', sans-serif; font-weight: 800; }
+h2 { font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 800; color: var(--text); line-height: 1.2; }
+h3 { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); line-height: 1.25; }
+
+.t2 { color: rgba(255, 255, 255, 0.4); font-size: 14px; line-height: 1.4; }
+.t3 { color: rgba(255, 255, 255, 0.25); font-size: 12px; line-height: 1.4; }
+
+.grn { color: var(--gl); }
+.red { color: var(--r); }
+.gld { color: var(--gd); }
+
+/* =========================================================================
+   Containers
+   ========================================================================= */
+.g {
+  background: rgba(27, 140, 62, 0.04);
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.g2 {
+  background: rgba(27, 140, 62, 0.06);
+  border-radius: 10px;
+}
+
+/* =========================================================================
+   Inputs
+   ========================================================================= */
+.inp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  min-height: 56px;
+  border-radius: 14px;
+  background: rgba(27, 140, 62, 0.04);
+  border: 1px solid rgba(27, 140, 62, 0.08);
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 14px;
+  margin: 8px 0;
+}
+.inp svg { width: 18px; height: 18px; flex-shrink: 0; stroke: rgba(255, 255, 255, 0.25); fill: none; }
+.inp input, .inp textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+}
+.inp input::placeholder, .inp textarea::placeholder { color: rgba(255, 255, 255, 0.25); }
+
+/* =========================================================================
+   Buttons
+   ========================================================================= */
+.btn {
+  padding: 16px 18px;
+  min-height: 56px;
+  border-radius: 16px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  margin: 10px 0;
+  font-family: 'Outfit', sans-serif;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-g {
+  background: linear-gradient(135deg, var(--g), var(--gl));
+  color: #fff;
+  font-weight: 800;
+  font-size: 16px;
+  box-shadow: 0 6px 24px rgba(27, 140, 62, 0.35);
+}
+
+.btn-o {
+  background: transparent;
+  border: 2px solid rgba(27, 140, 62, 0.25);
+  color: var(--gl);
+  font-weight: 700;
+}
+
+.btn-r {
+  background: linear-gradient(135deg, #c53030, var(--r));
+  color: #fff;
+  font-weight: 700;
+}
+
+.btn-ghost {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: var(--r);
+  font-weight: 700;
+  box-shadow: none;
+}
+
+/* =========================================================================
+   Badges
+   ========================================================================= */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge-g { background: rgba(0, 200, 83, 0.1); color: var(--gl); }
+.badge-r { background: rgba(239, 68, 68, 0.1); color: var(--r); }
+.badge-gd { background: rgba(212, 165, 60, 0.1); color: var(--gd); }
+
+/* =========================================================================
+   Tabs
+   ========================================================================= */
+.tabs { display: flex; gap: 5px; margin: 10px 0; flex-wrap: wrap; }
+.tab {
+  padding: 9px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(27, 140, 62, 0.04);
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  border: none;
+  font-family: 'Outfit', sans-serif;
+}
+.tab.a { background: var(--g); color: #fff; }
+
+/* =========================================================================
+   Dots (carousel indicator)
+   ========================================================================= */
+.dots { display: flex; gap: 5px; justify-content: center; margin: 8px 0; }
+.dot { width: 6px; height: 6px; border-radius: 3px; background: rgba(27, 140, 62, 0.1); }
+.dot.a {
+  width: 18px;
+  background: linear-gradient(90deg, var(--g), var(--gl));
+  box-shadow: 0 0 8px rgba(27, 140, 62, 0.4);
+}
+
+/* =========================================================================
+   List items
+   ========================================================================= */
+.li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(27, 140, 62, 0.03);
+  margin: 5px 0;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+}
+.li-i {
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+  background: rgba(27, 140, 62, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.li-i svg { width: 22px; height: 22px; stroke: var(--gl); stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-width: 1.5; }
+.li-c { flex: 1; min-width: 0; }
+.li-n { font-size: 15px; font-weight: 600; color: var(--text); font-family: 'Outfit', sans-serif; }
+.li-s { font-size: 12px; color: rgba(255, 255, 255, 0.35); margin-top: 2px; }
+.li-r { text-align: right; flex-shrink: 0; }
+.li-v { font-size: 15px; font-weight: 700; font-family: 'Outfit', sans-serif; }
+.li-d { font-size: 11px; color: rgba(255, 255, 255, 0.4); margin-top: 2px; }
+
+/* =========================================================================
+   Stats
+   ========================================================================= */
+.stats { display: flex; gap: 10px; margin: 10px 0; }
+.stat {
+  flex: 1;
+  padding: 12px;
+  text-align: center;
+  background: rgba(27, 140, 62, 0.04);
+  border-radius: 14px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+}
+.stat-v { font-size: 19px; font-weight: 800; color: var(--text); font-family: 'Outfit', sans-serif; }
+.stat-v.grn { color: var(--gl); }
+.stat-l { font-size: 11px; color: rgba(255, 255, 255, 0.3); margin-top: 3px; }
+
+/* =========================================================================
+   Quick actions
+   ========================================================================= */
+.qa { display: flex; gap: 10px; justify-content: center; margin: 12px 0; }
+.qa-b {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  background: rgba(27, 140, 62, 0.05);
+  cursor: pointer;
+  flex: 1;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+  border: none;
+  font-family: 'Outfit', sans-serif;
+}
+.qa-b svg { width: 24px; height: 24px; stroke: var(--gl); fill: none; }
+.qa-b span { font-size: 11px; color: rgba(255, 255, 255, 0.4); }
+
+/* =========================================================================
+   Progress bar
+   ========================================================================= */
+.bar { height: 5px; border-radius: 6px; overflow: hidden; margin: 6px 0; background: rgba(27, 140, 62, 0.06); }
+.bar .fl { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--g), var(--gl)); }
+
+/* =========================================================================
+   Bottom tab navigation (real fixed bar)
+   ========================================================================= */
+.btab {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0 calc(10px + var(--safe-bottom));
+  background: rgba(6, 13, 9, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(27, 140, 62, 0.06);
+  z-index: 50;
+  margin-top: auto;
+}
+.bt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex: 1;
+  font-family: 'Outfit', sans-serif;
+}
+.bt svg { width: 26px; height: 26px; stroke: rgba(255, 255, 255, 0.3); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.bt span { font-size: 10px; color: rgba(255, 255, 255, 0.3); font-weight: 600; }
+.bt.a svg { stroke: var(--gl); }
+.bt.a span { color: var(--gl); }
+.bt-c {
+  position: relative;
+  top: -16px;
+  width: 60px; height: 60px;
+  border-radius: 30px;
+  background: linear-gradient(135deg, var(--g), var(--gl));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(27, 140, 62, 0.5);
+}
+.bt-c svg { stroke: #fff; width: 22px; height: 22px; }
+
+/* =========================================================================
+   Order book + candle chart (trading)
+   ========================================================================= */
+.ob { display: flex; gap: 2px; margin: 4px 0; }
+.ob-c { flex: 1; }
+.ob-r { display: flex; justify-content: space-between; padding: 2px 4px; font-size: 7px; border-radius: 3px; margin: 1px 0; }
+.ob-r.bid { background: rgba(0, 200, 83, 0.06); color: var(--gl); }
+.ob-r.ask { background: rgba(239, 68, 68, 0.06); color: var(--r); }
+
+.chart {
+  height: 80px;
+  margin: 4px 0;
+  border-radius: 12px;
+  background: rgba(27, 140, 62, 0.03);
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 8px 4px 4px;
+  overflow: hidden;
+}
+.candle { width: 4px; border-radius: 1px; flex-shrink: 0; }
+
+/* =========================================================================
+   QR
+   ========================================================================= */
+.qr {
+  width: 120px;
+  height: 120px;
+  margin: 8px auto;
+  border-radius: 8px;
+  background: rgba(27, 140, 62, 0.04);
+  display: grid;
+  grid-template-columns: repeat(11, 1fr);
+  grid-template-rows: repeat(11, 1fr);
+  gap: 1px;
+  padding: 8px;
+}
+.qr span { background: rgba(255, 255, 255, 0.6); border-radius: 1px; }
+
+/* =========================================================================
+   PIN keypad + dots
+   ========================================================================= */
+.kpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 0 24px;
+  margin: 8px 0;
+}
+.kk {
+  width: 48px; height: 48px;
+  border-radius: 24px;
+  background: rgba(27, 140, 62, 0.06);
+  color: #fff;
+  font-family: 'Outfit', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+
+.pdots { display: flex; gap: 12px; justify-content: center; margin: 12px 0; }
+.pdot { width: 12px; height: 12px; border-radius: 6px; border: 2px solid rgba(27, 140, 62, 0.15); }
+.pdot.f { background: linear-gradient(135deg, var(--g), var(--gl)); border-color: var(--g); box-shadow: 0 0 10px rgba(27, 140, 62, 0.3); }
+
+/* =========================================================================
+   Steps
+   ========================================================================= */
+.steps { display: flex; gap: 2px; margin: 8px 0; }
+.step { flex: 1; text-align: center; }
+.step .sn {
+  width: 22px; height: 22px;
+  border-radius: 11px;
+  margin: 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.step .sn.a { background: var(--g); color: #fff; border-color: var(--g); }
+.step .sn.d { background: rgba(0, 200, 83, 0.15); color: var(--gl); border-color: var(--gl); }
+.step .st { font-size: 10px; color: rgba(255, 255, 255, 0.3); margin-top: 5px; }
+
+/* =========================================================================
+   Icon container
+   ========================================================================= */
+.ic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(27, 140, 62, 0.08), rgba(0, 200, 83, 0.04));
+  box-shadow: 0 2px 12px rgba(27, 140, 62, 0.08);
+  flex-shrink: 0;
+}
+.ic svg { stroke: var(--gl); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+
+/* =========================================================================
+   Toggle
+   ========================================================================= */
+.tgl {
+  width: 36px; height: 20px;
+  border-radius: 10px;
+  position: relative;
+  flex-shrink: 0;
+  border: none;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.1);
+}
+.tgl.on { background: var(--g); }
+.tgl::after {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  border-radius: 8px;
+  background: #fff;
+  top: 2px;
+  transition: 0.2s;
+  left: 2px;
+}
+.tgl.on::after { left: 18px; }
+
+/* =========================================================================
+   Score ring
+   ========================================================================= */
+.ring {
+  width: 80px; height: 80px;
+  border-radius: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.06);
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+  position: relative;
+  margin: 8px auto;
+}
+.ring::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 44px;
+  border: 4px solid transparent;
+  border-top-color: var(--gl);
+  border-right-color: var(--gl);
+  transform: rotate(45deg);
+}
+.ring .rv { font-size: 30px; font-weight: 800; color: var(--gl); font-family: 'Outfit', sans-serif; }
+.ring .rl { font-size: 11px; color: rgba(255, 255, 255, 0.35); }
+
+/* =========================================================================
+   Chat bubble
+   ========================================================================= */
+.bub {
+  padding: 12px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 6px 0;
+  max-width: 86%;
+  word-wrap: break-word;
+  font-family: 'Outfit', sans-serif;
+}
+.bub-u {
+  background: linear-gradient(135deg, var(--g), var(--gl));
+  color: #fff;
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+}
+.bub-ai {
+  background: rgba(27, 140, 62, 0.06);
+  color: #fff;
+  border: 1px solid rgba(27, 140, 62, 0.08);
+  border-bottom-left-radius: 4px;
+}
+
+/* Chips */
+.chips { display: flex; gap: 4px; flex-wrap: wrap; margin: 6px 0; }
+.chip {
+  padding: 5px 10px;
+  border-radius: 14px;
+  font-size: 9px;
+  font-weight: 600;
+  background: rgba(27, 140, 62, 0.06);
+  color: var(--gl);
+  border: 1px solid rgba(27, 140, 62, 0.12);
+  cursor: pointer;
+  font-family: 'Outfit', sans-serif;
+}
+
+/* =========================================================================
+   AI Voice Orb (multi-layer)
+   ========================================================================= */
+.orb-wrap { position: relative; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center; margin: 0 auto; overflow: visible; }
+.orb-ring { position: absolute; width: 130px; height: 130px; border-radius: 65px; border: 1.5px solid var(--gl); opacity: 0; animation: orb-ripple 2.4s ease-out infinite; }
+.orb-ring.r2 { animation-delay: 0.8s; }
+.orb-ring.r3 { animation-delay: 1.6s; }
+@keyframes orb-ripple { 0% { transform: scale(1); opacity: 0.7; } 50% { opacity: 0.3; } 100% { transform: scale(1.7); opacity: 0; } }
+
+.orb-glow {
+  position: absolute;
+  width: 175px; height: 175px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 200, 83, 0.55) 0%, rgba(0, 200, 83, 0.18) 55%, rgba(0, 200, 83, 0) 100%);
+  filter: blur(4px);
+  animation: orb-breath 2.8s ease-in-out infinite alternate;
+}
+@keyframes orb-breath { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.16); opacity: 0.85; } }
+
+.orb-core {
+  position: relative;
+  width: 130px; height: 130px;
+  border-radius: 65px;
+  background: linear-gradient(135deg, #10B981 0%, #047857 80%);
+  box-shadow: 0 12px 40px rgba(0, 200, 83, 0.5), 0 0 60px rgba(0, 200, 83, 0.35), inset 0 -8px 24px rgba(0, 0, 0, 0.25), inset 0 4px 16px rgba(255, 255, 255, 0.15);
+  animation: orb-pulse 1.4s ease-in-out infinite alternate;
+  overflow: hidden;
+}
+@keyframes orb-pulse { 0% { transform: scale(1); } 100% { transform: scale(1.08); } }
+.orb-core::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(105, 240, 174, 0.45) 0%, transparent 55%);
+}
+.orb-spec { position: absolute; top: 16px; left: 24px; width: 48px; height: 30px; border-radius: 50%; background: rgba(255, 255, 255, 0.42); filter: blur(3px); transform: rotate(-25deg); pointer-events: none; }
+.orb-spec.s2 { top: auto; bottom: 22px; right: 30px; left: auto; width: 24px; height: 14px; background: rgba(255, 255, 255, 0.18); transform: rotate(20deg); }
+
+.orb-wrap.thinking .orb-core { background: linear-gradient(135deg, #A855F7 0%, #6D28D9 80%); animation-duration: 0.9s; box-shadow: 0 12px 40px rgba(168, 85, 247, 0.5), 0 0 60px rgba(168, 85, 247, 0.35), inset 0 -8px 24px rgba(0, 0, 0, 0.25); }
+.orb-wrap.listening .orb-core { background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 80%); box-shadow: 0 12px 40px rgba(59, 130, 246, 0.5), 0 0 60px rgba(59, 130, 246, 0.35), inset 0 -8px 24px rgba(0, 0, 0, 0.25); }
+.orb-wrap.idle .orb-core { background: linear-gradient(135deg, #6B7280 0%, #374151 80%); animation-duration: 2.4s; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4), inset 0 -8px 20px rgba(0, 0, 0, 0.25); }
+.orb-wrap.idle .orb-glow { opacity: 0.25; }
+
+/* =========================================================================
+   LIGHT MODE — body.light overrides
+   ========================================================================= */
+body.light {
+  background: #f5fbf6;
+  color: #111;
+}
+body.light .app-root { background: #f5fbf6; }
+body.light .app-shell {
+  background: linear-gradient(160deg, #f7fcf8, #f0f8f2, #f5fbf6);
+}
+body.light .app-shell::before { background: linear-gradient(180deg, rgba(27, 140, 62, 0.06), transparent); }
+body.light .app-shell::after { background: linear-gradient(0deg, rgba(27, 140, 62, 0.04), transparent); }
+
+body.light h2, body.light h3 { color: #111; }
+body.light .t2 { color: #666; }
+body.light .t3 { color: #999; }
+body.light .grn { color: #0d7a32; }
+body.light .red { color: #dc2626; }
+body.light .gld { color: #92680e; }
+
+body.light .g { background: rgba(27, 140, 62, 0.03); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); }
+
+body.light .inp { background: rgba(27, 140, 62, 0.02); color: #888; border-color: rgba(27, 140, 62, 0.08); }
+body.light .inp svg { stroke: #bbb; }
+body.light .inp input, body.light .inp textarea { color: #111; }
+body.light .inp input::placeholder, body.light .inp textarea::placeholder { color: #aaa; }
+
+body.light .btn-g { box-shadow: 0 4px 16px rgba(27, 140, 62, 0.2); }
+body.light .btn-o { color: var(--g); border-color: rgba(27, 140, 62, 0.2); }
+body.light .btn-r { background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.1); color: #dc2626; box-shadow: none; }
+body.light .btn-ghost { background: rgba(239, 68, 68, 0.06); }
+
+body.light .badge-g { background: rgba(27, 140, 62, 0.06); color: #0d7a32; }
+body.light .badge-r { background: rgba(239, 68, 68, 0.06); color: #dc2626; }
+body.light .badge-gd { background: rgba(212, 165, 60, 0.06); color: #92680e; }
+
+body.light .tab { background: rgba(27, 140, 62, 0.03); color: #888; }
+body.light .tab.a { background: var(--g); color: #fff; }
+
+body.light .li { background: rgba(27, 140, 62, 0.02); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03); }
+body.light .li-i { background: rgba(27, 140, 62, 0.04); }
+body.light .li-i svg { stroke: var(--g); }
+body.light .li-n { color: #111; }
+body.light .li-s { color: #999; }
+body.light .li-d { color: #888; }
+
+body.light .stat { background: rgba(27, 140, 62, 0.03); }
+body.light .stat-v { color: #111; }
+body.light .stat-l { color: #999; }
+
+body.light .qa-b { background: rgba(27, 140, 62, 0.03); }
+body.light .qa-b svg { stroke: var(--g); }
+body.light .qa-b span { color: #666; }
+
+body.light .btab { background: rgba(247, 252, 248, 0.92); border-top: 1px solid rgba(27, 140, 62, 0.06); }
+body.light .bt svg { stroke: #aaa; }
+body.light .bt span { color: #aaa; }
+body.light .bt.a svg { stroke: var(--g); }
+body.light .bt.a span { color: var(--g); }
+
+body.light .ic { background: linear-gradient(135deg, rgba(27, 140, 62, 0.06), rgba(0, 200, 83, 0.03)); }
+body.light .ic svg { stroke: var(--g); }
+
+body.light .ring { border-color: rgba(27, 140, 62, 0.08); }
+body.light .ring::before { border-top-color: var(--g); border-right-color: var(--g); }
+body.light .ring .rv { color: var(--g); }
+body.light .ring .rl { color: #888; }
+
+body.light .tgl.off { background: rgba(0, 0, 0, 0.08); }
+body.light .qr { background: rgba(27, 140, 62, 0.03); }
+body.light .qr span { background: rgba(0, 0, 0, 0.7); }
+body.light .kk { background: rgba(27, 140, 62, 0.04); color: #222; }
+body.light .pdot { border: 2px solid rgba(27, 140, 62, 0.15); }
+body.light .step .sn { background: rgba(27, 140, 62, 0.05); color: #888; border: 1px solid rgba(27, 140, 62, 0.1); }
+
+body.light .bub-ai { background: rgba(27, 140, 62, 0.05); color: #111; border-color: rgba(27, 140, 62, 0.1); }
+body.light .chip { background: rgba(27, 140, 62, 0.04); color: #0d7a32; border-color: rgba(27, 140, 62, 0.1); }
+body.light .chart { background: rgba(27, 140, 62, 0.02); }
+body.light .ob-r.bid { background: rgba(27, 140, 62, 0.05); color: #0d7a32; }
+body.light .ob-r.ask { background: rgba(239, 68, 68, 0.05); color: #dc2626; }
+
+body.light .orb-glow { background: radial-gradient(circle, rgba(27, 140, 62, 0.35) 0%, rgba(27, 140, 62, 0.1) 55%, rgba(27, 140, 62, 0) 100%); }
+body.light .orb-core { box-shadow: 0 12px 32px rgba(27, 140, 62, 0.4), 0 0 50px rgba(27, 140, 62, 0.25), inset 0 -8px 24px rgba(0, 0, 0, 0.18), inset 0 4px 16px rgba(255, 255, 255, 0.2); }
+body.light .orb-ring { border-color: var(--g); }

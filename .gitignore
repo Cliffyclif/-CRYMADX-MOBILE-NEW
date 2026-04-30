@@ -1,0 +1,52 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build artifacts
+node_modules
+dist
+dist-ssr
+*.local
+.tsbuildinfo
+*.tsbuildinfo
+
+# Environment files — keys/URLs differ per environment (set on Railway/host instead)
+.env
+.env.local
+.env.development
+.env.production
+!.env.example
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Capacitor (when wrapped for Android — add later)
+android/app/build
+android/.gradle
+android/captures
+android/local.properties
+android/.idea
+ios/App/build
+ios/App/Pods
+ios/App/output
+ios/App/Podfile.lock
+.capacitor/
+
+# Misc
+*.tgz
+*.zip
+.firebase/
+coverage/

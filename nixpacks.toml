@@ -1,0 +1,17 @@
+# Nixpacks build config for Railway.
+#
+# Railway auto-detects Node and runs `npm install` + `npm run build` +
+# `npm start`. We pin Node 20 explicitly here so the build never picks up
+# a different version (e.g. when Railway upgrades its default).
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run start"
