@@ -341,7 +341,15 @@
     "favorites": "★ FAVORITES",
     "allCount": "ALL ({{count}})",
     "noBeneficiaries": "No beneficiaries yet",
-    "addFirst": "Add Your First"
+    "addFirst": "Add Your First",
+    "manageSaved": "Manage saved",
+    "fillAllFields": "Fill all fields",
+    "whitelistDelay": "For your safety, new addresses become active 24 hours after they're added. We'll email you a link to confirm immediately.",
+    "beneficiaryAdded": "Address saved. It becomes active in 24 hours — check your email to confirm immediately.",
+    "beneficiaryRemoved": "Address removed",
+    "pendingCount": "Pending ({{count}})",
+    "noResults": "No matches",
+    "twoFactorOptional": "2FA code (if enabled)"
   },
   "deposit": {
     "title": "Deposit Crypto",
@@ -389,7 +397,35 @@
     "withdrawalsIrreversible": "Withdrawals are irreversible. Double-check the address and network.",
     "enterPinTitle": "Enter PIN",
     "confirming": "Confirming…",
-    "enterSixDigitPin": "Enter your 6-digit PIN"
+    "enterSixDigitPin": "Enter your 6-digit PIN",
+    "pickSaved": "Pick from saved",
+    "pickSavedTitle": "Saved",
+    "addresses": "addresses",
+    "noSavedForAsset": "No saved {{asset}} addresses yet.",
+    "trustedAddress": "Trusted address",
+    "whitelistedNoOtp": "No email code or 2FA needed — this address is in your whitelist.",
+    "whitelistThisAddressTitle": "Whitelist this address",
+    "whitelistThisAddressBody": "Skip email + 2FA on future withdrawals to this address. Active in 24 h or confirm via email.",
+    "saveAddressNamePlaceholder": "Label (e.g. \"Hardware wallet\")",
+    "saveAddressTitle": "Save this address",
+    "saveAddressBody": "Pick from your saved list next time",
+    "addressSaved": "Saved to your address book",
+    "addressSavedPending": "Saved — active in 24 hours (or confirm via email)",
+    "enterOtpTitle": "Enter verification code",
+    "otpSent": "Verification code sent to your email",
+    "otpResent": "Code resent",
+    "otpSentEmail": "Sent to your email — check inbox or spam.",
+    "sendingOtp": "Sending code…",
+    "enterSixDigitCode": "Enter the 6-digit code from your email",
+    "resendCode": "Resend code",
+    "resendIn": "Resend code in {{sec}}s",
+    "pasteCode": "Paste code",
+    "submittedTitle": "Withdrawal submitted",
+    "submittedBody": "We're sending it on-chain now. This usually takes a few minutes.",
+    "submittedHint": "You can leave this screen — full details (transaction hash, confirmations, explorer link) appear once the network confirms it.",
+    "notReadyTitle": "Transaction is still processing",
+    "notReadyBody": "It hasn't shown up in your history yet. Try again in a moment, or open your transaction history.",
+    "viewHistory": "View history"
   },
   "convert": {
     "title": "Convert",
@@ -509,7 +545,8 @@
       "pending": "pending",
       "failed": "failed",
       "processing": "processing"
-    }
+    },
+    "submittedTitle": "Withdrawal submitted"
   },
   "earn": {
     "hub": "Earn Hub",
@@ -669,7 +706,7 @@
     "fromTelegram": "Conversations from the website and Telegram bot will appear here.",
     "loadingChats": "Loading…",
     "untitled": "Untitled conversation",
-    "messages": "{{count}} messages",
+    "messages": "Messages",
     "messageSingular": "1 message",
     "noConvosMatch": "No conversations match \"{{q}}\"",
     "errorReaching": "Something went wrong reaching the AI. Please try again.",
@@ -761,7 +798,6 @@
     "switch": "Switch",
     "convDetailLoading": "Loading conversation…",
     "convNotFound": "Conversation not found",
-    "messages": "Messages",
     "loadMore": "Load more",
     "send": "Send",
     "newMessage": "Type a message…",
@@ -1372,7 +1408,7 @@
     "pinSubmit": "Update PIN",
     "sessionsTitle": "Active Sessions",
     "thisDevice": "This device",
-    "signOutAllOthers": "Sign out all other sessions",
+    "signOutAllOthers": "Sign Out of All Other Sessions",
     "lastActive": "Last active {{when}}",
     "addLayer": "Add a second layer of protection",
     "stepApp": "App",
@@ -1430,8 +1466,7 @@
     "revoke": "Revoke",
     "successBadge": "Success",
     "failedBadge": "Failed ({{reason}})",
-    "trustedBadge": "TRUSTED",
-    "signOutAllOthers": "Sign Out of All Other Sessions"
+    "trustedBadge": "TRUSTED"
   },
   "settings": {
     "title": "Settings",

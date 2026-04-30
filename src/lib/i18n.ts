@@ -82,10 +82,18 @@ i18n
     returnNull: false,
     returnEmptyString: false,
     parseMissingKeyHandler: (key) => {
-      // Last-resort fallback: split the key like "home.greeting.morning" and
-      // pretty-print the leaf segment so users see something sensible.
+      // Last-resort fallback: split a key like "home.greeting.morning" into
+      // a pretty leaf "Morning". Words are split on hyphens, underscores AND
+      // camelCase boundaries so "pickSavedTitle" becomes "Pick Saved Title"
+      // instead of "PickSavedTitle". Keeps caller-side `t('foo') || 'real'`
+      // patterns working for keys we never bothered to register.
       const leaf = key.split('.').pop() ?? key
-      return leaf.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+      return leaf
+        .replace(/([a-z])([A-Z])/g, '$1 $2') // camelCase → camel Case
+        .replace(/[-_]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, c => c.toUpperCase())
     },
     interpolation: {
       escapeValue: false, // React already escapes
