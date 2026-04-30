@@ -292,7 +292,6 @@ function SavedAddressSheet({
   onClose: () => void
   onManage: () => void
 }) {
-  const { t } = useTranslation()
   return (
     <div
       role="dialog"
@@ -300,87 +299,239 @@ function SavedAddressSheet({
       aria-label="Pick saved address"
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)',
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        zIndex: 1000,
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,.7)',
+        backdropFilter: 'blur(4px)',
+        WebkitBackdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        zIndex: 9000,
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: 'var(--surface)', width: '100%', maxWidth: 420,
-          borderTopLeftRadius: 18, borderTopRightRadius: 18,
-          padding: 16, maxHeight: '70vh', overflowY: 'auto',
+          background: '#0a160d',
+          border: '1px solid rgba(0, 200, 83, .2)',
+          borderBottom: 'none',
+          width: '100%',
+          maxWidth: 420,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          padding: 18,
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 16px) + 18px)',
+          maxHeight: '80vh',
+          overflowY: 'auto',
+          boxShadow: '0 -10px 40px rgba(0,0,0,.5)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <h3 style={{ margin: 0 }}>
-            {t('withdraw.pickSavedTitle') || 'Saved'} {asset} {t('withdraw.addresses') || 'addresses'}
-          </h3>
+        {/* Drag handle */}
+        <div
+          aria-hidden
+          style={{
+            width: 40,
+            height: 4,
+            borderRadius: 2,
+            background: 'rgba(255,255,255,.18)',
+            margin: '0 auto 14px',
+          }}
+        />
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CoinIcon symbol={asset} size={22} />
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 16,
+                fontWeight: 800,
+                color: 'var(--text-strong)',
+              }}
+            >
+              Saved {asset} addresses
+            </h3>
+          </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text-mid)' }}
+            style={{
+              background: 'rgba(255,255,255,.06)',
+              border: 'none',
+              borderRadius: 8,
+              cursor: 'pointer',
+              width: 28,
+              height: 28,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-mid)',
+              fontSize: 18,
+              padding: 0,
+            }}
           >
             ×
           </button>
         </div>
+
         {items.length === 0 ? (
-          <div className="t3" style={{ padding: 16, textAlign: 'center' }}>
-            {t('withdraw.noSavedForAsset', { asset }) || `No saved ${asset} addresses yet.`}
+          <div
+            style={{
+              padding: 24,
+              textAlign: 'center',
+              color: 'var(--text-mid)',
+              fontSize: 13,
+            }}
+          >
+            No saved {asset} addresses yet.
           </div>
         ) : (
-          items.map(b => {
-            const isPending = b.status === 'pending'
-            return (
-              <button
-                key={b.id}
-                onClick={() => !isPending && onPick(b)}
-                disabled={isPending}
-                className="li"
-                style={{
-                  width: '100%',
-                  border: 'none',
-                  textAlign: 'left',
-                  background: 'transparent',
-                  cursor: isPending ? 'not-allowed' : 'pointer',
-                  opacity: isPending ? 0.55 : 1,
-                  padding: 8,
-                }}
-              >
-                <div className="li-c">
-                  <div className="li-n" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {b.name}
-                    {isPending && (
-                      <span className="badge badge-gd" style={{ fontSize: 9 }}>pending</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {items.map(b => {
+              const isPending = b.status === 'pending'
+              return (
+                <button
+                  key={b.id}
+                  onClick={() => !isPending && onPick(b)}
+                  disabled={isPending}
+                  type="button"
+                  style={{
+                    width: '100%',
+                    padding: 12,
+                    border: '1px solid rgba(255,255,255,.06)',
+                    borderRadius: 12,
+                    background: isPending ? 'rgba(255,193,7,.04)' : 'rgba(0,200,83,.05)',
+                    cursor: isPending ? 'not-allowed' : 'pointer',
+                    opacity: isPending ? 0.7 : 1,
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    fontFamily: 'Outfit',
+                    transition: 'all .12s',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isPending) e.currentTarget.style.background = 'rgba(0,200,83,.1)'
+                  }}
+                  onMouseLeave={e => {
+                    if (!isPending) e.currentTarget.style.background = 'rgba(0,200,83,.05)'
+                  }}
+                >
+                  <CoinIcon symbol={b.asset} size={32} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: 'var(--text-strong)',
+                      }}
+                    >
+                      <span
+                        style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxWidth: 180,
+                        }}
+                      >
+                        {b.name}
+                      </span>
+                      {isPending ? (
+                        <span
+                          style={{
+                            fontSize: 9,
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            background: 'rgba(255,193,7,.15)',
+                            color: 'var(--gd)',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            letterSpacing: '.5px',
+                          }}
+                        >
+                          pending
+                        </span>
+                      ) : (
+                        <Icon name="shield" size={11} color="var(--gl)" />
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                        color: 'var(--text-mid)',
+                        marginTop: 2,
+                      }}
+                    >
+                      {shortAddr(b.address)}
+                    </div>
+                    {isPending && b.cooldownEndsAt && (
+                      <div style={{ fontSize: 10, color: 'var(--gd)', marginTop: 3 }}>
+                        ⏳ Active in {hoursLeft(b.cooldownEndsAt)}h
+                      </div>
                     )}
                   </div>
-                  <div className="li-s" style={{ fontFamily: 'monospace', fontSize: 11 }}>
-                    {b.address.length > 18 ? `${b.address.slice(0, 10)}...${b.address.slice(-6)}` : b.address}
-                  </div>
-                  {isPending && b.cooldownEndsAt && (
-                    <div className="t3" style={{ fontSize: 10, color: 'var(--gd)' }}>
-                      ⏳ Active in {hoursLeft(b.cooldownEndsAt)}h
-                    </div>
+                  {b.network && (
+                    <span
+                      style={{
+                        fontSize: 9,
+                        padding: '3px 8px',
+                        borderRadius: 4,
+                        background: 'rgba(0,200,83,.12)',
+                        color: 'var(--gl)',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '.5px',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {b.network}
+                    </span>
                   )}
-                </div>
-                {b.network && (
-                  <span className="badge badge-g" style={{ fontSize: 9 }}>{b.network}</span>
-                )}
-              </button>
-            )
-          })
+                </button>
+              )
+            })}
+          </div>
         )}
+
         <button
           onClick={onManage}
-          className="btn btn-o"
-          style={{ width: '100%', marginTop: 8 }}
+          type="button"
+          style={{
+            width: '100%',
+            marginTop: 14,
+            padding: 12,
+            border: '1px solid rgba(255,255,255,.08)',
+            borderRadius: 12,
+            background: 'transparent',
+            color: 'var(--text-strong)',
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontFamily: 'Outfit',
+          }}
         >
-          {t('wallet.manageSaved') || 'Manage saved addresses'}
+          Manage saved addresses
         </button>
       </div>
     </div>
   )
+}
+
+function shortAddr(addr: string): string {
+  if (!addr || addr.length < 18) return addr
+  return `${addr.slice(0, 10)}…${addr.slice(-6)}`
 }
 
 function hoursLeft(iso: string): number {
