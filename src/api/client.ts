@@ -758,6 +758,7 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
         h: parseFloat(k[2]),
         l: parseFloat(k[3]),
         c: parseFloat(k[4]),
+        v: parseFloat(k[5]),  // base-asset volume — used by Volume / OBV indicators
       }))
       return { items }
     } catch { return { items: [] } }

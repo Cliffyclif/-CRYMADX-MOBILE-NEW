@@ -1,130 +1,240 @@
 /**
- * TradingView "Advanced Chart" embed.
+ * Advanced trading chart powered by `lightweight-charts` (TradingView's free
+ * OSS charting library — NOT the embedded iframe widget). The iframe widget
+ * makes a "sheriff" check against widget-sheriff.tradingview-widget.com on
+ * load, which fails in geos where TradingView is blocked. The OSS library
+ * has no external network calls — it's just a renderer. We feed it the same
+ * Binance candles we already proxy through our backend.
  *
- * Loads tv.js once globally (cached), then mounts the widget into our div.
- * Initial studies (indicators) come from localStorage so the user's chosen
- * presets persist across pair switches and across page reloads.
- *
- * The free embedded widget does NOT auto-save user-added studies. Our own
- * indicator chip bar (mounted by the parent) is the source of truth — when
- * the user toggles a chip on/off, we save the new list to localStorage and
- * re-mount the widget with the updated `studies` array.
+ * Indicators are computed locally in src/lib/indicators.ts and rendered as
+ * additional series (overlays for trend indicators, pinned price scales for
+ * oscillators).
  */
 import { useEffect, useRef } from 'react'
+import {
+  createChart, CandlestickSeries, LineSeries, HistogramSeries,
+  type IChartApi, type ISeriesApi, type Time,
+} from 'lightweight-charts'
+import { useEndpoint } from '../api/hooks'
+import {
+  type Bar, sma, ema, bb, rsi, macd, stochastic, atr, cci, obv, vwap,
+  awesomeOscillator, ichimoku, pivotPoints,
+} from '../lib/indicators'
 
-const TV_SCRIPT_SRC = 'https://s3.tradingview.com/tv.js'
-
-declare global {
-  interface Window { TradingView?: any }
-}
-
-let tvScriptLoading: Promise<void> | null = null
-function loadTvScript(): Promise<void> {
-  if (typeof window === 'undefined') return Promise.resolve()
-  if (window.TradingView) return Promise.resolve()
-  if (tvScriptLoading) return tvScriptLoading
-  tvScriptLoading = new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${TV_SCRIPT_SRC}"]`) as HTMLScriptElement | null
-    if (existing) {
-      existing.addEventListener('load', () => resolve())
-      existing.addEventListener('error', () => reject(new Error('TradingView script failed')))
-      return
-    }
-    const s = document.createElement('script')
-    s.src = TV_SCRIPT_SRC
-    s.async = true
-    s.onload = () => resolve()
-    s.onerror = () => reject(new Error('TradingView script failed'))
-    document.head.appendChild(s)
-  })
-  return tvScriptLoading
-}
-
-/** Map our internal interval ids ("15m", "1h", "1d") to TradingView interval format. */
-export function toTvInterval(i: string): string {
-  const map: Record<string, string> = {
-    '1m': '1', '3m': '3', '5m': '5', '15m': '15', '30m': '30',
-    '1h': '60', '2h': '120', '4h': '240', '6h': '360', '12h': '720',
-    '1d': 'D', '1w': 'W', '1M': 'M',
-  }
-  return map[i] ?? '15'
-}
+interface RawCandle { t: number; o: number; h: number; l: number; c: number; v?: number }
 
 interface Props {
-  /** Either "BTCUSDT" or "BTC/USDT" — we normalize to BINANCE:BTCUSDT internally. */
+  /** "BTC/USDT" or "BTCUSDT" — used for the pair query. */
   symbol: string
-  /** App-internal interval id like "15m". */
+  /** Internal interval id like "15m", "1h", "1d". */
   interval: string
-  /** TradingView study IDs (e.g. "MACD@tv-basicstudies"). */
+  /** Active TradingView-style study IDs (we map them to local indicators). */
   studies?: string[]
-  /** Pixel height of the chart. Defaults to 360. */
   height?: number
-  /** Light or dark theme — pass 'dark' for our app. */
   theme?: 'dark' | 'light'
 }
 
 export function TradingViewChart({ symbol, interval, studies = [], height = 360, theme = 'dark' }: Props) {
-  const ref = useRef<HTMLDivElement>(null)
-  const widgetRef = useRef<any>(null)
-  // Stable container id — must change between mounts so TV doesn't reuse a
-  // dead container DOM node from a previous re-render of the same screen.
-  const idRef = useRef<string>('tv-chart-' + Math.random().toString(36).slice(2, 10))
+  const containerRef = useRef<HTMLDivElement>(null)
+  const chartRef = useRef<IChartApi | null>(null)
+  const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
+  const overlaySeriesRef = useRef<ISeriesApi<any>[]>([])
 
+  // Raw candles — lightweight-charts wants `time` in seconds, not ms
+  const { data: candleRes } = useEndpoint<{ items: RawCandle[] }>('api.markets.candles', {
+    pathParams: { pair: symbol }, query: { interval },
+  }, { refetchInterval: 30_000 })
+  const rawCandles = candleRes?.items ?? []
+
+  // Convert to lightweight-charts shape
+  const bars: Bar[] = rawCandles.map(c => ({
+    time: Math.floor(c.t / 1000),
+    open: c.o, high: c.h, low: c.l, close: c.c,
+    volume: c.v ?? 0,
+  }))
+
+  // ── Initial chart construction ─────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false
-    const id = idRef.current
-    loadTvScript().then(() => {
-      if (cancelled || !ref.current || !window.TradingView?.widget) return
-      // Reset container — TV constructs its iframe inside this div using its id.
-      ref.current.innerHTML = ''
-      ref.current.id = id
+    if (!containerRef.current) return
+    const isDark = theme === 'dark'
+    const chart = createChart(containerRef.current, {
+      width: containerRef.current.clientWidth,
+      height,
+      autoSize: true,
+      layout: {
+        background: { color: 'transparent' },
+        textColor: isDark ? 'rgba(255,255,255,.7)' : 'rgba(0,0,0,.7)',
+      },
+      grid: {
+        vertLines: { color: isDark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
+        horzLines: { color: isDark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
+      },
+      timeScale: { timeVisible: true, secondsVisible: false, borderVisible: false },
+      rightPriceScale: { borderVisible: false },
+      crosshair: { mode: 1 },
+    })
+    chartRef.current = chart
 
-      const tvSymbol = symbol.includes(':') ? symbol : `BINANCE:${symbol.replace('/', '').toUpperCase()}`
-      try {
-        widgetRef.current = new window.TradingView.widget({
-          autosize: true,
-          symbol: tvSymbol,
-          interval: toTvInterval(interval),
-          timezone: 'Etc/UTC',
-          theme,
-          style: '1',                  // candles
-          locale: 'en',
-          toolbar_bg: 'rgba(0,0,0,0)',
-          enable_publishing: false,
-          allow_symbol_change: false,
-          hide_side_toolbar: false,
-          hide_top_toolbar: false,
-          hide_legend: false,
-          studies,
-          save_image: false,
-          backgroundColor: 'rgba(0,0,0,0)',
-          gridColor: 'rgba(255,255,255,0.05)',
-          container_id: id,
-        })
-      } catch (e) {
-        console.warn('[tv] init failed', e)
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: '#00C853', downColor: '#EF4444',
+      wickUpColor: '#00C853', wickDownColor: '#EF4444',
+      borderVisible: false,
+    })
+    candleSeriesRef.current = candleSeries
+
+    const ro = new ResizeObserver(() => {
+      if (containerRef.current && chart) {
+        chart.applyOptions({ width: containerRef.current.clientWidth })
       }
-    }).catch(e => console.warn('[tv] script load failed', e))
+    })
+    ro.observe(containerRef.current)
 
     return () => {
-      cancelled = true
-      try { widgetRef.current?.remove?.() } catch { /* noop */ }
-      widgetRef.current = null
+      ro.disconnect()
+      try { chart.remove() } catch { /* noop */ }
+      chartRef.current = null
+      candleSeriesRef.current = null
+      overlaySeriesRef.current = []
     }
-    // Re-mount on any input change. JSON.stringify ensures studies array
-    // changes are observed (referential equality wouldn't catch chip toggles).
-  }, [symbol, interval, JSON.stringify(studies), theme])
+  }, [theme, height])
+
+  // ── Update candles when bars change ────────────────────────────────────
+  useEffect(() => {
+    if (!candleSeriesRef.current || bars.length === 0) return
+    candleSeriesRef.current.setData(bars.map(b => ({
+      time: b.time as Time, open: b.open, high: b.high, low: b.low, close: b.close,
+    })))
+  }, [bars.length, bars[0]?.time, bars[bars.length - 1]?.time])
+
+  // ── Apply / re-apply indicators when studies or bars change ────────────
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart || bars.length === 0) return
+
+    // Tear down previous overlay series
+    for (const s of overlaySeriesRef.current) {
+      try { chart.removeSeries(s) } catch { /* noop */ }
+    }
+    overlaySeriesRef.current = []
+
+    const add = (s: ISeriesApi<any>) => { overlaySeriesRef.current.push(s) }
+
+    for (const studyId of studies) {
+      const id = studyId.split('@')[0] // strip the @tv-basicstudies suffix
+
+      if (id === 'MASimple') {
+        const data = sma(bars, 20).map(p => ({ time: p.time as Time, value: p.value }))
+        const s = chart.addSeries(LineSeries, { color: '#FFA726', lineWidth: 2, title: 'SMA(20)', priceLineVisible: false, lastValueVisible: false })
+        s.setData(data); add(s)
+      }
+      else if (id === 'MAExp') {
+        const data = ema(bars, 21).map(p => ({ time: p.time as Time, value: p.value }))
+        const s = chart.addSeries(LineSeries, { color: '#42A5F5', lineWidth: 2, title: 'EMA(21)', priceLineVisible: false, lastValueVisible: false })
+        s.setData(data); add(s)
+      }
+      else if (id === 'BB') {
+        const data = bb(bars, 20, 2)
+        const upper = chart.addSeries(LineSeries, { color: 'rgba(187,134,252,.7)', lineWidth: 1, title: 'BB upper', priceLineVisible: false, lastValueVisible: false })
+        upper.setData(data.map(p => ({ time: p.time as Time, value: p.upper }))); add(upper)
+        const mid = chart.addSeries(LineSeries, { color: 'rgba(187,134,252,.4)', lineWidth: 1, lineStyle: 2, title: 'BB mid', priceLineVisible: false, lastValueVisible: false })
+        mid.setData(data.map(p => ({ time: p.time as Time, value: p.mid }))); add(mid)
+        const lower = chart.addSeries(LineSeries, { color: 'rgba(187,134,252,.7)', lineWidth: 1, title: 'BB lower', priceLineVisible: false, lastValueVisible: false })
+        lower.setData(data.map(p => ({ time: p.time as Time, value: p.lower }))); add(lower)
+      }
+      else if (id === 'RSI') {
+        const data = rsi(bars, 14).map(p => ({ time: p.time as Time, value: p.value }))
+        const s = chart.addSeries(LineSeries, { color: '#FFD54F', lineWidth: 2, title: 'RSI(14)', priceScaleId: 'rsi', priceLineVisible: false, lastValueVisible: false })
+        s.setData(data); add(s)
+        chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } })
+      }
+      else if (id === 'MACD') {
+        const data = macd(bars, 12, 26, 9)
+        const macdLine = chart.addSeries(LineSeries, { color: '#42A5F5', lineWidth: 2, title: 'MACD', priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false })
+        macdLine.setData(data.map(p => ({ time: p.time as Time, value: p.macd }))); add(macdLine)
+        const sig = chart.addSeries(LineSeries, { color: '#FFA726', lineWidth: 2, title: 'Signal', priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false })
+        sig.setData(data.map(p => ({ time: p.time as Time, value: p.signal }))); add(sig)
+        const hist = chart.addSeries(HistogramSeries, { color: '#666', priceScaleId: 'macd', priceLineVisible: false, lastValueVisible: false })
+        hist.setData(data.map(p => ({ time: p.time as Time, value: p.hist, color: p.hist >= 0 ? 'rgba(0,200,83,.7)' : 'rgba(239,68,68,.7)' }))); add(hist)
+        chart.priceScale('macd').applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } })
+      }
+      else if (id === 'Stochastic') {
+        const data = stochastic(bars, 14, 3)
+        const k = chart.addSeries(LineSeries, { color: '#42A5F5', lineWidth: 1, title: '%K', priceScaleId: 'stoch', priceLineVisible: false, lastValueVisible: false })
+        k.setData(data.map(p => ({ time: p.time as Time, value: p.k }))); add(k)
+        const d = chart.addSeries(LineSeries, { color: '#FFA726', lineWidth: 1, title: '%D', priceScaleId: 'stoch', priceLineVisible: false, lastValueVisible: false })
+        d.setData(data.map(p => ({ time: p.time as Time, value: p.d }))); add(d)
+        chart.priceScale('stoch').applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } })
+      }
+      else if (id === 'Volume') {
+        const data = bars.map(b => ({
+          time: b.time as Time,
+          value: b.volume,
+          color: b.close >= b.open ? 'rgba(0,200,83,.5)' : 'rgba(239,68,68,.5)',
+        }))
+        const s = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'vol', priceLineVisible: false, lastValueVisible: false, title: 'Volume' })
+        s.setData(data); add(s)
+        chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } })
+      }
+      else if (id === 'ATR') {
+        const data = atr(bars, 14).map(p => ({ time: p.time as Time, value: p.value }))
+        const s = chart.addSeries(LineSeries, { color: '#9CCC65', lineWidth: 1, title: 'ATR(14)', priceScaleId: 'atr', priceLineVisible: false, lastValueVisible: false })
+        s.setData(data); add(s)
+        chart.priceScale('atr').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } })
+      }
+      else if (id === 'CCI') {
+        const data = cci(bars, 20).map(p => ({ time: p.time as Time, value: p.value }))
+        const s = chart.addSeries(LineSeries, { color: '#26A69A', lineWidth: 1, title: 'CCI(20)', priceScaleId: 'cci', priceLineVisible: false, lastValueVisible: false })
+        s.setData(data); add(s)
+        chart.priceScale('cci').applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } })
+      }
+      else if (id === 'OBV') {
+        const data = obv(bars).map(p => ({ time: p.time as Time, value: p.value }))
+        const s = chart.addSeries(LineSeries, { color: '#80DEEA', lineWidth: 1, title: 'OBV', priceScaleId: 'obv', priceLineVisible: false, lastValueVisible: false })
+        s.setData(data); add(s)
+        chart.priceScale('obv').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } })
+      }
+      else if (id === 'VWAP') {
+        const data = vwap(bars).map(p => ({ time: p.time as Time, value: p.value }))
+        const s = chart.addSeries(LineSeries, { color: '#FFEE58', lineWidth: 2, title: 'VWAP', priceLineVisible: false, lastValueVisible: false })
+        s.setData(data); add(s)
+      }
+      else if (id === 'AwesomeOscillator') {
+        const data = awesomeOscillator(bars)
+        const s = chart.addSeries(HistogramSeries, { priceScaleId: 'ao', priceLineVisible: false, lastValueVisible: false, title: 'AO' })
+        s.setData(data.map(p => ({ time: p.time as Time, value: p.value, color: p.value >= 0 ? 'rgba(0,200,83,.7)' : 'rgba(239,68,68,.7)' }))); add(s)
+        chart.priceScale('ao').applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } })
+      }
+      else if (id === 'IchimokuCloud') {
+        const data = ichimoku(bars)
+        const tenkan = chart.addSeries(LineSeries, { color: '#42A5F5', lineWidth: 1, title: 'Tenkan', priceLineVisible: false, lastValueVisible: false })
+        tenkan.setData(data.filter(p => p.tenkan !== undefined).map(p => ({ time: p.time as Time, value: p.tenkan! }))); add(tenkan)
+        const kijun = chart.addSeries(LineSeries, { color: '#EF4444', lineWidth: 1, title: 'Kijun', priceLineVisible: false, lastValueVisible: false })
+        kijun.setData(data.filter(p => p.kijun !== undefined).map(p => ({ time: p.time as Time, value: p.kijun! }))); add(kijun)
+        const a = chart.addSeries(LineSeries, { color: 'rgba(0,200,83,.5)', lineWidth: 1, title: 'Senkou A', priceLineVisible: false, lastValueVisible: false })
+        a.setData(data.filter(p => p.senkouA !== undefined).map(p => ({ time: p.time as Time, value: p.senkouA! }))); add(a)
+        const b = chart.addSeries(LineSeries, { color: 'rgba(239,68,68,.5)', lineWidth: 1, title: 'Senkou B', priceLineVisible: false, lastValueVisible: false })
+        b.setData(data.filter(p => p.senkouB !== undefined).map(p => ({ time: p.time as Time, value: p.senkouB! }))); add(b)
+      }
+      else if (id === 'PivotPointsHighLow') {
+        const data = pivotPoints(bars)
+        const p = chart.addSeries(LineSeries, { color: '#FFEB3B', lineWidth: 1, lineStyle: 2, title: 'P', priceLineVisible: false, lastValueVisible: false })
+        p.setData(data.map(d => ({ time: d.time as Time, value: d.p }))); add(p)
+        const r1 = chart.addSeries(LineSeries, { color: 'rgba(0,200,83,.6)', lineWidth: 1, lineStyle: 2, title: 'R1', priceLineVisible: false, lastValueVisible: false })
+        r1.setData(data.map(d => ({ time: d.time as Time, value: d.r1 }))); add(r1)
+        const s1 = chart.addSeries(LineSeries, { color: 'rgba(239,68,68,.6)', lineWidth: 1, lineStyle: 2, title: 'S1', priceLineVisible: false, lastValueVisible: false })
+        s1.setData(data.map(d => ({ time: d.time as Time, value: d.s1 }))); add(s1)
+      }
+    }
+  }, [JSON.stringify(studies), bars.length, bars[bars.length - 1]?.time])
 
   return (
-    <div
-      ref={ref}
-      style={{
-        width: '100%',
-        height,
-        borderRadius: 8,
-        overflow: 'hidden',
-        background: 'var(--surface-soft)',
-      }}
-    />
+    <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-soft)' }}>
+      <div ref={containerRef} style={{ width: '100%', height }} />
+      {bars.length === 0 && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-mid-30)', fontSize: 12, pointerEvents: 'none' }}>
+          Loading chart…
+        </div>
+      )}
+    </div>
   )
 }
