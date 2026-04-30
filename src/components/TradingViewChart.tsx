@@ -55,41 +55,73 @@ export function TradingViewChart({ symbol, interval, studies = [], height = 360,
 
   // ── Initial chart construction ─────────────────────────────────────────
   useEffect(() => {
-    if (!containerRef.current) return
+    const el = containerRef.current
+    if (!el) return
     const isDark = theme === 'dark'
-    const chart = createChart(containerRef.current, {
-      width: containerRef.current.clientWidth,
-      height,
-      autoSize: true,
-      layout: {
-        background: { color: 'transparent' },
-        textColor: isDark ? 'rgba(255,255,255,.7)' : 'rgba(0,0,0,.7)',
-      },
-      grid: {
-        vertLines: { color: isDark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
-        horzLines: { color: isDark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
-      },
-      timeScale: { timeVisible: true, secondsVisible: false, borderVisible: false },
-      rightPriceScale: { borderVisible: false },
-      crosshair: { mode: 1 },
-    })
+
+    // Guard against 0-width on first render (React 19 strict-mode + flex
+    // parent + lazy mount): fall back to a sensible width so the chart
+    // doesn't render invisible. ResizeObserver below catches up once the
+    // real layout finishes.
+    const initialWidth = Math.max(el.clientWidth, 320)
+
+    let chart: IChartApi
+    try {
+      chart = createChart(el, {
+        width: initialWidth,
+        height,
+        autoSize: true,
+        layout: {
+          background: { color: 'transparent' },
+          textColor: isDark ? 'rgba(255,255,255,.7)' : 'rgba(0,0,0,.7)',
+        },
+        grid: {
+          vertLines: { color: isDark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
+          horzLines: { color: isDark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)' },
+        },
+        timeScale: { timeVisible: true, secondsVisible: false, borderVisible: false },
+        rightPriceScale: { borderVisible: false },
+        crosshair: { mode: 1 },
+      })
+    } catch (e) {
+      console.error('[chart] createChart failed', e)
+      return
+    }
     chartRef.current = chart
 
-    const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#00C853', downColor: '#EF4444',
-      wickUpColor: '#00C853', wickDownColor: '#EF4444',
-      borderVisible: false,
-    })
+    let candleSeries: ISeriesApi<'Candlestick'>
+    try {
+      candleSeries = chart.addSeries(CandlestickSeries, {
+        upColor: '#00C853', downColor: '#EF4444',
+        wickUpColor: '#00C853', wickDownColor: '#EF4444',
+        borderVisible: false,
+      })
+    } catch (e) {
+      console.error('[chart] addSeries(Candlestick) failed', e)
+      try { chart.remove() } catch { /* noop */ }
+      return
+    }
     candleSeriesRef.current = candleSeries
 
     const ro = new ResizeObserver(() => {
-      if (containerRef.current && chart) {
-        chart.applyOptions({ width: containerRef.current.clientWidth })
+      if (containerRef.current && chartRef.current) {
+        const w = containerRef.current.clientWidth
+        if (w > 0) chartRef.current.applyOptions({ width: w })
       }
     })
-    ro.observe(containerRef.current)
+    ro.observe(el)
+
+    // Belt-and-suspenders: schedule a manual resize on next frame in case
+    // the parent layout finishes after our useEffect.
+    const raf = requestAnimationFrame(() => {
+      if (containerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({ width: containerRef.current.clientWidth || initialWidth })
+        chartRef.current.timeScale().fitContent()
+      }
+    })
 
     return () => {
+      cancelAnimationFrame(raf)
       ro.disconnect()
       try { chart.remove() } catch { /* noop */ }
       chartRef.current = null
@@ -228,8 +260,22 @@ export function TradingViewChart({ symbol, interval, studies = [], height = 360,
   }, [JSON.stringify(studies), bars.length, bars[bars.length - 1]?.time])
 
   return (
-    <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-soft)' }}>
-      <div ref={containerRef} style={{ width: '100%', height }} />
+    <div
+      style={{
+        position: 'relative',
+        borderRadius: 8,
+        overflow: 'hidden',
+        background: 'var(--surface-soft)',
+        width: '100%',
+        height,
+        minHeight: height,    // hard-locks height; flex parents can't squish it
+        marginTop: 4,
+      }}
+    >
+      <div
+        ref={containerRef}
+        style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
+      />
       {bars.length === 0 && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-mid-30)', fontSize: 12, pointerEvents: 'none' }}>
           Loading chart…

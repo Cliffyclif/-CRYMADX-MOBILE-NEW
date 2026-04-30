@@ -15,7 +15,7 @@
  * automatically purges old entries on activate.
  */
 
-const VERSION = 'v3'
+const VERSION = 'v4'
 const STATIC_CACHE = `crymadx-static-${VERSION}`
 const ASSET_CACHE  = `crymadx-assets-${VERSION}`
 const ICON_CACHE   = `crymadx-icons-${VERSION}`
