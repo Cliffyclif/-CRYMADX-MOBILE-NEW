@@ -59,6 +59,23 @@ async function ensureRegistration(): Promise<ServiceWorkerRegistration> {
 }
 
 /**
+ * Register the SW on app boot — installs the caching layer for static assets,
+ * coin icons and the app shell. Push subscriptions are independently opt-in
+ * via {@link enable}; calling this just sets up the runtime cache.
+ *
+ * Idempotent. Safe to call from app startup. Quietly no-ops on unsupported
+ * environments (Safari < 11, in-app webviews without SW, etc.).
+ */
+export async function registerServiceWorker(): Promise<void> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
+  try {
+    await ensureRegistration()
+  } catch (e) {
+    console.warn('[sw] register failed', e)
+  }
+}
+
+/**
  * Full opt-in flow: register SW → request permission → subscribe → send to backend.
  * Returns the resulting status. Throws on unrecoverable errors so the caller
  * can show a toast.

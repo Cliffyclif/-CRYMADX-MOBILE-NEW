@@ -1,36 +1,152 @@
 /**
  * CrymadX mobile Service Worker
  * -----------------------------
- * Handles two things:
+ *  1. `push` / `notificationclick` — system notifications
+ *  2. `fetch` — caching layer for app shell + static assets + coin icons
  *
- *   1. `push` event — fires when the OS receives a push notification from
- *      our notification-service. Even if the app is closed, this wakes the
- *      browser process and runs this code, which then renders a system
- *      notification (the OS-level banner that pings the phone).
+ * Caching is auth-safe by design:
+ *   - We NEVER cache requests that carry an Authorization header
+ *   - We NEVER cache POST/PUT/PATCH/DELETE
+ *   - We NEVER cache /api/ responses
+ *   - Only same-origin static assets and a small allowlist of public CDN
+ *     image hosts (CoinGecko, CoinCap, CryptoLogos) are eligible
  *
- *   2. `notificationclick` event — fires when the user taps a system
- *      notification. We open the app (or focus it if already open) and
- *      navigate to the deep link the server included in the payload.
- *
- * Lives at /service-worker.js (root scope). Vite serves anything under
- * `public/` at the site root, so this file is reachable as `/service-worker.js`
- * which means it can control the entire site origin.
+ * Cache versions are encoded in the names; bumping them on a deploy
+ * automatically purges old entries on activate.
  */
 
+const VERSION = 'v3'
+const STATIC_CACHE = `crymadx-static-${VERSION}`
+const ASSET_CACHE  = `crymadx-assets-${VERSION}`
+const ICON_CACHE   = `crymadx-icons-${VERSION}`
+const ALL_CACHES = [STATIC_CACHE, ASSET_CACHE, ICON_CACHE]
+
+// External hosts whose images we treat as immutable (cache 30d, never re-fetch
+// unless evicted). Add a host here ONLY if it serves stable, public images.
+const ICON_HOST_ALLOWLIST = [
+  'assets.coingecko.com',
+  'coin-images.coingecko.com',
+  'cryptologos.cc',
+  'static.coincap.io',
+  'cryptoicon-api.pages.dev',
+  's2.coinmarketcap.com',
+]
+
+const APP_SHELL_PATHS = ['/', '/index.html']
+
 self.addEventListener('install', (event) => {
-  // Take control of clients immediately on first install. Otherwise the SW
-  // won't activate until all open tabs are closed — too aggressive a wait
-  // for a fresh install during onboarding.
   self.skipWaiting()
+  // Pre-warm the app shell so the first offline visit works.
+  event.waitUntil(
+    caches.open(STATIC_CACHE).then(cache => cache.addAll(APP_SHELL_PATHS).catch(() => {}))
+  )
 })
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim())
+  event.waitUntil((async () => {
+    // Drop caches that are no longer in the allowlist (i.e. old VERSION names)
+    const names = await caches.keys()
+    await Promise.all(names.map(n => ALL_CACHES.includes(n) ? null : caches.delete(n)))
+    await self.clients.claim()
+  })())
 })
 
+// ─── fetch — caching strategy ──────────────────────────────────────────────
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request
+  if (req.method !== 'GET') return
+
+  const url = new URL(req.url)
+
+  // 1. Never cache cross-origin requests except our explicit icon allowlist
+  const sameOrigin = url.origin === self.location.origin
+  const isIconHost = ICON_HOST_ALLOWLIST.includes(url.hostname)
+  if (!sameOrigin && !isIconHost) return
+
+  // 2. Never cache /api/ — these are auth-bearing or user-specific
+  if (sameOrigin && url.pathname.startsWith('/api/')) return
+
+  // 3. Never cache anything carrying Authorization header
+  if (req.headers.get('authorization')) return
+
+  // 4. Same-origin SPA navigation → network-first with shell fallback
+  if (sameOrigin && req.mode === 'navigate') {
+    event.respondWith(networkFirstWithShellFallback(req))
+    return
+  }
+
+  // 5. Hashed build assets (/assets/index-*.js / .css / images): cache-first.
+  //    Vite hashes filenames so the URL changes when content changes.
+  if (sameOrigin && url.pathname.startsWith('/assets/')) {
+    event.respondWith(cacheFirst(req, ASSET_CACHE))
+    return
+  }
+
+  // 6. Same-origin static images / icons / fonts: stale-while-revalidate.
+  //    Filename isn't hashed so we want to re-fetch in the background.
+  if (sameOrigin && /\.(png|jpg|jpeg|svg|gif|webp|ico|woff|woff2|ttf|otf)$/i.test(url.pathname)) {
+    event.respondWith(staleWhileRevalidate(req, ASSET_CACHE))
+    return
+  }
+
+  // 7. Coin icon CDNs: cache-first (these URLs are immutable)
+  if (isIconHost) {
+    event.respondWith(cacheFirst(req, ICON_CACHE))
+    return
+  }
+
+  // 8. Anything else (manifest, JSON, etc.): network as-is
+})
+
+async function cacheFirst(req, cacheName) {
+  const cache = await caches.open(cacheName)
+  const hit = await cache.match(req)
+  if (hit) return hit
+  try {
+    const res = await fetch(req)
+    // Only cache successful basic/cors responses
+    if (res && (res.status === 200 || res.type === 'opaque')) {
+      cache.put(req, res.clone()).catch(() => {})
+    }
+    return res
+  } catch (e) {
+    // Last-ditch: maybe a stale entry exists in another cache
+    const fallback = await caches.match(req)
+    if (fallback) return fallback
+    throw e
+  }
+}
+
+async function staleWhileRevalidate(req, cacheName) {
+  const cache = await caches.open(cacheName)
+  const hit = await cache.match(req)
+  const networkPromise = fetch(req).then(res => {
+    if (res && res.status === 200) cache.put(req, res.clone()).catch(() => {})
+    return res
+  }).catch(() => null)
+  return hit || (await networkPromise) || new Response('', { status: 504 })
+}
+
+async function networkFirstWithShellFallback(req) {
+  try {
+    const res = await fetch(req)
+    // Cache the index.html for offline / instant repeat visits
+    if (res && res.status === 200) {
+      const cache = await caches.open(STATIC_CACHE)
+      cache.put('/index.html', res.clone()).catch(() => {})
+    }
+    return res
+  } catch {
+    const cached = await caches.match('/index.html') || await caches.match('/')
+    if (cached) return cached
+    return new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
+  }
+}
+
+// ─── push / notification (unchanged) ──────────────────────────────────────
+
 self.addEventListener('push', (event) => {
-  // Server payload shape (sent by notification-service via web-push):
-  //   { title, body, icon?, badge?, href?, tag?, data? }
   let payload = {}
   try {
     payload = event.data ? event.data.json() : {}
@@ -43,15 +159,9 @@ self.addEventListener('push', (event) => {
     body: payload.body || '',
     icon: payload.icon || '/crymadx-mark.png',
     badge: payload.badge || '/crymadx-mark.png',
-    // `tag` collapses repeat notifications of the same kind so the user's
-    // notification shade doesn't fill up with duplicates.
     tag: payload.tag || payload.category || 'default',
-    // Vibrate pattern: short-pause-short. Phones with vibrate motors honor it.
     vibrate: [80, 40, 80],
-    // Carry the deep link through to the click handler
     data: { href: payload.href, ...payload.data },
-    // Force the OS to actually show the notification — without this, browsers
-    // may suppress it if the user has the page open and focused.
     requireInteraction: false,
   }
   event.waitUntil(self.registration.showNotification(title, options))
@@ -60,23 +170,23 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const href = event.notification.data?.href || '/'
-
   event.waitUntil((async () => {
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-    // If the app is already open in a tab, focus it and navigate
     for (const client of allClients) {
-      // 'focus' reactivates the existing tab on mobile + desktop
       if ('focus' in client) {
         await client.focus()
-        // Send a message so the running app can route to the deep link
-        // without forcing a reload (which would lose state).
         client.postMessage({ type: 'navigate', href })
         return
       }
     }
-    // Otherwise open a fresh tab at the deep link
     if (self.clients.openWindow) {
       await self.clients.openWindow(href)
     }
   })())
+})
+
+// ─── messages from the page (e.g. force-skip-waiting) ─────────────────────
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting()
 })

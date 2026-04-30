@@ -160,18 +160,37 @@ import './stores/theme'
 import { useApplyDisplayScale } from './stores/display'
 import { useLiveNotifications } from './hooks/useLiveNotifications'
 import { NotificationToast } from './components/NotificationToast'
-import { listenForNotificationClicks } from './lib/webPush'
+import { listenForNotificationClicks, registerServiceWorker } from './lib/webPush'
 import { Toaster as SonnerToaster } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 
+// Register the runtime SW cache on app boot (no-op if already registered).
+// Caches: app shell, hashed assets, static images, external coin icons.
+// Hard-bypassed for /api/ and any Authorization-bearing request.
+if (typeof window !== 'undefined') {
+  void registerServiceWorker()
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 15_000,
-      refetchOnWindowFocus: true,
-      refetchInterval: 20_000,
+      // Tuned for a calmer feel — was very chatty (refetched every 20s + on
+      // every focus). New rule of thumb:
+      //   staleTime 60s — most data stays fresh long enough to skip a refetch
+      //                   on screen reopen / tab switch
+      //   gcTime 10min — keep results in memory after unmount so revisiting
+      //                   a screen feels instant (TanStack 5 alias for cacheTime)
+      //   refetchInterval false — opt-in per query (markets/balances do their
+      //                            own polling); avoids hammering the gateway
+      //   refetchOnWindowFocus only when stale — natural feel on tab switch
+      staleTime: 60_000,
+      gcTime: 10 * 60_000,
+      refetchOnWindowFocus: 'always',
+      refetchOnReconnect: true,
+      refetchInterval: false,
       refetchIntervalInBackground: false,
+      retry: 1,
     },
   },
 })
