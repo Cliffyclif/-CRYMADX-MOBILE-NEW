@@ -1,13 +1,65 @@
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { PhoneShell } from '../../components/PhoneShell'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { Icon } from '../../components/Icon'
 import { useEndpoint } from '../../api/hooks'
+import { ROUTES } from '../../routes'
 import type { Transaction } from '../../api/endpoints'
+
+/** Map a chainId / network name to its public block explorer URL template. */
+const EXPLORER: Record<string, (hash: string) => string> = {
+  // EVM
+  eth:        h => `https://etherscan.io/tx/${h}`,
+  ethereum:   h => `https://etherscan.io/tx/${h}`,
+  bsc:        h => `https://bscscan.com/tx/${h}`,
+  bnb:        h => `https://bscscan.com/tx/${h}`,
+  polygon:    h => `https://polygonscan.com/tx/${h}`,
+  matic:      h => `https://polygonscan.com/tx/${h}`,
+  pol:        h => `https://polygonscan.com/tx/${h}`,
+  arb:        h => `https://arbiscan.io/tx/${h}`,
+  arbitrum:   h => `https://arbiscan.io/tx/${h}`,
+  op:         h => `https://optimistic.etherscan.io/tx/${h}`,
+  optimism:   h => `https://optimistic.etherscan.io/tx/${h}`,
+  base:       h => `https://basescan.org/tx/${h}`,
+  avax:       h => `https://snowtrace.io/tx/${h}`,
+  avalanche:  h => `https://snowtrace.io/tx/${h}`,
+  ftm:        h => `https://ftmscan.com/tx/${h}`,
+  fantom:     h => `https://ftmscan.com/tx/${h}`,
+  // Non-EVM
+  sol:        h => `https://solscan.io/tx/${h}`,
+  solana:     h => `https://solscan.io/tx/${h}`,
+  btc:        h => `https://blockstream.info/tx/${h}`,
+  bitcoin:    h => `https://blockstream.info/tx/${h}`,
+  ltc:        h => `https://blockchair.com/litecoin/transaction/${h}`,
+  litecoin:   h => `https://blockchair.com/litecoin/transaction/${h}`,
+  doge:       h => `https://blockchair.com/dogecoin/transaction/${h}`,
+  dogecoin:   h => `https://blockchair.com/dogecoin/transaction/${h}`,
+  bch:        h => `https://blockchair.com/bitcoin-cash/transaction/${h}`,
+  tron:       h => `https://tronscan.org/#/transaction/${h}`,
+  trx:        h => `https://tronscan.org/#/transaction/${h}`,
+  xrp:        h => `https://xrpscan.com/tx/${h}`,
+  ripple:     h => `https://xrpscan.com/tx/${h}`,
+  xlm:        h => `https://stellar.expert/explorer/public/tx/${h}`,
+  stellar:    h => `https://stellar.expert/explorer/public/tx/${h}`,
+  ton:        h => `https://tonscan.org/tx/${h}`,
+  near:       h => `https://nearblocks.io/txns/${h}`,
+  cosmos:     h => `https://www.mintscan.io/cosmos/tx/${h}`,
+  atom:       h => `https://www.mintscan.io/cosmos/tx/${h}`,
+}
+
+function explorerUrl(network: string | undefined, hash: string): string | null {
+  if (!hash) return null
+  const key = (network ?? '').toLowerCase().trim()
+  if (!key) return null
+  const fn = EXPLORER[key]
+  return fn ? fn(hash) : null
+}
 
 export function TxDetail() {
   const { t } = useTranslation()
+  const nav = useNavigate()
   const { txId = '' } = useParams()
   const { data: list, isLoading } = useEndpoint<{ items: Transaction[] }>('api.tx.list')
   const tx = list?.items?.find(t => t.id === txId || t.id === decodeURIComponent(txId))
@@ -27,6 +79,49 @@ export function TxDetail() {
   const displayAmount = isConvert
     ? `${tx.amount} ${tx.asset} → ${tx.amountTo ?? '?'} ${tx.assetTo}`
     : `${sign}${tx.amount} ${baseAsset}`
+
+  // Action handlers
+  const exploreUrl = tx.txHash ? explorerUrl(tx.network, tx.txHash) : null
+  const onExplorer = () => {
+    if (!exploreUrl) {
+      toast.error(t('tx.explorerUnavailable') || (tx.txHash ? `No explorer mapped for "${tx.network ?? 'this network'}"` : 'No on-chain hash on this transaction'))
+      return
+    }
+    window.open(exploreUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  const onShare = async () => {
+    const text = isConvert
+      ? `${tx.type} ${tx.amount} ${tx.asset} → ${tx.amountTo} ${tx.assetTo} on CrymadX`
+      : `${tx.type} ${sign}${tx.amount} ${baseAsset} on CrymadX${tx.txHash ? ` · ${tx.txHash}` : ''}`
+    const navAny: any = navigator
+    try {
+      if (typeof navAny.share === 'function') {
+        await navAny.share({ title: 'CrymadX transaction', text, url: exploreUrl ?? undefined })
+        return
+      }
+      if (navAny.clipboard?.writeText) {
+        await navAny.clipboard.writeText(exploreUrl ?? text)
+        toast.success(t('tx.copiedToClipboard') || 'Copied to clipboard')
+      }
+    } catch { /* user cancelled — nothing to do */ }
+  }
+
+  const onRepeat = () => {
+    // Take the user back to the screen that originated this kind of tx,
+    // pre-filling the asset so they don't have to re-pick it.
+    if (tx.type === 'deposit' || tx.type === 'reward') {
+      nav(ROUTES['route.wallet.deposit-pick'].path)
+    } else if (tx.type === 'withdraw') {
+      nav(ROUTES['route.wallet.withdraw'].path, { state: { asset: baseAsset } })
+    } else if (tx.type === 'convert' || tx.type === 'trade') {
+      nav(ROUTES['route.wallet.convert'].path, { state: { fromAsset: baseAsset, toAsset: tx.assetTo } })
+    } else if (tx.type === 'card-topup') {
+      nav(ROUTES['route.card.topup'].path)
+    } else {
+      nav(ROUTES['route.tab.wallet'].path)
+    }
+  }
 
   return (
     <PhoneShell noTabs>
@@ -65,7 +160,13 @@ export function TxDetail() {
           <div className="t3" style={{ marginBottom: 4 }}>{t('tx.txHash')}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-strong)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.txHash}</div>
-            <button onClick={() => navigator.clipboard.writeText(tx.txHash!)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
+            <button
+              onClick={async () => {
+                try { await navigator.clipboard.writeText(tx.txHash!); toast.success(t('tx.copiedToClipboard') || 'Copied') } catch { /* noop */ }
+              }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
+              aria-label="Copy transaction hash"
+            >
               <Icon name="copy" size={12} color="var(--gl)" />
             </button>
           </div>
@@ -73,9 +174,15 @@ export function TxDetail() {
       )}
 
       <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-        <button className="btn btn-o" style={{ flex: 1, padding: 10, margin: 0 }}><Icon name="ext" size={12} /> {t('tx.explorer')}</button>
-        <button className="btn btn-o" style={{ flex: 1, padding: 10, margin: 0 }}><Icon name="share" size={12} /> {t('tx.share')}</button>
-        <button className="btn btn-o" style={{ flex: 1, padding: 10, margin: 0 }}><Icon name="refresh" size={12} /> {t('tx.repeat')}</button>
+        <button onClick={onExplorer} className="btn btn-o" style={{ flex: 1, padding: 10, margin: 0 }} disabled={!exploreUrl}>
+          <Icon name="ext" size={12} /> {t('tx.explorer')}
+        </button>
+        <button onClick={onShare} className="btn btn-o" style={{ flex: 1, padding: 10, margin: 0 }}>
+          <Icon name="share" size={12} /> {t('tx.share')}
+        </button>
+        <button onClick={onRepeat} className="btn btn-o" style={{ flex: 1, padding: 10, margin: 0 }}>
+          <Icon name="refresh" size={12} /> {t('tx.repeat')}
+        </button>
       </div>
     </PhoneShell>
   )
