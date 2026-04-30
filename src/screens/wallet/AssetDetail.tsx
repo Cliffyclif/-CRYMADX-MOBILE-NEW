@@ -40,7 +40,7 @@ const INTERVALS: Array<{ id: string; label: string; binance: string }> = [
   { id: 'All', label: 'All', binance: '1w' },
 ]
 
-interface Candle { t: number; o: number; h: number; l: number; c: number }
+interface Candle { t: number; o: number; h: number; l: number; c: number; v?: number }
 
 export function AssetDetail() {
   const { t } = useTranslation()
@@ -125,7 +125,7 @@ export function AssetDetail() {
         ))}
       </div>
 
-      <CandleChart candles={candles} positive={!!positive} />
+      <VolumeBars candles={candles} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
         <div className="t3">{priceDisplay} <span className={positive ? 'grn' : 'red'}>{positive ? '↑' : '↓'}</span></div>
@@ -169,44 +169,64 @@ export function AssetDetail() {
   )
 }
 
-// Real SVG candle chart — same approach as Spot Trading's simple-mode chart.
-function CandleChart({ candles, positive }: { candles: Array<{ t: number; o: number; h: number; l: number; c: number }>; positive: boolean }) {
+/**
+ * Volume bars — colorful histogram. Each bar's height = trading volume for
+ * that candle, scaled to the max in the window. Color = direction (green if
+ * the candle closed up, red if it closed down). Reads way better than a flat
+ * candle chart on the asset detail screen.
+ */
+function VolumeBars({ candles }: { candles: Array<{ t: number; v?: number; o: number; c: number }> }) {
+  const HEIGHT = 200
   if (!candles || candles.length === 0) {
     return (
-      <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-soft)', borderRadius: 8, color: 'var(--text-mid-30)', fontSize: 12, marginTop: 4 }}>
+      <div style={{ height: HEIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-soft)', borderRadius: 12, color: 'var(--text-mid-30)', fontSize: 12, marginTop: 6 }}>
         Loading chart…
       </div>
     )
   }
-  const W = 360, H = 140, padX = 6, padY = 8
-  const minLow = Math.min(...candles.map(c => c.l))
-  const maxHigh = Math.max(...candles.map(c => c.h))
-  const range = maxHigh - minLow || 1
-  const cw = (W - padX * 2) / candles.length
-  const y = (v: number) => padY + ((maxHigh - v) / range) * (H - padY * 2)
+  const maxVol = Math.max(0.0001, ...candles.map(c => c.v ?? 0))
+  const TARGET_BARS = 38
+  const stride = Math.max(1, Math.ceil(candles.length / TARGET_BARS))
+  const bars = candles.filter((_, i) => i % stride === 0)
+  const upCount = bars.filter(c => c.c >= c.o).length
+  const downCount = bars.length - upCount
 
   return (
-    <div style={{ marginTop: 4, background: 'var(--surface-soft)', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none">
-        {[0.25, 0.5, 0.75].map(p => (
-          <line key={p} x1="0" x2={W} y1={padY + p * (H - padY * 2)} y2={padY + p * (H - padY * 2)} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
-        ))}
-        {candles.map((c, i) => {
-          const x = padX + i * cw + cw / 2
+    <div
+      style={{
+        marginTop: 6,
+        padding: '14px 8px 10px',
+        background: 'linear-gradient(180deg, rgba(0,200,83,.04), rgba(0,0,0,0))',
+        borderRadius: 12,
+        position: 'relative',
+        height: HEIGHT,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 3, height: '100%' }}>
+        {bars.map((c) => {
+          const v = c.v ?? 0
+          const heightPct = Math.max(4, (v / maxVol) * 100)
           const isUp = c.c >= c.o
           const color = isUp ? 'var(--gl)' : 'var(--r)'
-          const top = y(Math.max(c.o, c.c))
-          const bot = y(Math.min(c.o, c.c))
+          const glow = isUp ? '0 0 6px rgba(0,200,83,.3)' : '0 0 6px rgba(239,68,68,.3)'
           return (
-            <g key={c.t}>
-              <line x1={x} x2={x} y1={y(c.h)} y2={y(c.l)} stroke={color} strokeWidth="1" />
-              <rect x={x - cw * 0.35} y={top} width={cw * 0.7} height={Math.max(1, bot - top)} fill={color} stroke={color} strokeWidth="0.5" />
-            </g>
+            <div
+              key={c.t}
+              style={{
+                flex: 1, height: `${heightPct}%`, background: color,
+                borderRadius: 2, boxShadow: glow, minWidth: 4,
+              }}
+              title={`${new Date(c.t).toLocaleString()} · vol ${v.toFixed(2)}`}
+            />
           )
         })}
-      </svg>
-      <div style={{ position: 'absolute', top: 4, right: 8, fontSize: 9, color: positive ? 'var(--gl)' : 'var(--r)', opacity: 0.7 }}>
-        {candles.length} candles
+      </div>
+      <div style={{ position: 'absolute', top: 6, right: 10, display: 'flex', gap: 6, fontSize: 10, fontWeight: 700 }}>
+        <span style={{ color: 'var(--gl)' }}>↑ {upCount}</span>
+        <span style={{ color: 'var(--r)' }}>↓ {downCount}</span>
+      </div>
+      <div style={{ position: 'absolute', top: 6, left: 10, fontSize: 10, color: 'var(--text-mid-40)', fontWeight: 600, letterSpacing: 1 }}>
+        VOLUME
       </div>
     </div>
   )
