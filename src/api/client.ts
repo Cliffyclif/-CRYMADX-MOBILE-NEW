@@ -1324,23 +1324,91 @@ const RESPONSE_ADAPTERS: Partial<Record<EndpointId, (raw: any) => any>> = {
   },
   'api.earn.staking.positions': (raw) => {
     const arr = raw?.positions ?? raw?.items ?? raw ?? []
-    return { items: Array.isArray(arr) ? arr : [] }
+    return {
+      items: (Array.isArray(arr) ? arr : []).map((p: any) => ({
+        id:         String(p.positionId ?? p.id ?? p._id ?? ''),
+        positionId: String(p.positionId ?? p.id ?? ''),
+        asset:      p.asset ?? p.token ?? p.symbol ?? '',
+        amount:     String(p.amount ?? '0'),
+        usdValue:   p.usdValue != null ? String(p.usdValue) : undefined,
+        apy:        p.apy != null ? `${parseFloat(String(p.apy)).toFixed(1)}% APY` : undefined,
+        tier:       p.tier ?? p.plan ?? undefined,
+      })),
+    }
   },
   'api.earn.savings.products': (raw) => {
     const arr = raw?.products ?? raw?.items ?? raw ?? []
     return { items: Array.isArray(arr) ? arr : [] }
   },
   'api.earn.savings.positions': (raw) => {
+    // Backend serves vault-service for both savings + vault (the legacy
+    // Aave 'savings' was deprecated). Same shape as the vault endpoint.
     const arr = raw?.positions ?? raw?.items ?? raw ?? []
-    return { items: Array.isArray(arr) ? arr : [] }
+    return {
+      items: (Array.isArray(arr) ? arr : []).map((p: any) => ({
+        id:           String(p.positionId ?? p.id ?? p._id ?? ''),
+        asset:        p.asset ?? p.token ?? '',
+        amount:       String(p.amount ?? '0'),
+        usdValue:     p.usdValue != null ? String(p.usdValue) : undefined,
+        productName:  p.planType ?? p.plan ?? 'Savings',
+        apy:          p.daysLeft != null ? `${p.daysLeft}d left` : undefined,
+      })),
+    }
   },
   'api.earn.vault.list': (raw) => {
-    const arr = raw?.products ?? raw?.items ?? raw ?? []
-    return { items: Array.isArray(arr) ? arr : [] }
+    const arr = raw?.products ?? raw?.positions ?? raw?.items ?? raw ?? []
+    return {
+      items: (Array.isArray(arr) ? arr : []).map((p: any) => ({
+        id:          String(p.positionId ?? p.id ?? p._id ?? ''),
+        asset:       p.asset ?? p.token ?? '',
+        amount:      String(p.amount ?? '0'),
+        usdValue:    p.usdValue != null ? String(p.usdValue) : undefined,
+        plan:        p.planType ?? p.plan ?? 'Vault',
+        lockedUntil: p.maturesAt ?? p.lockedUntil ?? null,
+      })),
+    }
   },
   'api.earn.autoinvest.list': (raw) => {
     const arr = raw?.plans ?? raw?.items ?? raw ?? []
     return { items: Array.isArray(arr) ? arr : [] }
+  },
+
+  // Trading — production /api/spot/orders returns { orders: SpotOrderResponse[], total }
+  // where each SpotOrderResponse has { orderId, baseAsset, quoteAsset, side,
+  // type, price, amount, filled, status, createdAt, ... }. Frontend wants
+  // { items: [{ id, pair, side, type, price, amount, status, createdAt }] }.
+  'api.trading.orders.open': (raw) => {
+    const arr = raw?.orders ?? raw?.items ?? raw ?? []
+    return {
+      items: (Array.isArray(arr) ? arr : []).map((o: any) => ({
+        id:        String(o.orderId ?? o.id ?? o._id ?? ''),
+        pair:      o.pair ?? (o.baseAsset && o.quoteAsset ? `${o.baseAsset}/${o.quoteAsset}` : (o.symbol ?? '—')),
+        side:      o.side ?? 'buy',
+        type:      o.orderType ?? o.type ?? 'limit',
+        price:     String(o.price ?? '0'),
+        amount:    String(o.amount ?? o.quantity ?? '0'),
+        filled:    String(o.filled ?? o.executedAmount ?? '0'),
+        status:    (o.status ?? 'open').toLowerCase(),
+        createdAt: o.createdAt ?? o.created_at ?? new Date().toISOString(),
+      })),
+    }
+  },
+  'api.trading.orders.history': (raw) => {
+    const arr = raw?.orders ?? raw?.items ?? raw ?? []
+    return {
+      items: (Array.isArray(arr) ? arr : []).map((o: any) => ({
+        id:        String(o.orderId ?? o.id ?? o._id ?? ''),
+        pair:      o.pair ?? (o.baseAsset && o.quoteAsset ? `${o.baseAsset}/${o.quoteAsset}` : (o.symbol ?? '—')),
+        side:      o.side ?? 'buy',
+        type:      o.orderType ?? o.type ?? 'limit',
+        price:     String(o.price ?? '0'),
+        amount:    String(o.amount ?? o.quantity ?? '0'),
+        filled:    String(o.filled ?? o.executedAmount ?? '0'),
+        status:    (o.status ?? 'filled').toLowerCase(),
+        createdAt: o.createdAt ?? o.created_at ?? new Date().toISOString(),
+        filledAt:  o.filledAt ?? o.filled_at ?? null,
+      })),
+    }
   },
 
   // P2P — production calls listings "orders" (mobile calls them "offers")
