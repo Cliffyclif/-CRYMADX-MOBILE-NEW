@@ -21,28 +21,119 @@ interface ServerNotif {
 
 function normalize(r: ServerNotif): Notif {
   const id = r.id ?? r._id ?? cryptoRandomId()
+  const type = r.type ?? 'notification'
+  // `??` only catches null/undefined, not empty strings — use a truthy
+  // helper so we fall through to template/humanType when the backend
+  // stored an empty subject (which is the default for many notification
+  // rows on the server side).
+  const firstNonEmpty = (...vals: (string | undefined | null)[]): string => {
+    for (const v of vals) if (typeof v === 'string' && v.trim().length > 0) return v
+    return ''
+  }
   return {
     id,
-    type: r.type,
-    title: r.title ?? r.subject ?? humanType(r.type),
-    body: r.body ?? r.message ?? extractBody(r.data),
-    icon: r.icon,
+    type,
+    title: firstNonEmpty(r.title, r.subject) || titleForType(type, r.data),
+    body:  firstNonEmpty(r.body, r.message, extractBody(r.data)) || bodyForType(type, r.data),
+    icon:  r.icon,
     createdAt: r.createdAt ?? r.sentAt ?? new Date().toISOString(),
-    read: r.read,
-    href: r.href ?? (r.data?.href as string | undefined),
-    tone: pickTone(r.type),
-    data: r.data,
+    read:  r.read,
+    href:  r.href ?? (r.data?.href as string | undefined),
+    tone:  pickTone(type),
+    data:  r.data,
   }
 }
 
+/** Human-readable title derived from the notification type + data payload. */
+function titleForType(type: string, data: Record<string, unknown> | undefined): string {
+  const t = type.toLowerCase()
+  const d: any = data ?? {}
+  if (/deposit/.test(t))           return 'Deposit received'
+  if (/withdraw/.test(t))          return 'Withdrawal processed'
+  if (/(swap|convert)/.test(t))    return 'Conversion complete'
+  if (/order.*fill|fill/.test(t))  return 'Order filled'
+  if (/order.*cancel/.test(t))     return 'Order cancelled'
+  if (/order.*partial/.test(t))    return 'Order partially filled'
+  if (/limit.*reach/.test(t))      return 'Limit price reached'
+  if (/stop/.test(t))              return 'Stop-loss triggered'
+  if (/staking/.test(t))           return 'Staking update'
+  if (/savings|vault/.test(t))     return 'Savings update'
+  if (/reward|bonus/.test(t))      return 'Reward earned'
+  if (/referral/.test(t))          return 'Referral activity'
+  if (/kyc/.test(t))               return 'KYC update'
+  if (/2fa|security|login/.test(t)) return 'Security alert'
+  if (/announce|broadcast|news/.test(t)) {
+    if (typeof d.title === 'string' && d.title) return d.title
+    return 'Announcement'
+  }
+  if (/promo|marketing/.test(t))   return 'New offer'
+  if (/listing/.test(t))           return 'New listing'
+  return humanType(type)
+}
+
+/** Human-readable body derived from the notification type + data payload. */
+function bodyForType(type: string, data: Record<string, unknown> | undefined): string {
+  const t = type.toLowerCase()
+  const d: any = data ?? {}
+  const fmtAmount = (a: any, asset?: any): string => {
+    const n = parseFloat(String(a ?? ''))
+    if (!isFinite(n)) return ''
+    return `${n} ${asset ?? ''}`.trim()
+  }
+  if (/deposit/.test(t) && d.amount) {
+    return `Your ${fmtAmount(d.amount, d.asset ?? d.currency)} deposit has been credited.`
+  }
+  if (/withdraw/.test(t) && d.amount) {
+    return `${fmtAmount(d.amount, d.asset ?? d.currency)} sent${d.toAddress ? ` to ${shorten(String(d.toAddress))}` : ''}.`
+  }
+  if (/(swap|convert)/.test(t) && d.fromAsset && d.toAsset) {
+    return `Converted ${fmtAmount(d.fromAmount ?? d.amount, d.fromAsset)} → ${fmtAmount(d.toAmount, d.toAsset)}.`
+  }
+  if (/order.*fill/.test(t) && d.pair) {
+    return `${String(d.side ?? '').toUpperCase()} ${fmtAmount(d.amount, String(d.pair).split('/')[0] ?? '')} @ ${d.price ?? ''}`
+  }
+  if (/limit.*reach/.test(t) && d.pair) {
+    return `${d.pair} hit ${d.targetPrice ?? d.price ?? ''}`
+  }
+  if (/reward|bonus/.test(t)) {
+    if (d.xp) return `You earned ${d.xp} XP.`
+    if (d.amount) return `You earned ${fmtAmount(d.amount, d.asset)}.`
+  }
+  if (/referral/.test(t) && (d.referredEmail || d.invitedHandle)) {
+    return `${d.referredEmail ?? d.invitedHandle} just signed up using your code.`
+  }
+  if (/kyc/.test(t) && d.status) {
+    return `Your KYC status is now ${String(d.status).replace(/_/g, ' ')}.`
+  }
+  if (/(2fa|security|login)/.test(t) && d.location) {
+    return `New sign-in from ${d.location}${d.ip ? ` (${d.ip})` : ''}.`
+  }
+  if (/announce|broadcast/.test(t)) {
+    if (typeof d.body === 'string' && d.body) return d.body
+    if (typeof d.message === 'string' && d.message) return d.message
+  }
+  // Generic fallback — flatten short string fields in `data` into a sentence.
+  const parts: string[] = []
+  for (const v of Object.values(d)) {
+    if (typeof v === 'string' && v.length > 0 && v.length < 80) parts.push(v)
+    if (parts.length >= 2) break
+  }
+  if (parts.length) return parts.join(' · ')
+  return ''
+}
+
 function humanType(type: string): string {
-  return type.replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  return (type ?? '').replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 function extractBody(data: Record<string, unknown> | undefined): string {
   if (!data) return ''
-  if (typeof data.body === 'string') return data.body
-  if (typeof data.message === 'string') return data.message
+  if (typeof data.body === 'string' && data.body) return data.body
+  if (typeof data.message === 'string' && data.message) return data.message
   return ''
+}
+function shorten(addr: string): string {
+  if (!addr || addr.length < 14) return addr
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`
 }
 function pickTone(type: string): Notif['tone'] {
   if (/security|alert|fail|error|warning/i.test(type)) return 'r'
