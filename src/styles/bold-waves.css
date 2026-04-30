@@ -363,16 +363,9 @@ body.light ::selection { background: rgba(27, 140, 62, 0.2); color: #111; }
   opacity: 0.45;
   animation: aurora-pulse 9s ease-in-out infinite;
 }
-.app-shell .aurora-bg .grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(0, 200, 83, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 200, 83, 0.05) 1px, transparent 1px);
-  background-size: 32px 32px;
-  mask-image: radial-gradient(ellipse at center, black 25%, transparent 80%);
-  -webkit-mask-image: radial-gradient(ellipse at center, black 25%, transparent 80%);
-}
+/* Grid pattern intentionally removed — too web-app-like on auth screens.
+   Aurora orbs + vignette alone give the cleaner native feel. */
+.app-shell .aurora-bg .grid { display: none; }
 .app-shell .aurora-bg .vignette {
   position: absolute;
   inset: 0;
