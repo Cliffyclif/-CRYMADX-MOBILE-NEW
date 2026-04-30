@@ -1021,18 +1021,31 @@ const REQUEST_ADAPTERS: Partial<Record<EndpointId, (body: any) => any>> = {
   // body.pin as verificationToken (backend will reject if it doesn't match
   // a real OTP token; the screen needs an OTP step to be fully functional).
   'api.wallet.withdraw.create': (body) => {
+    // Map the mobile form's { asset, network } into the chain + token shape
+    // that the balance-service withdrawal handler expects:
+    //   POST /api/balance/withdraw
+    //   { chain, amount, address, otpCode, token?, memo?, tag?, twoFactorCode? }
     const asset = String(body.asset ?? '').toUpperCase()
     const network = String(body.network ?? '').toLowerCase()
     const variant = allAssets.find(a => a.symbol.toUpperCase() === asset && a.chainId.toLowerCase() === network)
       ?? allAssets.find(a => a.symbol.toUpperCase() === asset)
-    const chain = (variant?.chainId ?? asset).toLowerCase()
+    const chain = (variant?.chainId ?? network ?? asset).toLowerCase()
     return {
       chain,
       amount: String(body.amount),
       address: body.address,
+      // The OTP the user entered (6-digit email code). Was previously
+      // sent as `verificationToken` / `pin` — backend expects `otpCode`.
+      otpCode: body.otpCode ?? body.verificationToken ?? body.pin,
+      // Optional 2FA TOTP if the user has 2FA enabled
+      twoFactorCode: body.twoFactorCode,
+      // Token symbol — distinguishes USDC on a chain from the native (e.g.
+      // chain=matic + token=USDC vs chain=matic + token=MATIC).
+      token: variant?.symbol ?? asset,
+      // Optional address-side fields for chains that need them
       memo: body.memo,
+      tag: body.tag,
       tokenAddress: body.tokenAddress,
-      verificationToken: body.verificationToken ?? body.pin,
     }
   },
 

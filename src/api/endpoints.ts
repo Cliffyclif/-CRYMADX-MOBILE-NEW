@@ -148,6 +148,11 @@ export const ENDPOINTS = {
   'api.beneficiaries.create':  { method: 'POST', path: '/beneficiaries' },
   'api.beneficiaries.delete':  { method: 'DELETE', path: '/beneficiaries/:id' },
 
+  // ---- OTP (email verification codes) ----
+  /** Trigger an email OTP. Body: `{ purpose: 'withdrawal' | 'login' | ... }` */
+  'api.otp.send':              { method: 'POST', path: '/otp/send' },
+  'api.otp.verify':            { method: 'POST', path: '/otp/verify' },
+
   // ---- Markets ----
   'api.markets.list':          { method: 'GET',  path: '/markets' },
   'api.markets.pair':          { method: 'GET',  path: '/markets/:pair' },
