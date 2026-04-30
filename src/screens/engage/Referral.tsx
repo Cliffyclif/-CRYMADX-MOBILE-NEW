@@ -57,18 +57,28 @@ export function Referral() {
       </div>
 
       <h3 style={{ marginTop: 8 }}>{t('referral.referrals')}</h3>
-      {data.items.map(r => (
-        <div key={r.id} className="li">
-          <div className="li-i" style={{ background: r.status === 'verified' ? 'rgba(0,200,83,.06)' : 'var(--surface-soft)', width: 30, height: 30 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: r.status === 'verified' ? 'var(--gl)' : 'var(--text-mid-40)' }}>{r.invitedHandle[0].toUpperCase()}</div>
-          </div>
-          <div className="li-c">
-            <div className="li-n">{r.invitedHandle}</div>
-            <div className="li-s">{r.joinedAt ? t('referral.joined', { date: new Date(r.joinedAt).toLocaleDateString() }) : t('referral.pending')} · {r.verifiedKyc ? t('referral.verified') : t('referral.noSignup')}</div>
-          </div>
-          <div className="li-r"><div className="li-v grn" style={{ fontSize: 13 }}>{r.reward}</div></div>
+      {(data.items || []).length === 0 ? (
+        <div className="g" style={{ padding: 14, textAlign: 'center' }}>
+          <div className="t3">{t('referral.noReferralsYet') || 'No referrals yet — share your code to get started.'}</div>
         </div>
-      ))}
+      ) : (
+        (data.items || []).map(r => {
+          const handle = r.invitedHandle || '?'
+          const initial = (handle.charAt(0) || '?').toUpperCase()
+          return (
+            <div key={r.id} className="li">
+              <div className="li-i" style={{ background: r.status === 'verified' ? 'rgba(0,200,83,.06)' : 'var(--surface-soft)', width: 30, height: 30 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: r.status === 'verified' ? 'var(--gl)' : 'var(--text-mid-40)' }}>{initial}</div>
+              </div>
+              <div className="li-c">
+                <div className="li-n">{handle}</div>
+                <div className="li-s">{r.joinedAt ? t('referral.joined', { date: new Date(r.joinedAt).toLocaleDateString() }) : t('referral.pending')} · {r.verifiedKyc ? t('referral.verified') : t('referral.noSignup')}</div>
+              </div>
+              <div className="li-r"><div className="li-v grn" style={{ fontSize: 13 }}>{r.reward}</div></div>
+            </div>
+          )
+        })
+      )}
     </PhoneShell>
   )
 }
