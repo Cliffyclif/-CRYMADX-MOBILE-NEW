@@ -153,6 +153,8 @@ export const ENDPOINTS = {
   'api.markets.pair':          { method: 'GET',  path: '/markets/:pair' },
   'api.markets.candles':       { method: 'GET',  path: '/markets/:pair/candles' },
   'api.markets.orderbook':     { method: 'GET',  path: '/markets/:pair/orderbook' },
+  /** Live trades stream — recent fills for a pair (Binance public proxy). */
+  'api.markets.trades':        { method: 'GET',  path: '/markets/:pair/trades' },
 
   // ---- Trading ----
   'api.trading.order.create':  { method: 'POST', path: '/trading/orders' },

@@ -38,7 +38,7 @@ const SERVICES: ServiceItem[] = [
   { id: 'p2p-buy',     label: 'P2P Trading',    icon: 'handshake',category: 'Buy Crypto', route: 'route.p2p.market' },
 
   // Trade
-  { id: 'spot',        label: 'Spot Trade',     icon: 'chart',    category: 'Trade', path: routeFor('route.trading.spot', { pair: 'BTC%2FUSDT' }), recommended: true, hot: true },
+  { id: 'spot',        label: 'Spot Trade',     icon: 'chart',    category: 'Trade', path: routeFor('route.trading.spot', { pair: 'BTC/USDT' }), recommended: true, hot: true },
   { id: 'convert',     label: 'Convert',        icon: 'swap',     category: 'Trade', route: 'route.wallet.convert', recommended: true },
   { id: 'activity',    label: 'Activity',       icon: 'trend-up', category: 'Trade', route: 'route.trading.activity' },
   { id: 'markets',     label: 'Markets',        icon: 'bar',      category: 'Trade', route: 'route.tab.markets' },

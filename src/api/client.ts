@@ -719,6 +719,27 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
     }
   },
 
+  // Markets trades — direct Binance public API (CORS-enabled)
+  'api.markets.trades': async ({ pathParams, query }) => {
+    const pair = String(pathParams.pair || '').replace('/', '').toUpperCase()
+    const limit = Math.min(parseInt(String(query.limit || 30), 10) || 30, 50)
+    if (!pair) return { items: [] }
+    const url = `https://api.binance.com/api/v3/trades?symbol=${encodeURIComponent(pair)}&limit=${limit}`
+    try {
+      const res = await fetch(url)
+      if (!res.ok) return { items: [] }
+      const raw = await res.json() as Array<any>
+      const items = raw.map(t => ({
+        id: String(t.id),
+        price: parseFloat(t.price),
+        amount: parseFloat(t.qty),
+        time: t.time as number,
+        isBuyerMaker: !!t.isBuyerMaker,
+      })).reverse()
+      return { items }
+    } catch { return { items: [] } }
+  },
+
   // Markets candles — direct Binance public API (CORS-enabled)
   'api.markets.candles': async ({ pathParams, query }) => {
     const pair = String(pathParams.pair || '').replace('/', '').toUpperCase()

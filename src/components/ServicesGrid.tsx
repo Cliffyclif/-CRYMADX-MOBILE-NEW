@@ -7,7 +7,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Icon, type IconName } from './Icon'
-import { ROUTES } from '../routes'
+import { ROUTES, routeFor } from '../routes'
 
 type Tile = {
   id: string
@@ -25,7 +25,7 @@ export function ServicesGrid() {
 
   const tiles: Tile[] = [
     { id: 'rewards', label: t('services.rewards'), icon: 'trophy',    go: () => nav(ROUTES['route.engage.rewards'].path) },
-    { id: 'trade',   label: t('services.trade'),   icon: 'chart',     go: () => nav('/trade/BTC%2FUSDT') },
+    { id: 'trade',   label: t('services.trade'),   icon: 'chart',     go: () => nav(routeFor('route.trading.spot', { pair: 'BTC/USDT' })) },
     { id: 'earn',    label: t('services.earn'),    icon: 'zap',       go: () => nav(ROUTES['route.earn.hub'].path) },
     { id: 'p2p',     label: t('services.p2p'),     icon: 'handshake', go: () => nav(ROUTES['route.p2p.market'].path) },
     { id: 'more',    label: t('services.more'),    icon: 'more',      go: () => nav(ROUTES['route.misc.services'].path) },
