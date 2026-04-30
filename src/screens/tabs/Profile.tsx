@@ -20,6 +20,11 @@ export function Profile() {
   const toggleTheme = useTheme(s => s.toggle)
   const size = useDisplay(s => s.size)
   const { data: rewards } = useEndpoint<{ xp: number; tier: string; badges: number }>('api.rewards.summary', {}, { enabled: !!user })
+  // Real KYC + API key counts so the row badges aren't hardcoded.
+  const { data: kyc } = useEndpoint<{ status?: string }>('api.user.kyc.status', {}, { enabled: !!user })
+  const { data: apiKeys } = useEndpoint<{ items?: any[] } | any[]>('api.settings.api-keys.list', {}, { enabled: !!user })
+  const apiKeyCount = Array.isArray(apiKeys) ? apiKeys.length : (apiKeys?.items?.length ?? 0)
+  const kycLabel = kycStatusLabel(kyc?.status)
   const logout = useEndpointMutation('api.auth.logout')
 
   const handleLogout = async () => {
@@ -31,17 +36,20 @@ export function Profile() {
   const langLabel = SUPPORTED_LANGUAGES.find(l => l.code === i18n.language)?.native ?? 'English'
   const sizeLabel = size === 'small' ? t('settings.small') : size === 'medium' ? t('settings.medium') : t('settings.large')
 
-  const account: Array<[IconName, string, string]> = [
-    ['shield', t('profile.kyc'), 'L2 ✓'],
-    ['lock', t('profile.security'), `${75}/100`],
-    ['key', t('settings.apiKeys'), '3'],
-    ['card', t('services.items.card'), '2'],
+  // Each row carries its OWN destination — the previous version hardcoded
+  // every Account row to /kyc, so tapping "API keys" or "Card" took the
+  // user to KYC instead of the right screen.
+  const account: Array<[IconName, string, string, () => void]> = [
+    ['shield', t('profile.kyc'),               kycLabel,                     () => nav(ROUTES['route.kyc.status'].path)],
+    ['lock',   t('profile.security'),          '',                           () => nav(ROUTES['route.security.hub'].path)],
+    ['key',    t('settings.apiKeys'),          apiKeyCount > 0 ? String(apiKeyCount) : '', () => nav(ROUTES['route.settings.api-keys'].path)],
+    ['card',   t('services.items.card'),       '',                           () => nav(ROUTES['route.card.hub'].path)],
   ]
 
-  const rewardsRows: Array<[IconName, string, string]> = [
-    ['trophy', t('services.items.rewardsHub'), `${rewards?.xp ?? 0} XP`],
-    ['gift', t('profile.referral'), '3'],
-    ['star', t('rewards.tier'), rewards?.tier ?? 'Bronze'],
+  const rewardsRows: Array<[IconName, string, string, () => void]> = [
+    ['trophy', t('services.items.rewardsHub'), `${rewards?.xp ?? 0} XP`,    () => nav(ROUTES['route.engage.rewards'].path)],
+    ['gift',   t('profile.referral'),          '',                          () => nav(ROUTES['route.engage.referral'].path)],
+    ['star',   t('rewards.tier'),              rewards?.tier ?? 'Bronze',   () => nav(ROUTES['route.engage.rewards'].path)],
   ]
 
   const prefs: Array<[IconName, string, string, () => void]> = [
@@ -64,8 +72,8 @@ export function Profile() {
         <Icon name="edit" size={14} color="var(--gl)" />
       </div>
 
-      <Section title={t('profile.myAccount').toUpperCase()} rows={account.map(([i, n, r]) => ({ icon: i, name: n, value: r, onClick: () => nav(ROUTES['route.kyc.status'].path) }))} />
-      <Section title={t('profile.rewards').toUpperCase()} rows={rewardsRows.map(([i, n, r]) => ({ icon: i, name: n, value: r, valueClass: 'grn', onClick: () => nav(ROUTES['route.engage.rewards'].path) }))} />
+      <Section title={t('profile.myAccount').toUpperCase()} rows={account.map(([i, n, r, fn]) => ({ icon: i, name: n, value: r, onClick: fn }))} />
+      <Section title={t('profile.rewards').toUpperCase()} rows={rewardsRows.map(([i, n, r, fn]) => ({ icon: i, name: n, value: r, valueClass: 'grn', onClick: fn }))} />
       <Section title={t('common.settings').toUpperCase()} rows={prefs.map(([i, n, r, fn]) => ({ icon: i, name: n, value: r, onClick: fn }))} />
 
       <button className="btn btn-r" onClick={handleLogout} style={{ marginTop: 10 }} disabled={logout.isPending}>
@@ -81,6 +89,24 @@ interface Row {
   value?: string
   valueClass?: string
   onClick?: () => void
+}
+
+function kycStatusLabel(status?: string): string {
+  switch (status) {
+    case 'approved':
+      return '✓ Verified'
+    case 'processing':
+      return 'Processing'
+    case 'pending':
+      return 'Pending'
+    case 'manual_review':
+      return 'In review'
+    case 'rejected':
+      return 'Rejected'
+    case 'none':
+    default:
+      return 'Not started'
+  }
 }
 
 function Section({ title, rows }: { title: string; rows: Row[] }) {
