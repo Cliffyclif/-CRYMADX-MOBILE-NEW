@@ -18,10 +18,18 @@ const ASSET_NAMES: Record<string, string> = {
   PYUSD: 'PayPal USD', FDUSD: 'First Digital USD',
 }
 
-// Stablecoins always quote ≈$1 — Binance has no meaningful chart for them
-// (USDC/USDT trades in a 0.0002 range), so we skip the chart + market-stats
-// fetches entirely.
+// Stablecoins quote ≈$1 — they DO have a Binance pair (USDCUSDT etc.) and
+// the chart's y-axis auto-zooms to the local range, so even 0.0002 movements
+// render as full-height candles. We just need a different "quote currency"
+// for the pair lookup (USDC pairs against USDT, USDT pairs against USDC,
+// etc.) so we don't try to chart USDT/USDT.
 const STABLECOINS = new Set(['USDT', 'USDC', 'BUSD', 'DAI', 'TUSD', 'PYUSD', 'FDUSD'])
+function quoteFor(asset: string): string {
+  // For USDT we have to quote against USDC (USDT/USDC exists on Binance);
+  // every other stablecoin and every regular asset quotes against USDT.
+  if (asset === 'USDT') return 'USDC'
+  return 'USDT'
+}
 
 const INTERVALS: Array<{ id: string; label: string; binance: string }> = [
   { id: '1H',  label: '1H',  binance: '1m' },
@@ -47,19 +55,18 @@ export function AssetDetail() {
   const { data: balRes } = useEndpoint<{ items: Balance[] }>('api.wallet.balances.list')
   const bal = balRes?.items?.find(b => b.asset.toUpperCase() === upper)
 
-  // Construct a proper trading pair for Binance — bare asset like "USDC"
-  // returns 500. Pair against USDT for everything (matches what production
-  // does on its asset detail screen). Skip for stablecoins.
-  const pairKey = isStable ? '' : `${upper}/USDT`
+  // Trading pair against the appropriate quote — USDT for nearly everything,
+  // USDC for USDT itself (so we can still chart USDT against another stable).
+  const pairKey = `${upper}/${quoteFor(upper)}`
   const { data: pair } = useEndpoint<MarketPair>('api.markets.pair', {
     pathParams: { pair: pairKey },
-  }, { enabled: !isStable, refetchInterval: 10_000 })
+  }, { refetchInterval: 10_000 })
 
   const [intervalId, setIntervalId] = useState('1D')
   const intervalDef = INTERVALS.find(i => i.id === intervalId) ?? INTERVALS[1]
   const { data: candleRes } = useEndpoint<{ items: Candle[] }>('api.markets.candles', {
     pathParams: { pair: pairKey }, query: { interval: intervalDef.binance },
-  }, { enabled: !isStable })
+  })
   const candles = candleRes?.items ?? []
 
   const { data: txs } = useEndpoint<{ items: Transaction[] }>('api.tx.list')
@@ -73,12 +80,14 @@ export function AssetDetail() {
     ).slice(0, 4)
   }, [txs?.items, upper])
 
-  // Display values — fall back to flat $1 for stablecoins
-  const priceDisplay = isStable ? '$1.00'        : (pair ? `$${pair.price}`            : '—')
-  const change24h    = isStable ? '0.00'          : (pair?.change24h ?? '—')
-  const vol24        = isStable ? null            : (pair ? `$${formatBig(pair.volume24h)}` : '—')
-  const high24       = isStable ? '$1.00'        : (pair ? `$${pair.high24h}`         : '—')
-  const low24        = isStable ? '$1.00'        : (pair ? `$${pair.low24h}`          : '—')
+  // For stablecoins we display "$1" prominently (they're meant to be ≈1
+  // anyway) but we still pull live values for the market-stats rows so the
+  // user sees real volume + the tiny intraday range.
+  const priceDisplay = isStable ? '$1.00' : (pair ? `$${pair.price}` : '—')
+  const change24h    = pair?.change24h ?? '—'
+  const vol24        = pair ? `$${formatBig(pair.volume24h)}` : '—'
+  const high24       = pair ? `$${pair.high24h}` : '—'
+  const low24        = pair ? `$${pair.low24h}`  : '—'
 
   return (
     <PhoneShell noTabs>
@@ -110,37 +119,27 @@ export function AssetDetail() {
         <button className="qa-b" onClick={() => nav(ROUTES['route.fiat.buy'].path)}><Icon name="dollar" size={16} /><span>{t('home.buy')}</span></button>
       </div>
 
-      {/* Stablecoins: skip chart, show a clean "always pegged" card instead */}
-      {isStable ? (
-        <div className="g" style={{ padding: 14, marginTop: 8, textAlign: 'center' }}>
-          <div style={{ fontSize: 32, marginBottom: 4 }}>≈</div>
-          <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-strong)' }}>{upper} is pegged to USD</div>
-          <div className="t3" style={{ marginTop: 4, lineHeight: 1.4 }}>
-            {ASSET_NAMES[upper] ?? upper} maintains a 1:1 value with the US dollar — there's no meaningful chart for a stablecoin.
-          </div>
+      <div className="tabs" style={{ fontSize: 11, marginTop: 4 }}>
+        {INTERVALS.map(i => (
+          <button key={i.id} className={`tab ${intervalId === i.id ? 'a' : ''}`} onClick={() => setIntervalId(i.id)}>{i.label}</button>
+        ))}
+      </div>
+
+      <CandleChart candles={candles} positive={!!positive} />
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+        <div className="t3">{priceDisplay} <span className={positive ? 'grn' : 'red'}>{positive ? '↑' : '↓'}</span></div>
+        <div className="t3">
+          24h: <span className={positive ? 'grn' : 'red'}>{change24h}%</span>
+          {isStable && <span className="t3" style={{ marginLeft: 6, fontSize: 10 }}>vs {quoteFor(upper)}</span>}
         </div>
-      ) : (
-        <>
-          <div className="tabs" style={{ fontSize: 11, marginTop: 4 }}>
-            {INTERVALS.map(i => (
-              <button key={i.id} className={`tab ${intervalId === i.id ? 'a' : ''}`} onClick={() => setIntervalId(i.id)}>{i.label}</button>
-            ))}
-          </div>
-
-          <CandleChart candles={candles} positive={!!positive} />
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-            <div className="t3">{priceDisplay} <span className={positive ? 'grn' : 'red'}>{positive ? '↑' : '↓'}</span></div>
-            <div className="t3">24h: <span className={positive ? 'grn' : 'red'}>{change24h}%</span></div>
-          </div>
-        </>
-      )}
+      </div>
 
       <h3 style={{ marginTop: 10 }}>{t('wallet.marketStats')}</h3>
       <div className="g" style={{ padding: 10 }}>
         {[
           [t('wallet.price'), priceDisplay],
-          ...(vol24 ? [[t('wallet.vol24'), vol24]] : []),
+          [t('wallet.vol24'), vol24],
           [t('wallet.high24'), high24],
           [t('wallet.low24'), low24],
         ].map(([k, v]) => (
