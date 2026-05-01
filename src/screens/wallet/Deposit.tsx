@@ -33,8 +33,23 @@ export function Deposit() {
   }>(
     'api.wallet.deposit.address',
     { pathParams: { asset: upper, network } },
-    { enabled: !!network },
+    {
+      enabled: !!network,
+      // Wallet provisioning is async on the backend (user-service queues
+      // missing chains via RabbitMQ; wallet-creation-service calls Tatum).
+      // First-time users hit this endpoint before their non-EVM addresses
+      // exist. Poll every 3s while the address is missing so the UI fills
+      // in by itself instead of erroring out.
+      refetchInterval: (query: any) => {
+        if (query.state.data?.address) return false
+        return 3000
+      },
+      retry: (failureCount: number, err: any) => err?.code === 'NO_ADDRESS' && failureCount < 10,
+      retryDelay: 3000,
+    },
   )
+
+  const provisioning = !!error && (error as any)?.code === 'NO_ADDRESS'
 
   // Recent deposits of THIS asset (permissive matching across asset/token/chain
   // fields plus aliases like MATIC↔POL).
@@ -90,7 +105,14 @@ export function Deposit() {
             </div>
           : <div className="g" style={{ width: 220, height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 16 }}>
               <div className="t3">
-                {isLoading || !network ? 'Loading address…' : (error ? <span className="red">{error.message}</span> : 'No address yet')}
+                {isLoading || !network ? 'Loading address…' : (
+                  provisioning ? (
+                    <span style={{ color: 'var(--gl)' }}>
+                      Setting up your {upper} wallet…<br />
+                      <span style={{ fontSize: 11, color: 'var(--text-mid-30)' }}>Usually takes 10–30s</span>
+                    </span>
+                  ) : (error ? <span className="red">{error.message}</span> : 'No address yet')
+                )}
               </div>
             </div>
         }
