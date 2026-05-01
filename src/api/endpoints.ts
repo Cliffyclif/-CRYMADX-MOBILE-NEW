@@ -187,6 +187,7 @@ export const ENDPOINTS = {
   'api.earn.staking.stake':    { method: 'POST', path: '/earn/staking/stake' },
   'api.earn.staking.unstake':  { method: 'POST', path: '/earn/staking/unstake' },
   'api.earn.staking.positions':{ method: 'GET',  path: '/earn/staking/positions' },
+  'api.earn.staking.stats':    { method: 'GET',  path: '/earn/staking/stats' },
   'api.earn.autoinvest.list':  { method: 'GET',  path: '/earn/auto-invest' },
   'api.earn.autoinvest.create':{ method: 'POST', path: '/earn/auto-invest' },
   'api.earn.autoinvest.update':{ method: 'PATCH', path: '/earn/auto-invest/:id' },

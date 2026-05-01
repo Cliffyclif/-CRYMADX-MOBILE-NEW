@@ -90,6 +90,7 @@ const REAL_PATH_OVERRIDES: Partial<Record<EndpointId, string>> = {
   'api.earn.staking.stake':     '/staking/stake',
   'api.earn.staking.unstake':   '/staking/unstake',
   'api.earn.staking.positions': '/staking/positions',
+  'api.earn.staking.stats':     '/staking/stats',
 
   // ---- Earn — Vault / Savings (vaultService.ts; main UI surfaces both as /vault) ----
   'api.earn.savings.products':  '/vault/positions',              // serves as "products + my positions"
@@ -1571,13 +1572,27 @@ const RESPONSE_ADAPTERS: Partial<Record<EndpointId, (raw: any) => any>> = {
       items: (Array.isArray(arr) ? arr : []).map((p: any) => ({
         id:         String(p.positionId ?? p.id ?? p._id ?? ''),
         positionId: String(p.positionId ?? p.id ?? ''),
-        asset:      p.asset ?? p.token ?? p.symbol ?? '',
-        amount:     String(p.amount ?? '0'),
-        usdValue:   p.usdValue != null ? String(p.usdValue) : undefined,
-        apy:        p.apy != null ? `${parseFloat(String(p.apy)).toFixed(1)}% APY` : undefined,
+        asset:      p.stakedToken ?? p.asset ?? p.token ?? p.symbol ?? '',
+        amount:     String(p.stakedAmount ?? p.amount ?? '0'),
+        earned:     String(p.rewardAmount ?? p.earned ?? '0'),
+        liquidAmount: String(p.liquidAmount ?? p.liquidTokenAmount ?? '0'),
+        // Backend returns stakedAmountUsd but currently always '0' (placeholder).
+        // Frontend computes usdValue client-side from prices when missing.
+        usdValue:   parseFloat(String(p.stakedAmountUsd ?? p.usdValue ?? '0')) > 0
+          ? String(p.stakedAmountUsd ?? p.usdValue)
+          : undefined,
+        earnedUsd:  parseFloat(String(p.rewardAmountUsd ?? '0')) > 0
+          ? String(p.rewardAmountUsd)
+          : undefined,
+        apy:        p.currentApy ?? p.apy,
         tier:       p.tier ?? p.plan ?? undefined,
       })),
     }
+  },
+  // Staking stats — { stats: { totalStaked, totalRewards, avgApy, positions } }
+  // where totalStaked / totalRewards are already USD.
+  'api.earn.staking.stats': (raw) => raw?.stats ?? raw ?? {
+    totalStaked: 0, totalRewards: 0, avgApy: 0, positions: 0,
   },
   'api.earn.savings.products': (raw) => {
     const arr = raw?.products ?? raw?.items ?? raw ?? []
