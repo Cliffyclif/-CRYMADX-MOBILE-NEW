@@ -19,6 +19,11 @@ export function Home() {
   const user = useAuth(s => s.user)
   const { data: wallet, isLoading, refetch: refetchWallet } = useEndpoint<Wallet>('api.wallet.balances.list')
   const { data: txs, refetch: refetchTxs } = useEndpoint<{ items: Transaction[] }>('api.tx.list', { query: { limit: 4 } })
+  const { data: kyc } = useEndpoint<{ level: number; status: string }>('api.user.kyc.status')
+  const kycStatus = (kyc?.status ?? '').toLowerCase()
+  const kycVerified = kycStatus === 'approved' || kycStatus === 'verified' || (kyc?.level ?? 0) >= 1
+  const kycPending  = kycStatus === 'pending' || kycStatus === 'submitted' || kycStatus === 'review'
+  const showKycBanner = !!kyc && !kycVerified
   const recent = (txs?.items ?? []).slice(0, 4)
   const greet = (() => {
     const h = new Date().getHours()
@@ -70,6 +75,38 @@ export function Home() {
           )}
         </div>
       </div>
+
+      {showKycBanner && (
+        <button
+          className="g"
+          onClick={() => nav(kycPending ? ROUTES['route.kyc.status'].path : ROUTES['route.kyc.flow'].path)}
+          style={{
+            padding: 12, marginTop: 6, display: 'flex', alignItems: 'center', gap: 10,
+            borderLeft: `3px solid ${kycPending ? 'var(--gd)' : 'var(--r)'}`,
+            width: '100%', cursor: 'pointer', border: 'none', textAlign: 'left',
+          }}
+          aria-label={kycPending ? 'KYC review in progress' : 'Verify your identity'}
+        >
+          <div style={{
+            width: 36, height: 36, borderRadius: 18, flexShrink: 0,
+            background: kycPending ? 'rgba(212,165,60,.12)' : 'rgba(239,68,68,.12)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Icon name={kycPending ? 'clock' : 'shield'} size={18} color={kycPending ? 'var(--gd)' : 'var(--r)'} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-strong)' }}>
+              {kycPending ? 'Identity verification in review' : 'Verify your identity'}
+            </div>
+            <div className="t3">
+              {kycPending
+                ? 'We’re reviewing your documents — usually takes a few hours'
+                : 'Unlock deposits, withdrawals and higher limits'}
+            </div>
+          </div>
+          <Icon name="arrow" size={14} color="var(--text-mid-40)" />
+        </button>
+      )}
 
       <button className="g" onClick={() => nav(ROUTES['route.tab.ai'].path)} style={{ padding: 10, marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, borderLeft: '3px solid var(--gl)', width: '100%', cursor: 'pointer', border: 'none', textAlign: 'left' }}>
         <img src="/crymadx-ai-mark.png" alt="" style={{ width: 36, height: 36, flexShrink: 0 }} />
