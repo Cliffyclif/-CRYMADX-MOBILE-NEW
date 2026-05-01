@@ -5,6 +5,8 @@ import { toast } from 'sonner'
 import { PhoneShell } from '../../components/PhoneShell'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { Icon } from '../../components/Icon'
+import { CountryPicker } from '../../components/CountryPicker'
+import { COUNTRIES, flagEmoji, type Country } from '../../data/countries'
 import { ROUTES } from '../../routes'
 import { useAuth } from '../../stores/auth'
 import { kycService, type KYCSubmitInput } from '../../services/kycService'
@@ -176,40 +178,137 @@ type PersonalT = {
 function PersonalStep({ value, onChange, onNext, valid }: { value: PersonalT; onChange: (v: PersonalT) => void; onNext: () => void; valid: boolean }) {
   const { t } = useTranslation()
   const set = (k: keyof PersonalT) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [k]: e.target.value })
+  const [pickerOpen, setPickerOpen] = useState<null | 'nationality' | 'country'>(null)
+  const nationalityCountry = COUNTRIES.find(c => c.name === value.nationality) || null
+  const residenceCountry   = COUNTRIES.find(c => c.name === value.country)     || null
+
   return (
     <>
-      <div className="g" style={{ padding: 14, marginTop: 8 }}>
-        <Field label={t('kyc.firstName') || 'First name'}>
-          <input className="inp" value={value.firstName} onChange={set('firstName')} placeholder={t('kyc.firstNamePh') || 'As shown on ID'} />
-        </Field>
-        <Field label={t('kyc.lastName') || 'Last name'}>
-          <input className="inp" value={value.lastName} onChange={set('lastName')} placeholder={t('kyc.lastNamePh') || 'As shown on ID'} />
-        </Field>
-        <Field label={t('kyc.dateOfBirth') || 'Date of birth'}>
-          <input className="inp" type="date" value={value.dateOfBirth} onChange={set('dateOfBirth')} />
-        </Field>
-        <Field label={t('kyc.nationality') || 'Nationality'}>
-          <input className="inp" value={value.nationality} onChange={set('nationality')} placeholder={t('kyc.nationalityPh') || 'e.g. Nigerian'} />
-        </Field>
-        <Field label={t('kyc.address') || 'Address'}>
-          <input className="inp" value={value.address} onChange={set('address')} placeholder={t('kyc.addressPh') || 'Street address'} />
-        </Field>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <Field label={t('kyc.city') || 'City'}>
-            <input className="inp" value={value.city} onChange={set('city')} />
-          </Field>
-          <Field label={t('kyc.postalCode') || 'Postal code'}>
-            <input className="inp" value={value.postalCode} onChange={set('postalCode')} />
-          </Field>
+      <div className="auth-card" style={{ marginTop: 8, padding: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <IconField label={t('kyc.firstName', { defaultValue: 'First name' })} icon="user">
+            <input value={value.firstName} onChange={set('firstName')} placeholder={t('kyc.firstNamePh', { defaultValue: 'As on ID' })} style={fieldInputStyle} />
+          </IconField>
+          <IconField label={t('kyc.lastName', { defaultValue: 'Last name' })} icon="user">
+            <input value={value.lastName} onChange={set('lastName')} placeholder={t('kyc.lastNamePh', { defaultValue: 'As on ID' })} style={fieldInputStyle} />
+          </IconField>
         </div>
-        <Field label={t('kyc.country') || 'Country'}>
-          <input className="inp" value={value.country} onChange={set('country')} placeholder={t('kyc.countryPh') || 'e.g. Nigeria'} />
-        </Field>
+
+        <IconField label={t('kyc.dateOfBirth', { defaultValue: 'Date of birth' })} icon="clock">
+          <input type="date" value={value.dateOfBirth} onChange={set('dateOfBirth')} style={{ ...fieldInputStyle, colorScheme: 'dark' }} />
+        </IconField>
+
+        <PickerField
+          label={t('kyc.nationality', { defaultValue: 'Nationality' })}
+          icon="user"
+          country={nationalityCountry}
+          placeholder={t('kyc.nationalityPh', { defaultValue: 'Select nationality' })}
+          onClick={() => setPickerOpen('nationality')}
+        />
+
+        <IconField label={t('kyc.address', { defaultValue: 'Residential address' })} icon="home">
+          <input value={value.address} onChange={set('address')} placeholder={t('kyc.addressPh', { defaultValue: 'Street and number' })} style={fieldInputStyle} />
+        </IconField>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 10 }}>
+          <IconField label={t('kyc.city', { defaultValue: 'City' })} icon="home">
+            <input value={value.city} onChange={set('city')} placeholder={t('kyc.cityPh', { defaultValue: 'e.g. Lagos' })} style={fieldInputStyle} />
+          </IconField>
+          <IconField label={t('kyc.postalCode', { defaultValue: 'Postal code' })} icon="file">
+            <input value={value.postalCode} onChange={set('postalCode')} placeholder={t('kyc.postalCodePh', { defaultValue: 'Optional' })} style={fieldInputStyle} />
+          </IconField>
+        </div>
+
+        <PickerField
+          label={t('kyc.country', { defaultValue: 'Country of residence' })}
+          icon="flag"
+          country={residenceCountry}
+          placeholder={t('kyc.countryPh', { defaultValue: 'Select country' })}
+          onClick={() => setPickerOpen('country')}
+        />
       </div>
-      <button className="btn btn-g" style={{ marginTop: 8 }} onClick={onNext} disabled={!valid}>
-        {t('common.continue') || 'Continue'}
+
+      <button className="btn btn-g" style={{ marginTop: 12 }} onClick={onNext} disabled={!valid}>
+        {t('common.continue', { defaultValue: 'Continue' })}
       </button>
+
+      <CountryPicker
+        open={pickerOpen === 'nationality'}
+        onClose={() => setPickerOpen(null)}
+        onSelect={(c: Country) => onChange({ ...value, nationality: c.name })}
+        selectedCode={nationalityCountry?.code}
+        variant="name"
+      />
+      <CountryPicker
+        open={pickerOpen === 'country'}
+        onClose={() => setPickerOpen(null)}
+        onSelect={(c: Country) => onChange({ ...value, country: c.name })}
+        selectedCode={residenceCountry?.code}
+        variant="name"
+      />
     </>
+  )
+}
+
+const fieldInputStyle: React.CSSProperties = {
+  flex: 1,
+  background: 'transparent',
+  border: 'none',
+  outline: 'none',
+  color: 'var(--text-strong)',
+  fontSize: 15,
+  fontFamily: 'inherit',
+  padding: 0,
+}
+
+function IconField({ label, icon, children }: { label: string; icon: 'user' | 'clock' | 'home' | 'file' | 'flag' | 'mail'; children: React.ReactNode }) {
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div className="t3" style={{ marginBottom: 6, fontWeight: 600, fontSize: 12, letterSpacing: 0.3, color: 'var(--text-mid-40)', textTransform: 'uppercase' }}>{label}</div>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '12px 14px',
+        background: 'rgba(255,255,255,.03)',
+        border: '1px solid rgba(255,255,255,.07)',
+        borderRadius: 12,
+      }}>
+        <Icon name={icon} size={14} color="var(--text-mid-40)" />
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function PickerField({ label, icon, country, placeholder, onClick }: { label: string; icon: 'user' | 'flag'; country: Country | null; placeholder: string; onClick: () => void }) {
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div className="t3" style={{ marginBottom: 6, fontWeight: 600, fontSize: 12, letterSpacing: 0.3, color: 'var(--text-mid-40)', textTransform: 'uppercase' }}>{label}</div>
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+          padding: '12px 14px', cursor: 'pointer', textAlign: 'left',
+          background: 'rgba(255,255,255,.03)',
+          border: '1px solid rgba(255,255,255,.07)',
+          borderRadius: 12,
+          color: 'var(--text-strong)',
+        }}
+      >
+        {country ? (
+          <>
+            <span style={{ fontSize: 18, lineHeight: 1 }}>{flagEmoji(country.code)}</span>
+            <span style={{ flex: 1, fontSize: 15 }}>{country.name}</span>
+          </>
+        ) : (
+          <>
+            <Icon name={icon} size={14} color="var(--text-mid-40)" />
+            <span style={{ flex: 1, fontSize: 15, color: 'var(--text-mid-40)' }}>{placeholder}</span>
+          </>
+        )}
+        <span style={{ color: 'var(--text-mid-40)', fontSize: 11 }}>▾</span>
+      </button>
+    </div>
   )
 }
 
