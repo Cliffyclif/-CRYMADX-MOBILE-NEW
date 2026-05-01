@@ -250,6 +250,8 @@ export const ENDPOINTS = {
   'api.security.pin.change':   { method: 'POST', path: '/security/pin' },
   'api.security.sessions.list':{ method: 'GET',  path: '/security/sessions' },
   'api.security.sessions.revoke': { method: 'DELETE', path: '/security/sessions/:sessionId' },
+  'api.security.anti-phishing.get': { method: 'GET',  path: '/user/anti-phishing' },
+  'api.security.anti-phishing.set': { method: 'POST', path: '/user/anti-phishing' },
 
   // ---- Settings ----
   'api.settings.notifications.get':    { method: 'GET',  path: '/settings/notifications' },

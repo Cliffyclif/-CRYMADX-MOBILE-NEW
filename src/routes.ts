@@ -101,6 +101,7 @@ export const ROUTES = {
   'route.security.password':   { path: '/security/password' },
   'route.security.pin':        { path: '/security/pin' },
   'route.security.sessions':   { path: '/security/sessions' },
+  'route.security.anti-phishing': { path: '/security/anti-phishing' },
 
   // KYC
   'route.kyc.status':          { path: '/kyc' },

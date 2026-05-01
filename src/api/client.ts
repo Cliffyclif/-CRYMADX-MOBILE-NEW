@@ -379,10 +379,15 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
 
     const profile = profileRes?.profile ?? profileRes ?? {}
     const twoFAEnabled = !!(profile.is2FAEnabled ?? profile.is_2fa_enabled ?? profile.twoFAEnabled)
-    const antiPhishingCode = String(
-      antiRes?.code ?? antiRes?.antiPhishingCode ?? profile.antiPhishingCode ?? '',
+    // Real /user/anti-phishing response: { isSet, maskedCode } — note the
+    // backend never returns the plain code (security). Display the masked
+    // version when set, otherwise empty.
+    const antiPhishingSet = !!(
+      antiRes?.isSet ?? antiRes?.maskedCode ?? profile.antiPhishingSet
     )
-    const antiPhishingSet = !!(antiPhishingCode || profile.antiPhishingSet)
+    const antiPhishingCode = antiPhishingSet
+      ? String(antiRes?.maskedCode ?? '••••')
+      : ''
 
     const sessionsArr: any[] = Array.isArray(sessionsRes)
       ? sessionsRes

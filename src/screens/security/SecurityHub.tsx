@@ -113,15 +113,16 @@ export function SecurityHub() {
     {
       icon: 'key',
       name: 'Backup Codes',
-      desc: data.backupCodesGenerated > 0
-        ? `${data.backupCodesGenerated} codes · ${data.backupCodesUnused} unused`
-        : 'No codes — generate after enabling 2FA',
+      desc: data.twoFAEnabled
+        ? 'Manage one-time recovery codes'
+        : 'Enable 2FA first to use backup codes',
       routeId: 'route.security.backup-codes',
     },
     {
       icon: 'eye',
       name: 'Anti-Phishing Code',
       desc: antiPhishingDisplay,
+      routeId: 'route.security.anti-phishing',
     },
     ...(lastLoginLabel
       ? [{

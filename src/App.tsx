@@ -105,6 +105,7 @@ import { BackupCodes } from './screens/security/BackupCodes'
 import { ChangePassword } from './screens/security/ChangePassword'
 import { ChangePin } from './screens/security/ChangePin'
 import { Sessions } from './screens/security/Sessions'
+import { AntiPhishing } from './screens/security/AntiPhishing'
 
 // Phase 4 — KYC
 import { KYCStatus } from './screens/kyc/KYCStatus'
@@ -317,6 +318,7 @@ function AppInner() {
           <Route path={ROUTES['route.security.password'].path}        element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
           <Route path={ROUTES['route.security.pin'].path}             element={<ProtectedRoute><ChangePin /></ProtectedRoute>} />
           <Route path={ROUTES['route.security.sessions'].path}        element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
+          <Route path={ROUTES['route.security.anti-phishing'].path}   element={<ProtectedRoute><AntiPhishing /></ProtectedRoute>} />
 
           {/* KYC */}
           <Route path={ROUTES['route.kyc.status'].path}    element={<ProtectedRoute><KYCStatus /></ProtectedRoute>} />
