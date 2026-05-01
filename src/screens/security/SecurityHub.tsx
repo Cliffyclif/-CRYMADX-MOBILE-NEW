@@ -12,7 +12,8 @@ interface SecuritySummary {
   score: number
   twoFAEnabled: boolean
   biometricEnabled?: boolean
-  passwordChangedAt: string
+  /** Null when backend doesn't track it — the row falls back to generic copy. */
+  passwordChangedAt: string | null
   backupCodesGenerated: number
   backupCodesUnused: number
   antiPhishingCode: string
@@ -88,7 +89,10 @@ export function SecurityHub() {
   }
 
   const rating = ratingLabel(data.score)
-  const passwordDays = daysAgo(data.passwordChangedAt)
+  // Only show an absolute days-ago count when the backend actually tells us
+  // when the password was last changed. Otherwise fall back to generic copy
+  // so we never lie about it.
+  const passwordDays = data.passwordChangedAt ? daysAgo(data.passwordChangedAt) : null
   const phoneShort = data.phone ? maskPhone(data.phone) : null
   const lastLoginLabel = data.lastLoginAt ? friendlyAt(data.lastLoginAt) : null
   const antiPhishingDisplay = data.antiPhishingCode && data.antiPhishingCode !== '—'
@@ -107,7 +111,14 @@ export function SecurityHub() {
     {
       icon: 'shield',
       name: 'Change Password',
-      desc: passwordDays > 0 ? `Last changed ${passwordDays} days ago` : 'Recently changed',
+      desc:
+        passwordDays === null
+          ? 'Update your password regularly'
+          : passwordDays === 0
+          ? 'Changed today'
+          : passwordDays === 1
+          ? 'Changed yesterday'
+          : `Changed ${passwordDays} days ago`,
       routeId: 'route.security.password',
     },
     {

@@ -414,7 +414,10 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
       score,
       twoFAEnabled,
       biometricEnabled: false,
-      passwordChangedAt: profile.passwordChangedAt ?? profile.createdAt ?? new Date().toISOString(),
+      // Real value only — no fallback to account-creation date. Until the
+      // backend exposes a real password_changed_at column, this is null and
+      // the UI shows generic copy instead of a fabricated "X days ago".
+      passwordChangedAt: profile.passwordChangedAt ?? null,
       backupCodesGenerated: 0,
       backupCodesUnused: 0,
       antiPhishingCode: antiPhishingCode || '—',
