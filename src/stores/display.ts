@@ -1,10 +1,13 @@
 /**
  * Display-size store — small / medium / large.
  *
- * Drives a CSS variable `--ui-scale` on the root element. The Bold Waves
- * stylesheet uses this variable to multiply font-size, gap, and padding
- * across the app. Persisted to localStorage so the user's choice survives
- * reloads.
+ * Wires CSS `zoom` on <html> so EVERY pixel-sized element (text, padding,
+ * borders, icons, layout) scales uniformly. The previous version set
+ * `--ui-scale` and multiplied the root font-size, but the codebase uses
+ * px throughout so that approach was a no-op. CSS zoom is the only way
+ * to scale a px-heavy stylesheet without rewriting every value.
+ *
+ * Persisted to localStorage so the choice survives reloads.
  */
 import { useEffect } from 'react'
 import { create } from 'zustand'
@@ -36,12 +39,19 @@ export const useDisplay = create<DisplayState>()(
 export function applyDisplayScale(size: DisplaySize) {
   if (typeof document === 'undefined') return
   const scale = SCALES[size] ?? 1
-  document.documentElement.style.setProperty('--ui-scale', String(scale))
-  document.documentElement.dataset.size = size
+  const root = document.documentElement
+  // The CSS variable drives `.app-shell { zoom: var(--ui-scale) }` — see
+  // bold-waves.css. Putting zoom on the shell (not <html>) keeps the
+  // phone-frame container at viewport size while every px-based child
+  // (text, padding, icons, layout) renders 12-25% larger. CSS `zoom` is
+  // the only mechanism that scales a px-heavy stylesheet without
+  // rewriting every value to rem.
+  root.style.setProperty('--ui-scale', String(scale))
+  root.dataset.size = size
 }
 
 /**
- * Hook used in App root: keeps the CSS variable in sync with the store.
+ * Hook used in App root: keeps the zoom in sync with the store.
  */
 export function useApplyDisplayScale() {
   const size = useDisplay(s => s.size)

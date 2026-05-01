@@ -84,9 +84,11 @@ body.light {
 html, body, #root { height: 100%; width: 100%; }
 
 /* Display-size scaling. The display store sets `--ui-scale` on <html>:
-   small=1, medium=1.12, large=1.25. We multiply the root font-size so all
-   rem-based sizes scale, and any element using `font-size: calc(N * 1px * var(--ui-scale))`
-   scales explicitly. */
+   small=1, medium=1.12, large=1.25. The actual scaling happens via CSS
+   `zoom` on `.app-shell` further down (search for "Display-size zoom") —
+   that's what makes every px-based child (text, padding, icons, layout)
+   render uniformly larger. The font-size rule below is a soft fallback
+   for any rem-based content we add later. */
 html { font-size: calc(16px * var(--ui-scale, 1)); }
 
 body {
@@ -188,6 +190,13 @@ body.light ::selection { background: rgba(27, 140, 62, 0.2); color: #111; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Display-size zoom — scales every px-based child uniformly when the
+     user picks Medium / Large in Settings. Falls back to 1 (no scaling)
+     when --ui-scale isn't set. The phone-frame container itself stays at
+     viewport size; only its CONTENT renders larger. CSS `zoom` is the
+     only mechanism that scales a px-heavy stylesheet without rewriting
+     every value to rem. */
+  zoom: var(--ui-scale, 1);
 }
 
 /* Wave decorations — top + bottom organic gradients */
