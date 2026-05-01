@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { PhoneShell } from '../../components/PhoneShell'
 import { Icon } from '../../components/Icon'
 import { ROUTES } from '../../routes'
@@ -11,13 +10,12 @@ export function VerifyEmail() {
   const { t } = useTranslation()
   const nav = useNavigate()
   const loc = useLocation()
-  const email = (loc.state as { email?: string } | null)?.email ?? ''
+  const email = (loc.state as { email?: string } | null)?.email ?? 'j***@email.com'
   const [code, setCode] = useState<string[]>(Array(6).fill(''))
   const [seconds, setSeconds] = useState(54)
   const [error, setError] = useState<string | null>(null)
   const refs = useRef<Array<HTMLInputElement | null>>([])
   const m = useEndpointMutation('api.auth.verify-email')
-  const resend = useEndpointMutation('api.auth.resend-code')
 
   useEffect(() => {
     if (seconds <= 0) return
@@ -87,27 +85,10 @@ export function VerifyEmail() {
         </button>
 
         <div className="t2" style={{ textAlign: 'center', marginTop: 14, fontSize: 14 }}>
-          {t('auth.didntReceive')}{' '}
-          {seconds > 0 ? (
-            <span className="t3">{t('auth.resendIn2', { seconds })}</span>
-          ) : (
-            <span
-              className="grn"
-              style={{ cursor: resend.isPending ? 'not-allowed' : 'pointer', opacity: resend.isPending ? 0.6 : 1 }}
-              onClick={async () => {
-                if (resend.isPending || !email) return
-                try {
-                  await resend.mutateAsync({ body: { email } })
-                  setSeconds(54)
-                  toast.success(t('auth.codeResent') || 'Code resent — check your email')
-                } catch (e: any) {
-                  toast.error(e?.message ?? 'Could not resend')
-                }
-              }}
-            >
-              {resend.isPending ? (t('auth.creating') || 'Sending…') : t('auth.resendCode')}
-            </span>
-          )}
+          {t('auth.didntReceive')} {seconds > 0
+            ? <span className="t3">{t('auth.resendIn2', { seconds })}</span>
+            : <span className="grn" style={{ cursor: 'pointer' }} onClick={() => setSeconds(54)}>{t('auth.resendCode')}</span>
+          }
         </div>
        </div>
       </form>

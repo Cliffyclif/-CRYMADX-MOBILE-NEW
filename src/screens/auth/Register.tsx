@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PhoneShell } from '../../components/PhoneShell'
 import { Icon } from '../../components/Icon'
-import { TurnstileWidget } from '../../components/TurnstileWidget'
 import { ROUTES } from '../../routes'
 import { useEndpointMutation } from '../../api/hooks'
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn'
@@ -12,14 +11,10 @@ import { haptics } from '../../lib/haptics'
 export function Register() {
   const { t } = useTranslation()
   const nav = useNavigate()
-  const loc = useLocation()
-  const refFromUrl = new URLSearchParams(loc.search).get('ref') ?? ''
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [referral, setReferral] = useState(refFromUrl)
-  const [agreed, setAgreed] = useState(false)
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [referral, setReferral] = useState('')
   const [error, setError] = useState<string | null>(null)
   const m = useEndpointMutation('api.auth.register')
   const google = useGoogleSignIn()
@@ -41,29 +36,10 @@ export function Register() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (!agreed) {
-      setError('Please accept the Terms of Service to continue')
-      return
-    }
-    if (!captchaToken) {
-      setError('Please complete the security check')
-      return
-    }
     try {
-      await m.mutateAsync({
-        body: {
-          firstName: name.split(' ')[0] ?? '',
-          lastName: name.split(' ').slice(1).join(' '),
-          email,
-          password,
-          referral,
-          captchaToken,
-        },
-      })
-      haptics.success()
+      await m.mutateAsync({ body: { firstName: name.split(' ')[0] ?? '', lastName: name.split(' ').slice(1).join(' '), email, password, referral } })
       nav(ROUTES['route.auth.verify-email'].path, { state: { email } })
     } catch (err) {
-      haptics.error()
       setError((err as Error).message)
     }
   }
@@ -107,38 +83,9 @@ export function Register() {
           <input placeholder={t('auth.referralPlaceholder')} value={referral} onChange={e => setReferral(e.target.value)} />
         </div>
 
-        {/* Terms of Service — required */}
-        <label
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 8,
-            margin: '10px 0 6px',
-            cursor: 'pointer',
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={e => setAgreed(e.target.checked)}
-            style={{ marginTop: 3, accentColor: 'var(--gl)', flexShrink: 0 }}
-          />
-          <span className="t3" style={{ fontSize: 12, lineHeight: 1.4 }}>
-            {t('auth.agreeTerms') ||
-              <>I agree to the <span className="grn">Terms of Service</span> and <span className="grn">Privacy Policy</span></>}
-          </span>
-        </label>
-
-        {/* Cloudflare Turnstile — backend's /register requires a valid token */}
-        <TurnstileWidget
-          onVerify={setCaptchaToken}
-          onExpire={() => setCaptchaToken(null)}
-          onError={() => setCaptchaToken(null)}
-        />
-
         {error && <div className="g" style={{ padding: 10, marginTop: 4, borderLeft: '3px solid var(--r)', color: 'var(--r)', fontSize: 14 }}>{error}</div>}
 
-        <button type="submit" className="btn btn-g" disabled={m.isPending || !agreed || !captchaToken}>
+        <button type="submit" className="btn btn-g" disabled={m.isPending}>
           {m.isPending ? t('auth.creating') : t('common.continue')}
         </button>
 

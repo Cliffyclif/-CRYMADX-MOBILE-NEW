@@ -17,7 +17,6 @@ import { ENDPOINTS, endpointPath, type EndpointId } from './endpoints'
 import { dispatchMock, ApiError } from '../mock/handlers'
 import { fmt, fmtPct } from '../lib/format'
 import { allAssets } from '../config/assets'
-import { isNativeApp } from '../lib/platform'
 
 type CallOpts = {
   pathParams?: Record<string, string | number>
@@ -1914,12 +1913,6 @@ export async function api<T = unknown>(
     'Accept': 'application/json',
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
-  // Tell the backend "this is the mobile APK, not the website". Auth
-  // endpoints (register / login / forgot-password) use this to skip the
-  // Cloudflare Turnstile captcha — the prod site key is locked to
-  // crymadx.io domains and the APK serves from https://localhost so the
-  // captcha can never validate inside the app.
-  if (isNativeApp()) headers['X-Mobile-App'] = '1'
 
   const method = METHOD_OVERRIDES[endpointId] ?? def.method
   const res = await fetch(url.toString(), {
