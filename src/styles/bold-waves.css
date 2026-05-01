@@ -186,13 +186,19 @@ body.light ::selection { background: rgba(27, 140, 62, 0.2); color: #111; }
      mechanism that scales a px-heavy stylesheet without rewriting every
      value to rem.
 
-     Catch: `zoom` ALSO scales the shell's own box (a 100vh shell renders
-     as 125vh at zoom 1.25, pushing BottomNav and footer off the bottom).
-     We compensate by shrinking the pre-zoom CSS dimensions by 1/scale so
-     that after zoom they land back at exactly viewport size. */
+     Catch #1: `zoom` ALSO scales the shell's own height (a 100vh shell
+     renders as 125vh at zoom 1.25, pushing BottomNav and footer off the
+     bottom). We compensate height by 1/scale so after zoom it lands at
+     viewport size.
+
+     Catch #2: width compensation creates black bands. .app-root has
+     justify-content: center, so a pre-zoom 80% wide shell gets centered
+     even though it renders at 100%. We keep width: 100% and let the
+     browser handle horizontal clipping naturally (body has
+     overflow: hidden, so any overscan past the viewport just clips). */
   zoom: var(--ui-scale, 1);
-  width: calc(100% / var(--ui-scale, 1));
-  max-width: calc(480px / var(--ui-scale, 1));
+  width: 100%;
+  max-width: 480px;
   height: calc(100vh / var(--ui-scale, 1));
   height: calc(100dvh / var(--ui-scale, 1));
   background: var(--bg);
