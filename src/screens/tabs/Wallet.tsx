@@ -43,6 +43,28 @@ export function Wallet() {
   const { data: stakingRes }  = useEndpoint<{ items: StakingPosition[] }>('api.earn.staking.positions',  {}, { enabled: tab === 'earn' })
   const { data: vaultRes }    = useEndpoint<{ items: VaultPosition[]   }>('api.earn.vault.list',          {}, { enabled: tab === 'earn' })
 
+  // Live token prices — used to fill in usdValue when the backend returns
+  // 0 (the staking/savings/vault services return stakedAmountUsd:'0' as a
+  // placeholder; for accounts whose balances were inserted manually into
+  // the DB no USD ever gets computed server-side either). We always
+  // compute a client-side equivalent so the totals reflect real value.
+  const { data: priceRes } = useEndpoint<{ prices: { symbol: string; price: number }[] }>(
+    'api.prices.list', {}, { enabled: tab === 'earn', refetchInterval: 60_000 },
+  )
+  const priceFor = (asset: string): number => {
+    const sym = String(asset || '').toUpperCase()
+    if (['USDT', 'USDC', 'DAI', 'BUSD'].includes(sym)) return 1
+    const list = priceRes?.prices ?? []
+    return list.find(p => p.symbol?.toUpperCase() === sym)?.price ?? 0
+  }
+  // Resolve the USD value for a position: prefer a non-zero server value,
+  // otherwise multiply token amount by the live price.
+  const usdFor = (asset: string, amount: string, serverUsd?: string): number => {
+    const server = parseFloat(String(serverUsd ?? '0').replace(/,/g, ''))
+    if (server > 0) return server
+    return (parseFloat(String(amount || '0').replace(/,/g, '')) || 0) * priceFor(asset)
+  }
+
   // Trading — open orders, only fetched when Trading tab is opened
   const { data: openOrdersRes } = useEndpoint<{ items: OpenOrder[] }>('api.trading.orders.open', {}, { enabled: tab === 'trading', refetchInterval: tab === 'trading' ? 10_000 : false })
 
@@ -62,25 +84,26 @@ export function Wallet() {
 
   // Earn aggregate — flatten the three position types into one list with type tags
   const earnItems = useMemo(() => {
-    const out: Array<{ id: string; asset: string; amount: string; usdValue?: string; tag: string; tagColor: string; apy?: string; href?: string }> = []
+    const out: Array<{ id: string; asset: string; amount: string; usdValue: number; tag: string; tagColor: string; apy?: string; href?: string }> = []
     for (const s of savingsRes?.items ?? []) {
-      out.push({ id: 's_' + s.id, asset: s.asset, amount: s.amount, usdValue: s.usdValue, tag: 'Savings', tagColor: 'g', apy: s.apy, href: ROUTES['route.earn.savings'].path })
+      out.push({ id: 's_' + s.id, asset: s.asset, amount: s.amount, usdValue: usdFor(s.asset, s.amount, s.usdValue), tag: 'Savings', tagColor: 'g', apy: s.apy, href: ROUTES['route.earn.savings'].path })
     }
     for (const st of stakingRes?.items ?? []) {
-      out.push({ id: 'k_' + (st.positionId ?? st.id), asset: st.asset, amount: st.amount, usdValue: st.usdValue, tag: st.tier ? `Staking · ${st.tier}` : 'Staking', tagColor: 'gd', apy: st.apy, href: ROUTES['route.earn.staking'].path })
+      out.push({ id: 'k_' + (st.positionId ?? st.id), asset: st.asset, amount: st.amount, usdValue: usdFor(st.asset, st.amount, st.usdValue), tag: st.tier ? `Staking · ${st.tier}` : 'Staking', tagColor: 'gd', apy: st.apy, href: ROUTES['route.earn.staking'].path })
     }
     for (const v of vaultRes?.items ?? []) {
       const days = v.lockedUntil ? Math.max(0, Math.ceil((new Date(v.lockedUntil).getTime() - Date.now()) / 86_400_000)) : null
-      out.push({ id: 'v_' + v.id, asset: v.asset, amount: v.amount, usdValue: v.usdValue, tag: v.plan ? `Vault · ${v.plan}` : 'Vault', tagColor: 'g', apy: days != null ? `${days}d left` : undefined, href: ROUTES['route.earn.vault'].path })
+      out.push({ id: 'v_' + v.id, asset: v.asset, amount: v.amount, usdValue: usdFor(v.asset, v.amount, v.usdValue), tag: v.plan ? `Vault · ${v.plan}` : 'Vault', tagColor: 'g', apy: days != null ? `${days}d left` : undefined, href: ROUTES['route.earn.vault'].path })
     }
     return out
-  }, [savingsRes?.items, stakingRes?.items, vaultRes?.items])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savingsRes?.items, stakingRes?.items, vaultRes?.items, priceRes?.prices])
 
   // Trading open orders — locked balances in unfilled limit orders
   const tradingItems = openOrdersRes?.items ?? []
 
   // Derived totals shown in the pill header
-  const earnTotalUsd = useMemo(() => earnItems.reduce((s, x) => s + parseFloat((x.usdValue ?? '0').replace(/,/g, '')), 0), [earnItems])
+  const earnTotalUsd = useMemo(() => earnItems.reduce((s, x) => s + (x.usdValue || 0), 0), [earnItems])
   const tradingLockedUsd = useMemo(() =>
     tradingItems.reduce((s, o) => s + (parseFloat(o.price) || 0) * (parseFloat(o.amount) || 0), 0),
   [tradingItems])
@@ -196,7 +219,7 @@ export function Wallet() {
               <div className="li-s">{p.apy ?? ''}</div>
             </div>
             <div className="li-r">
-              <div className="li-v">{hidden ? '••••' : `$${p.usdValue ?? '0.00'}`}</div>
+              <div className="li-v">{hidden ? '••••' : `$${(p.usdValue || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}</div>
               <div className="li-d">{maskIfHidden(p.amount, hidden)}</div>
             </div>
           </button>
