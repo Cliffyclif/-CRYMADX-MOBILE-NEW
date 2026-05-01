@@ -46,26 +46,24 @@ type Props = {
   onError?: () => void
 }
 
-function isLocalhostDev(): boolean {
+/**
+ * Allow-list approach: render the widget ONLY when explicitly on the
+ * production hostname. Any other context (localhost, 127.0.0.1, .local,
+ * staging subdomains, file:// when previewing, Capacitor APK, browsers
+ * with strict Trusted Types / CSP that block CF's iframe) skips the
+ * widget entirely and submits a placeholder token.
+ */
+function widgetSupported(): boolean {
   if (typeof window === 'undefined') return false
-  const h = window.location.hostname
-  return (
-    !!import.meta.env.DEV ||
-    h === 'localhost' ||
-    h === '127.0.0.1' ||
-    h.endsWith('.local')
-  )
+  if (isNativeApp()) return false
+  const allowed = (import.meta.env.VITE_CAPTCHA_HOSTS as string | undefined)
+    ?.split(',').map(s => s.trim()).filter(Boolean)
+    ?? ['mobile.crymadx.io', 'crymadx.io', 'www.crymadx.io', 'app.crymadx.io']
+  return allowed.includes(window.location.hostname)
 }
 
 export function TurnstileWidget({ onVerify, onExpire, onError }: Props) {
-  // Skip the widget entirely in two cases:
-  //   - Capacitor APK: backend bypasses captcha via X-Mobile-App header.
-  //   - Localhost dev: the widget can fail to render under strict
-  //     Trusted Types / CSP policies that some browsers enforce
-  //     globally. Backend's verifyTurnstileToken returns true for any
-  //     non-empty token when TURNSTILE_SECRET_KEY isn't configured (the
-  //     current prod state), so submitting a placeholder works.
-  const skipWidget = isNativeApp() || isLocalhostDev()
+  const skipWidget = !widgetSupported()
 
   useEffect(() => {
     if (skipWidget) onVerify(isNativeApp() ? 'mobile-bypass' : 'dev-bypass')
