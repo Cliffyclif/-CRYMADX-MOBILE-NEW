@@ -1,0 +1,73 @@
+name: Build Android APK
+
+# Triggers on every push to main, plus a manual "Run workflow" button in the
+# GitHub Actions tab. Output: a downloadable APK from the run's Artifacts.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          build-tools: '34.0.0'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
+          restore-keys: gradle-
+
+      - name: Install npm deps
+        run: npm ci --legacy-peer-deps
+
+      - name: Build web bundle
+        run: npm run build
+
+      - name: Capacitor sync
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Rename APK with commit short SHA
+        run: |
+          SHORT=$(git rev-parse --short HEAD)
+          cp android/app/build/outputs/apk/debug/app-debug.apk crymadx-${SHORT}.apk
+          ls -lh crymadx-${SHORT}.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: crymadx-debug-apk
+          path: crymadx-*.apk
+          retention-days: 30
