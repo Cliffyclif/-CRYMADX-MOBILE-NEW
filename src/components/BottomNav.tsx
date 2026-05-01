@@ -23,10 +23,15 @@ export function BottomNav() {
         <Icon name="bar" />
         <span>{t('tabs.markets')}</span>
       </button>
-      <button className="bt" onClick={() => nav(ROUTES['route.tab.ai'].path)} aria-label="CrymadX AI">
+      <button
+        className={`bt ${cur === ROUTES['route.tab.ai'].path ? 'a' : ''}`}
+        onClick={() => nav(ROUTES['route.tab.ai'].path)}
+        aria-label="CrymadX AI"
+      >
         <span className="bt-c">
           <Icon name="ai" />
         </span>
+        <span>{t('tabs.crymadxAi') || 'CrymadX AI'}</span>
       </button>
       <button className={`bt ${cur === ROUTES['route.tab.wallet'].path ? 'a' : ''}`} onClick={() => nav(ROUTES['route.tab.wallet'].path)}>
         <Icon name="wallet" />

@@ -767,6 +767,14 @@ h3 { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color
   box-shadow: 0 4px 20px rgba(27, 140, 62, 0.5);
 }
 .bt-c svg { stroke: #fff; width: 22px; height: 22px; }
+/* Label under the raised AI circle — pull it up so it baselines with the
+   other tabs' labels (the .bt-c is 60px tall and lifted -16px, vs the
+   regular 26px icons). */
+.bt-c + span {
+  margin-top: -32px;
+  position: relative;
+  z-index: 1;
+}
 
 /* =========================================================================
    Order book + candle chart (trading)
