@@ -10,16 +10,26 @@ import { ROUTES } from '../../routes'
 export function CompleteProfile() {
   const { t } = useTranslation()
   const nav = useNavigate()
-  const [firstName, setFirstName] = useState('Joseph')
-  const [lastName, setLastName] = useState('Obasi')
-  const [country, setCountry] = useState('Nigeria')
-  const [phone, setPhone] = useState('+234 801 234 5678')
-  const [referral, setReferral] = useState('')
-  const m = useEndpointMutation('api.auth.complete-profile')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [country, setCountry] = useState('')
+  const [phone, setPhone] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const m = useEndpointMutation('api.user.profile.update')
 
   const submit = async () => {
-    await m.mutateAsync({ body: { firstName, lastName, country, phone, referral } })
-    nav(ROUTES['route.tab.home'].path, { replace: true })
+    setError(null)
+    const fullName = `${firstName} ${lastName}`.trim()
+    const body: Record<string, string> = {}
+    if (fullName.length >= 2) body.fullName = fullName
+    if (phone.trim()) body.phone = phone.trim()
+    if (country.trim()) body.country = country.trim()
+    try {
+      await m.mutateAsync({ body })
+      nav(ROUTES['route.tab.home'].path, { replace: true })
+    } catch (e) {
+      setError((e as Error).message)
+    }
   }
 
   return (
@@ -38,7 +48,8 @@ export function CompleteProfile() {
         <Field label={t('auth.lastName')}  value={lastName}  onChange={setLastName} />
         <Field label={t('auth.country')}   value={country}   onChange={setCountry}  icon="flag" />
         <Field label={t('auth.phone')}     value={phone}     onChange={setPhone} />
-        <Field label={t('auth.referralPlaceholder')} value={referral} onChange={setReferral} icon="share" />
+
+        {error && <div className="g" style={{ padding: 10, marginTop: 8, borderLeft: '3px solid var(--r)', color: 'var(--r)', fontSize: 14 }}>{error}</div>}
 
         <button className="btn btn-g" style={{ marginTop: 14 }} onClick={submit} disabled={m.isPending}>
           {m.isPending ? t('auth.savingDots') : t('common.continue')}
