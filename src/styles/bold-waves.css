@@ -773,6 +773,14 @@ h3 { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color
   margin-bottom: -32px;
 }
 .bt-c svg { stroke: #fff; width: 22px; height: 22px; }
+/* Label after the raised AI circle — must sit ABOVE the circle visually
+   because the layout-shrunk circle covers the label's position. The
+   span's z-index needs its own stacking context (position) to win
+   against .bt-c's relative stacking context. */
+.bt-c + span {
+  position: relative;
+  z-index: 2;
+}
 
 /* =========================================================================
    Order book + candle chart (trading)
