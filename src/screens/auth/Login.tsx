@@ -81,7 +81,7 @@ export function Login() {
       return
     }
     try {
-      const session = await login.mutateAsync({ body: { email, password, captchaToken } }) as AuthSession & { refreshToken?: string; requires2FA?: boolean; userId?: string }
+      const session = await login.mutateAsync({ body: { email, password, captchaToken: captchaToken ?? undefined } }) as AuthSession & { refreshToken?: string; requires2FA?: boolean; userId?: string }
       if (session.requires2FA) {
         nav(ROUTES['route.auth.login-2fa'].path, { state: { email, userId: (session as any).userId } })
         return
