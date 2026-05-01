@@ -1607,6 +1607,15 @@ const RESPONSE_ADAPTERS: Partial<Record<EndpointId, (raw: any) => any>> = {
     const arr = raw?.notifications ?? raw?.items ?? (Array.isArray(raw) ? raw : []) ?? []
     return { items: arr.map(deepCamel) }
   },
+
+  // api-key-service /user/api-keys returns { keys: [...] }, NOT { items }.
+  // Normalise so screens can read .items consistently.
+  'api.settings.api-keys.list': (raw) => {
+    const arr = raw?.keys ?? raw?.data ?? raw?.items ?? (Array.isArray(raw) ? raw : []) ?? []
+    return { items: arr }
+  },
+  // Create returns the new key object inline (with apiSecret). Pass through.
+  'api.settings.api-keys.create': (raw) => raw,
   'api.announcements.list': (raw) => {
     const arr = raw?.announcements ?? raw?.items ?? (Array.isArray(raw) ? raw : []) ?? []
     return { items: arr.map(deepCamel) }
