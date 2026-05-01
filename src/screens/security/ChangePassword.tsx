@@ -327,7 +327,6 @@ function PasswordField({
           border: 'none',
           padding: 8,
           marginLeft: 6,
-          marginRight: -4,
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
