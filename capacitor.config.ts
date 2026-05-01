@@ -7,9 +7,18 @@ const config: CapacitorConfig = {
   // Server URL is intentionally NOT set — the app loads its bundle from
   // the local APK assets so it works fully offline. Live updates can be
   // wired later via @capgo/capacitor-updater without changing this.
+  // Make the WebView report mobile.crymadx.io as its origin instead of
+  // the default https://localhost. Cloudflare Turnstile (and any other
+  // origin-locked service) then sees the same hostname as the website,
+  // which is already on the Turnstile allow-list. No "localhost" entries
+  // needed in any dashboard. Files are still loaded from the APK locally
+  // — the hostname is purely how the WebView labels its document origin.
+  server: {
+    hostname: 'mobile.crymadx.io',
+    androidScheme: 'https',
+  },
   android: {
     backgroundColor: '#060d09',
-    // Allow plain http for the local emulator only (production hits HTTPS).
     allowMixedContent: false,
   },
   plugins: {
