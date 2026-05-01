@@ -5,6 +5,8 @@ import { PhoneShell } from '../../components/PhoneShell'
 import { ROUTES } from '../../routes'
 import { useAuth } from '../../stores/auth'
 
+const ONBOARDED_KEY = 'crymadx.onboarded'
+
 export function Splash() {
   const { t } = useTranslation()
   const nav = useNavigate()
@@ -12,7 +14,19 @@ export function Splash() {
 
   useEffect(() => {
     const tm = setTimeout(() => {
-      nav(user ? ROUTES['route.tab.home'].path : ROUTES['route.auth.login'].path, { replace: true })
+      // Logged-in users always go straight to home.
+      if (user) {
+        nav(ROUTES['route.tab.home'].path, { replace: true })
+        return
+      }
+      // Brand-new install / fresh storage — show the onboarding carousel
+      // before the login screen. Onboarding marks this flag on completion or
+      // skip, so existing users who already signed in once never see it
+      // again even if they sign out.
+      const seen = (() => {
+        try { return localStorage.getItem(ONBOARDED_KEY) === '1' } catch { return false }
+      })()
+      nav(seen ? ROUTES['route.auth.login'].path : ROUTES['route.onboarding'].path, { replace: true })
     }, 1400)
     return () => clearTimeout(tm)
   }, [user, nav])

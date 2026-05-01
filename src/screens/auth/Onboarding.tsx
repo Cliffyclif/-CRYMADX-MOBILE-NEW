@@ -24,6 +24,12 @@ const SLIDES: Slide[] = [
   { type: 'cta',     icon: 'shield',    titleKey: 'auth.obCtaTitle', bodyKey: 'auth.obCtaBody' },
 ]
 
+const ONBOARDED_KEY = 'crymadx.onboarded'
+
+function markOnboarded() {
+  try { localStorage.setItem(ONBOARDED_KEY, '1') } catch { /* private mode etc — best-effort */ }
+}
+
 export function Onboarding() {
   const { t } = useTranslation()
   const nav = useNavigate()
@@ -32,8 +38,19 @@ export function Onboarding() {
   const last = i === SLIDES.length - 1
 
   const next = () => {
-    if (last) nav(ROUTES['route.auth.register'].path)
-    else setI(x => x + 1)
+    if (last) {
+      markOnboarded()
+      nav(ROUTES['route.auth.register'].path)
+    } else {
+      setI(x => x + 1)
+    }
+  }
+
+  const goLogin = () => {
+    // Either "Already have account" (slide 0) or "Skip" (mid-flow). Either
+    // way we're done with onboarding for this device.
+    markOnboarded()
+    nav(ROUTES['route.auth.login'].path)
   }
 
   return (
@@ -68,7 +85,7 @@ export function Onboarding() {
 
         {!last && (
           <div className="t3" style={{ textAlign: 'center', marginTop: 8 }}>
-            <span className="grn" style={{ cursor: 'pointer' }} onClick={() => nav(ROUTES['route.auth.login'].path)}>{i === 0 ? t('auth.alreadyHaveAccount') : t('auth.skip')}</span>
+            <span className="grn" style={{ cursor: 'pointer' }} onClick={goLogin}>{i === 0 ? t('auth.alreadyHaveAccount') : t('auth.skip')}</span>
           </div>
         )}
       </div>
