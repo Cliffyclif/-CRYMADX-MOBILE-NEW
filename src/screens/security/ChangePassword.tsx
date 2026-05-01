@@ -26,15 +26,24 @@ export function ChangePassword() {
     'api.security.password.change',
   )
 
-  const strength = pw.length >= 12 ? 4 : pw.length >= 8 ? 3 : pw.length >= 4 ? 2 : 1
+  // Same 4 rules as the main website RegisterScreen — keeps the bar
+  // consistent across web + mobile. Backend (auth-service /change-password)
+  // enforces minLength 8 too, so 8 is the truth.
   const checks: Array<[boolean, string]> = [
-    [pw.length >= 12,                      t('security.req12chars')        || 'At least 12 characters'],
-    [/[a-z]/.test(pw) && /[A-Z]/.test(pw), t('security.reqMixCase')        || 'Mix of upper and lower case'],
-    [/[0-9]/.test(pw),                     t('security.reqNumber')         || 'At least one number'],
-    [/[^A-Za-z0-9]/.test(pw),              t('security.reqSpecial')        || 'At least one symbol'],
-    [pw.length > 0 && pw !== cur,          t('security.reqNotRecent')      || 'Different from your current password'],
+    [pw.length >= 8,            'At least 8 characters'],
+    [/[A-Z]/.test(pw),          'Contains an uppercase letter'],
+    [/[0-9]/.test(pw),          'Contains a number'],
+    [/[^A-Za-z0-9]/.test(pw),   'Contains a special character'],
   ]
+  // Strength: 1 weak (< 8), then +1 per extra rule satisfied beyond length.
+  const passedRulesBeyondLen = checks.slice(1).filter(([ok]) => ok).length
+  const strength = pw.length === 0
+    ? 0
+    : pw.length < 8
+    ? 1
+    : Math.min(4, 1 + passedRulesBeyondLen)
   const allChecksPass = checks.every(([ok]) => ok)
+  const matchesCurrent = pw.length > 0 && pw === cur
 
   const submit = async () => {
     setError(null)
@@ -48,6 +57,10 @@ export function ChangePassword() {
     }
     if (pw.length < 8) {
       setError('New password must be at least 8 characters')
+      return
+    }
+    if (matchesCurrent) {
+      setError('New password must be different from your current one')
       return
     }
     try {
@@ -260,7 +273,8 @@ export function ChangePassword() {
           !pw ||
           !confirm ||
           pw !== confirm ||
-          !allChecksPass
+          !allChecksPass ||
+          matchesCurrent
         }
       >
         <Icon name="lock" size={14} color="#fff" />
@@ -307,36 +321,45 @@ function PasswordField({
         onClick={onToggle}
         aria-label={show ? 'Hide password' : 'Show password'}
         aria-pressed={show}
+        title={show ? 'Hide password' : 'Show password'}
         style={{
-          background: 'none',
+          background: show ? 'rgba(0,200,83,.16)' : 'rgba(255,255,255,.06)',
           border: 'none',
-          padding: 4,
-          marginLeft: 4,
+          padding: 8,
+          marginLeft: 6,
+          marginRight: -4,
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
-          color: show ? 'var(--gl)' : 'var(--text-mid)',
+          justifyContent: 'center',
+          borderRadius: 8,
+          width: 32,
+          height: 32,
+          flexShrink: 0,
+          transition: 'background .15s',
         }}
       >
         {show ? (
           // Eye-with-slash composition (no eye-off icon in the bundle).
-          <span style={{ position: 'relative', display: 'flex' }}>
-            <Icon name="eye" size={16} color="var(--gl)" />
+          <span style={{ position: 'relative', display: 'flex', width: 18, height: 18 }}>
+            <Icon name="eye" size={18} color="var(--gl)" />
             <span
               aria-hidden
               style={{
                 position: 'absolute',
-                left: -1,
-                right: -1,
+                left: -2,
+                right: -2,
                 top: '50%',
-                height: 1.5,
+                height: 2,
                 background: 'var(--gl)',
                 transform: 'rotate(-22deg)',
+                borderRadius: 2,
+                boxShadow: '0 0 0 1.5px #0a160d',
               }}
             />
           </span>
         ) : (
-          <Icon name="eye" size={16} color="var(--text-mid)" />
+          <Icon name="eye" size={18} color="rgba(255,255,255,.85)" />
         )}
       </button>
     </div>
