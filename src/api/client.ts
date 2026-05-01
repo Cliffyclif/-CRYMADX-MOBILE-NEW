@@ -112,7 +112,8 @@ const REAL_PATH_OVERRIDES: Partial<Record<EndpointId, string>> = {
   'api.user.kyc.start':         '/kyc/initiate',
 
   // ---- Security (authService 2fa.* + userService sessions) ----
-  'api.security.summary':            '/security/summary',
+  // 'api.security.summary' has no single backend endpoint — synthesised in
+  // FALLBACK_HANDLERS by combining /user/profile + /user/sessions + /user/anti-phishing.
   'api.security.2fa.enable':         '/2fa/enable',
   'api.security.2fa.disable':        '/2fa/disable',
   'api.security.backup-codes':       '/2fa/backup-codes',
@@ -352,6 +353,62 @@ async function fetchPrices(token: string | null | undefined): Promise<Record<str
 }
 
 const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<string, string>; query: Record<string, string>; body?: any; token?: string | null }) => Promise<unknown>>> = {
+  // Security summary — backend has no /security/summary endpoint, so we
+  // build the SecuritySummary shape client-side by composing /user/profile,
+  // /user/sessions, /user/anti-phishing in parallel. Failures are tolerated:
+  // a missing call just leaves that field unknown rather than failing the
+  // whole screen.
+  'api.security.summary': async ({ token }) => {
+    const headers: Record<string, string> = { 'Accept': 'application/json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const fetchSafe = async <T>(path: string): Promise<T | null> => {
+      try {
+        const res = await fetch(`${API_BASE_URL}${path}`, { headers })
+        if (!res.ok) return null
+        return (await res.json()) as T
+      } catch {
+        return null
+      }
+    }
+
+    const [profileRes, sessionsRes, antiRes] = await Promise.all([
+      fetchSafe<any>('/user/profile'),
+      fetchSafe<any>('/user/sessions'),
+      fetchSafe<any>('/user/anti-phishing'),
+    ])
+
+    const profile = profileRes?.profile ?? profileRes ?? {}
+    const twoFAEnabled = !!(profile.is2FAEnabled ?? profile.is_2fa_enabled ?? profile.twoFAEnabled)
+    const antiPhishingCode = String(
+      antiRes?.code ?? antiRes?.antiPhishingCode ?? profile.antiPhishingCode ?? '',
+    )
+    const antiPhishingSet = !!(antiPhishingCode || profile.antiPhishingSet)
+
+    const sessionsArr: any[] = Array.isArray(sessionsRes)
+      ? sessionsRes
+      : sessionsRes?.sessions ?? sessionsRes?.items ?? []
+    const activeSessions = sessionsArr.length
+
+    // Compute a simple visible-signals security score (max 100).
+    let score = 40 // base — being signed in & having a profile
+    if (twoFAEnabled) score += 35
+    if (antiPhishingSet) score += 10
+    if (activeSessions > 0 && activeSessions <= 3) score += 10
+    if (profile.kycStatus === 'approved') score += 5
+    score = Math.min(100, Math.max(0, score))
+
+    return {
+      score,
+      twoFAEnabled,
+      biometricEnabled: false,
+      passwordChangedAt: profile.passwordChangedAt ?? profile.createdAt ?? new Date().toISOString(),
+      backupCodesGenerated: 0,
+      backupCodesUnused: 0,
+      antiPhishingCode: antiPhishingCode || '—',
+      activeSessions,
+    }
+  },
+
   // Wallet networks — derived from full assets config (568 chain combinations).
   // Returns every (asset, network) pair where this asset is supported.
   'api.wallet.networks.list': async ({ pathParams }) => {

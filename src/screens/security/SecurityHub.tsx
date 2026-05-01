@@ -19,8 +19,62 @@ interface Row {
 export function SecurityHub() {
   const { t } = useTranslation()
   const nav = useNavigate()
-  const { data } = useEndpoint<SecuritySummary>('api.security.summary')
-  if (!data) return <PhoneShell noTabs><ScreenHeader title={t('security.title')} /><div className="g" style={{ padding: 14 }}><div className="t3">{t('common.loading')}</div></div></PhoneShell>
+  const { data, isLoading, error } = useEndpoint<SecuritySummary>('api.security.summary')
+
+  if (isLoading && !data) {
+    return (
+      <PhoneShell noTabs>
+        <ScreenHeader title={t('security.title')} />
+        <div className="g" style={{ padding: 24, marginTop: 8, textAlign: 'center' }}>
+          <div className="t3">{t('common.loading') || 'Loading…'}</div>
+        </div>
+      </PhoneShell>
+    )
+  }
+
+  if (error || !data) {
+    return (
+      <PhoneShell noTabs>
+        <ScreenHeader title={t('security.title')} />
+        <div
+          className="g"
+          style={{
+            padding: 14,
+            marginTop: 8,
+            borderLeft: '3px solid var(--r)',
+            background: 'rgba(255,82,82,.06)',
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--r)' }}>
+            Could not load security summary
+          </div>
+          <div className="t3" style={{ marginTop: 4 }}>
+            {(error as any)?.message ?? 'Try again in a moment.'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+          <button
+            className="btn btn-o"
+            onClick={() => nav(ROUTES['route.security.2fa'].path)}
+          >
+            <Icon name="lock" size={14} /> Manage 2FA
+          </button>
+          <button
+            className="btn btn-o"
+            onClick={() => nav(ROUTES['route.security.password'].path)}
+          >
+            <Icon name="shield" size={14} /> Change password
+          </button>
+          <button
+            className="btn btn-o"
+            onClick={() => nav(ROUTES['route.security.sessions'].path)}
+          >
+            <Icon name="user" size={14} /> Active sessions
+          </button>
+        </div>
+      </PhoneShell>
+    )
+  }
 
   const rows: Row[] = [
     { icon: 'lock',   name: t('security.twoFactorShort'),    desc: t('security.twoFactorSub'),                                          rightLabel: data.twoFAEnabled ? t('security.enabled') : t('security.off'), rightTone: data.twoFAEnabled ? 'g' : 'r', routeId: 'route.security.2fa' },
