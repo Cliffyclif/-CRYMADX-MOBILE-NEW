@@ -57,10 +57,18 @@ export function Referral() {
   const { data: rewardsRes } = useEndpoint<RewardsResponse>('api.referral.rewards')
 
   const referralCode = code?.referralCode ?? ''
-  // Always rebuild link client-side so it points at THIS deployment, not
-  // whatever the backend hardcoded. Falls back to the host the user is on.
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://mobile.crymadx.io'
-  const referralLink = referralCode ? `${origin}/register?ref=${referralCode}` : ''
+  // Prefer the canonical referralLink the backend returns
+  // (https://crymadx.io/register?ref=…). The referral programme is tracked
+  // centrally on the main site, so links must always point there regardless
+  // of which surface generated them. Falls back to the configured public
+  // web URL only when the backend doesn't supply a link (legacy responses).
+  const PUBLIC_WEB_URL = (import.meta.env.VITE_PUBLIC_WEB_URL as string | undefined)
+    ?? 'https://crymadx.io'
+  const referralLink = code?.referralLink
+    ? code.referralLink
+    : referralCode
+      ? `${PUBLIC_WEB_URL}/register?ref=${referralCode}`
+      : ''
 
   const totalRefs    = stats?.totalReferrals ?? refsRes?.total ?? (refsRes?.referrals?.length ?? 0)
   const activeRefs   = stats?.activeReferrals ?? (refsRes?.referrals ?? []).filter(r => r.status === 'active').length
