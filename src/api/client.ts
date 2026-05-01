@@ -1220,13 +1220,19 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
 // REQUEST ADAPTERS
 // ============================================================================
 const REQUEST_ADAPTERS: Partial<Record<EndpointId, (body: any) => any>> = {
-  'api.auth.register': (body) => ({
-    fullName: `${body.firstName ?? ''} ${body.lastName ?? ''}`.trim(),
-    email: body.email,
-    password: body.password,
-    referralCode: body.referral,
-    captchaToken: body.captchaToken,
-  }),
+  'api.auth.register': (body) => {
+    const fullName = `${body.firstName ?? ''} ${body.lastName ?? ''}`.trim()
+    const referralCode = (body.referral ?? '').trim()
+    return {
+      email: body.email,
+      password: body.password,
+      captchaToken: body.captchaToken,
+      // Only include optional fields when they're valid; backend zod treats
+      // empty strings as present-but-invalid (length(8) / min(2)) and 400s.
+      ...(fullName.length >= 2 ? { fullName } : {}),
+      ...(referralCode.length === 8 ? { referralCode } : {}),
+    }
+  },
   'api.auth.verify-2fa': (body) => ({
     userId: body.userId ?? body.loginToken,
     code: body.code,
