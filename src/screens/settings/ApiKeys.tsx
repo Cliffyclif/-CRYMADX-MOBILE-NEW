@@ -35,16 +35,24 @@ interface RealApiKey {
   totalRequests?: number
 }
 
-const PERMISSION_LABELS: Record<ApiKeyPermission, string> = {
+const PERMISSION_LABELS: Record<string, string> = {
   read: 'Read',
   spot_trade: 'Trade',
+  trade: 'Trade',          // legacy alias from older keys
   staking: 'Staking',
   savings: 'Savings',
   p2p_trade: 'P2P',
+  p2p: 'P2P',              // legacy alias
   autoinvest: 'Auto-Invest',
   deposits: 'Deposits',
   withdraw: 'Withdraw',
-  crymadx_ai: 'CrymadX AI',
+  crymadx_ai: 'AI',
+}
+
+function prettyPerm(p: string): string {
+  if (PERMISSION_LABELS[p]) return PERMISSION_LABELS[p]
+  // Fallback: snake_case → Title Case
+  return p.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
 export function ApiKeys() {
@@ -182,113 +190,14 @@ export function ApiKeys() {
         </div>
       )}
 
-      {items.map(k => (
-        <button
-          key={k.id}
-          onClick={() => nav(routeFor('route.settings.api-key', { keyId: k.id }))}
-          className="g"
-          style={{
-            padding: 12,
-            margin: '6px 0',
-            width: '100%',
-            textAlign: 'left',
-            cursor: 'pointer',
-            border: 'none',
-            background: 'rgba(0,200,83,.04)',
-            borderLeft: `3px solid ${k.isActive ? 'var(--gl)' : 'var(--text-mid-30)'}`,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
-              className="li-i"
-              style={{
-                background: k.isActive ? 'rgba(0,200,83,.12)' : 'rgba(255,255,255,.05)',
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 10,
-              }}
-            >
-              <Icon name="key" size={16} color={k.isActive ? 'var(--gl)' : 'var(--text-mid)'} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: 'var(--text-strong)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {k.name}
-              </div>
-              <div
-                style={{
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  color: 'var(--text-mid)',
-                  marginTop: 2,
-                }}
-              >
-                {k.apiKeyMasked || maskKey(k.apiKey)}
-              </div>
-            </div>
-            <span
-              className={`badge ${k.isActive ? 'badge-g' : 'badge-gd'}`}
-              style={{ fontSize: 9 }}
-            >
-              {k.isActive ? 'active' : 'inactive'}
-            </span>
-          </div>
-
-          {k.permissions.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
-              {k.permissions.map(p => (
-                <span
-                  key={p}
-                  style={{
-                    fontSize: 10,
-                    padding: '2px 6px',
-                    borderRadius: 4,
-                    background: 'rgba(0,200,83,.12)',
-                    color: 'var(--gl)',
-                    fontWeight: 700,
-                  }}
-                >
-                  {PERMISSION_LABELS[p] ?? p}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11 }}>
-            <div className="t3">
-              {k.lastUsedAt
-                ? `Used ${relTime(k.lastUsedAt)}`
-                : 'Never used'}
-            </div>
-            <div className="t3">
-              {(k.totalRequests ?? 0).toLocaleString()} requests
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              gap: 8,
-              marginTop: 8,
-              paddingTop: 8,
-              borderTop: '1px solid var(--divider)',
-            }}
-          >
-            <button
-              type="button"
-              onClick={async (e) => {
-                e.stopPropagation()
+      {items.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
+          {items.map(k => (
+            <KeyCard
+              key={k.id}
+              k={k}
+              onOpen={() => nav(routeFor('route.settings.api-key', { keyId: k.id }))}
+              onCopy={async () => {
                 try {
                   await navigator.clipboard.writeText(k.apiKey)
                   toast.success('Public key copied')
@@ -296,46 +205,11 @@ export function ApiKeys() {
                   toast.error('Could not copy')
                 }
               }}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--gl)',
-                fontSize: 11,
-                fontWeight: 700,
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <Icon name="copy" size={12} color="var(--gl)" /> Copy key
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDelete(k)
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--r)',
-                fontSize: 11,
-                fontWeight: 700,
-                padding: 0,
-                marginLeft: 'auto',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <Icon name="trash" size={12} color="var(--r)" /> Delete
-            </button>
-          </div>
-        </button>
-      ))}
+              onDelete={() => handleDelete(k)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Create modal */}
       {createOpen && !createdSecret && (
@@ -367,6 +241,274 @@ export function ApiKeys() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────
+// Card — one row per saved API key. Generous spacing, clear hierarchy.
+// ─────────────────────────────────────────────────────────────────────────
+function KeyCard({
+  k,
+  onOpen,
+  onCopy,
+  onDelete,
+}: {
+  k: RealApiKey
+  onOpen: () => void
+  onCopy: () => void
+  onDelete: () => void
+}) {
+  // De-duplicate permissions in case the backend sent both `trade` and
+  // `spot_trade` for legacy keys (they map to the same label).
+  const uniquePerms = Array.from(
+    new Map(k.permissions.map((p) => [prettyPerm(p), p])).values(),
+  )
+
+  return (
+    <div
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onOpen()
+      }}
+      style={{
+        position: 'relative',
+        padding: 16,
+        borderRadius: 14,
+        background: 'rgba(0,200,83,.035)',
+        border: '1px solid rgba(255,255,255,.04)',
+        cursor: 'pointer',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Status accent stripe */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 3,
+          background: k.isActive ? 'var(--gl)' : 'var(--text-mid-30)',
+        }}
+      />
+
+      {/* HEADER ROW */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: k.isActive ? 'rgba(0,200,83,.14)' : 'rgba(255,255,255,.05)',
+            flexShrink: 0,
+          }}
+        >
+          <Icon name="key" size={20} color={k.isActive ? 'var(--gl)' : 'var(--text-mid)'} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 16,
+                fontWeight: 700,
+                color: 'var(--text-strong)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                lineHeight: 1.2,
+              }}
+            >
+              {k.name}
+            </div>
+            <span
+              style={{
+                fontSize: 9,
+                padding: '3px 9px',
+                borderRadius: 999,
+                background: k.isActive ? 'rgba(0,200,83,.16)' : 'rgba(255,255,255,.07)',
+                color: k.isActive ? 'var(--gl)' : 'var(--text-mid)',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '.6px',
+                flexShrink: 0,
+              }}
+            >
+              {k.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </div>
+          <div
+            style={{
+              fontFamily: 'monospace',
+              fontSize: 12,
+              color: 'var(--text-mid)',
+              marginTop: 6,
+              letterSpacing: '.3px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {k.apiKeyMasked || maskKey(k.apiKey)}
+          </div>
+        </div>
+      </div>
+
+      {/* PERMISSIONS */}
+      {uniquePerms.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: 'var(--text-mid)',
+              textTransform: 'uppercase',
+              letterSpacing: '.8px',
+              marginBottom: 8,
+            }}
+          >
+            Permissions
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {uniquePerms.map((p) => (
+              <span
+                key={p}
+                style={{
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  borderRadius: 6,
+                  background: 'rgba(0,200,83,.1)',
+                  color: 'var(--gl)',
+                  fontWeight: 600,
+                }}
+              >
+                {prettyPerm(p)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* USAGE STATS */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 12,
+          marginTop: 16,
+          paddingTop: 14,
+          borderTop: '1px solid rgba(255,255,255,.06)',
+        }}
+      >
+        <Stat label="Last used" value={k.lastUsedAt ? relTime(k.lastUsedAt) : 'Never'} />
+        <div style={{ width: 1, background: 'rgba(255,255,255,.06)' }} />
+        <Stat label="Requests" value={(k.totalRequests ?? 0).toLocaleString()} />
+      </div>
+
+      {/* ACTIONS */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          marginTop: 14,
+        }}
+      >
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onCopy()
+          }}
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            padding: '9px 12px',
+            borderRadius: 10,
+            background: 'rgba(0,200,83,.1)',
+            border: '1px solid rgba(0,200,83,.2)',
+            color: 'var(--gl)',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            fontFamily: 'Outfit',
+          }}
+        >
+          <Icon name="copy" size={13} color="var(--gl)" />
+          Copy key
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+          aria-label={`Delete ${k.name}`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '9px 12px',
+            borderRadius: 10,
+            background: 'rgba(255,82,82,.08)',
+            border: '1px solid rgba(255,82,82,.2)',
+            color: 'var(--r)',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            fontFamily: 'Outfit',
+            gap: 6,
+          }}
+        >
+          <Icon name="trash" size={13} color="var(--r)" />
+          Delete
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          color: 'var(--text-mid)',
+          textTransform: 'uppercase',
+          letterSpacing: '.6px',
+          marginBottom: 3,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: 13,
+          color: 'var(--text-strong)',
+          fontWeight: 600,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  )
+}
 
 function CreateModal({
   name,
