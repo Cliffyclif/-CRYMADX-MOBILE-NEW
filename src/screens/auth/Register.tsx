@@ -14,6 +14,7 @@ export function Register() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [referral, setReferral] = useState('')
   const [error, setError] = useState<string | null>(null)
   const m = useEndpointMutation('api.auth.register')
@@ -66,7 +67,10 @@ export function Register() {
         </div>
         <div className="inp">
           <Icon name="lock" size={14} />
-          <input type="password" placeholder={t('auth.createPasswordPlaceholder')} value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+          <input type={showPassword ? 'text' : 'password'} placeholder={t('auth.createPasswordPlaceholder')} value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+          <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(s => !s)} style={{ background: 'none', border: 'none', padding: 0, marginLeft: 'auto', cursor: 'pointer', display: 'flex' }}>
+            <Icon name="eye" size={14} />
+          </button>
         </div>
 
         <div style={{ margin: '8px 0' }}>
