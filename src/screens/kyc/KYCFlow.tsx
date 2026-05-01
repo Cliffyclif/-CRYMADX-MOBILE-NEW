@@ -214,7 +214,7 @@ function PersonalStep({ value, onChange, onNext, valid }: { value: PersonalT; on
           <IconField label={t('kyc.city', { defaultValue: 'City' })} icon="home">
             <input value={value.city} onChange={set('city')} placeholder={t('kyc.cityPh', { defaultValue: 'e.g. Lagos' })} style={fieldInputStyle} />
           </IconField>
-          <IconField label={t('kyc.postalCode', { defaultValue: 'Postal code' })} icon="file">
+          <IconField label={t('kyc.postalCode', { defaultValue: 'Postal code' })} icon="doc">
             <input value={value.postalCode} onChange={set('postalCode')} placeholder={t('kyc.postalCodePh', { defaultValue: 'Optional' })} style={fieldInputStyle} />
           </IconField>
         </div>
@@ -261,7 +261,7 @@ const fieldInputStyle: React.CSSProperties = {
   padding: 0,
 }
 
-function IconField({ label, icon, children }: { label: string; icon: 'user' | 'clock' | 'home' | 'file' | 'flag' | 'mail'; children: React.ReactNode }) {
+function IconField({ label, icon, children }: { label: string; icon: 'user' | 'clock' | 'home' | 'doc' | 'flag' | 'mail'; children: React.ReactNode }) {
   return (
     <div style={{ marginTop: 10 }}>
       <div className="t3" style={{ marginBottom: 6, fontWeight: 600, fontSize: 12, letterSpacing: 0.3, color: 'var(--text-mid-40)', textTransform: 'uppercase' }}>{label}</div>
@@ -634,11 +634,3 @@ function ReviewStep({ personal, docType, submit, submitting }: {
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 8 }}>
-      <div className="t3" style={{ marginBottom: 4, fontWeight: 600 }}>{label}</div>
-      {children}
-    </div>
-  )
-}
