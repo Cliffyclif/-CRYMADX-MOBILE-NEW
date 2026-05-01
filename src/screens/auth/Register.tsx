@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PhoneShell } from '../../components/PhoneShell'
 import { Icon } from '../../components/Icon'
+import { TurnstileWidget } from '../../components/TurnstileWidget'
 import { ROUTES } from '../../routes'
 import { useEndpointMutation } from '../../api/hooks'
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn'
@@ -17,6 +18,7 @@ export function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const [referral, setReferral] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const m = useEndpointMutation('api.auth.register')
   const google = useGoogleSignIn()
 
@@ -37,8 +39,12 @@ export function Register() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    if (!captchaToken) {
+      setError(t('auth.captchaRequired'))
+      return
+    }
     try {
-      await m.mutateAsync({ body: { firstName: name.split(' ')[0] ?? '', lastName: name.split(' ').slice(1).join(' '), email, password, referral } })
+      await m.mutateAsync({ body: { firstName: name.split(' ')[0] ?? '', lastName: name.split(' ').slice(1).join(' '), email, password, referral, captchaToken } })
       nav(ROUTES['route.auth.verify-email'].path, { state: { email } })
     } catch (err) {
       setError((err as Error).message)
@@ -87,9 +93,15 @@ export function Register() {
           <input placeholder={t('auth.referralPlaceholder')} value={referral} onChange={e => setReferral(e.target.value)} />
         </div>
 
+        <TurnstileWidget
+          onVerify={(t) => { setCaptchaToken(t); setError(null) }}
+          onExpire={() => setCaptchaToken(null)}
+          onError={() => { setCaptchaToken(null); setError('Security check failed — please retry') }}
+        />
+
         {error && <div className="g" style={{ padding: 10, marginTop: 4, borderLeft: '3px solid var(--r)', color: 'var(--r)', fontSize: 14 }}>{error}</div>}
 
-        <button type="submit" className="btn btn-g" disabled={m.isPending}>
+        <button type="submit" className="btn btn-g" disabled={m.isPending || !captchaToken}>
           {m.isPending ? t('auth.creating') : t('common.continue')}
         </button>
 
