@@ -181,22 +181,25 @@ body.light ::selection { background: rgba(27, 140, 62, 0.2); color: #111; }
 }
 
 .app-shell {
-  width: 100%;
-  max-width: 480px;
-  height: 100vh;
-  height: 100dvh;
+  /* Display-size zoom — scales every px-based child uniformly when the
+     user picks Medium / Large in Settings. CSS `zoom` is the only
+     mechanism that scales a px-heavy stylesheet without rewriting every
+     value to rem.
+
+     Catch: `zoom` ALSO scales the shell's own box (a 100vh shell renders
+     as 125vh at zoom 1.25, pushing BottomNav and footer off the bottom).
+     We compensate by shrinking the pre-zoom CSS dimensions by 1/scale so
+     that after zoom they land back at exactly viewport size. */
+  zoom: var(--ui-scale, 1);
+  width: calc(100% / var(--ui-scale, 1));
+  max-width: calc(480px / var(--ui-scale, 1));
+  height: calc(100vh / var(--ui-scale, 1));
+  height: calc(100dvh / var(--ui-scale, 1));
   background: var(--bg);
   position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* Display-size zoom — scales every px-based child uniformly when the
-     user picks Medium / Large in Settings. Falls back to 1 (no scaling)
-     when --ui-scale isn't set. The phone-frame container itself stays at
-     viewport size; only its CONTENT renders larger. CSS `zoom` is the
-     only mechanism that scales a px-heavy stylesheet without rewriting
-     every value to rem. */
-  zoom: var(--ui-scale, 1);
 }
 
 /* Wave decorations — top + bottom organic gradients */
