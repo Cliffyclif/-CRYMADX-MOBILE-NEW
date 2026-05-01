@@ -38,14 +38,11 @@ export function Deposit() {
       // Wallet provisioning is async on the backend (user-service queues
       // missing chains via RabbitMQ; wallet-creation-service calls Tatum).
       // First-time users hit this endpoint before their non-EVM addresses
-      // exist. Poll every 3s while the address is missing so the UI fills
-      // in by itself instead of erroring out.
-      refetchInterval: (query: any) => {
-        if (query.state.data?.address) return false
-        return 3000
-      },
-      retry: (failureCount: number, err: any) => err?.code === 'NO_ADDRESS' && failureCount < 10,
-      retryDelay: 3000,
+      // exist. Don't retry within a single fetch — let the error surface
+      // immediately, then poll every 3s until the address appears so the
+      // UI fills in by itself.
+      retry: false,
+      refetchInterval: (query: any) => (query.state.data?.address ? false : 3000),
     },
   )
 
