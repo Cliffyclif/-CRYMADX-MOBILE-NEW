@@ -75,8 +75,7 @@ export function Login() {
   const submit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     setError(null)
-    // Captcha required on web; skipped on Capacitor (backend bypass via header).
-    if (!captchaToken && !(typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.())) {
+    if (!captchaToken) {
       setError(t('auth.captchaRequired'))
       return
     }
@@ -132,7 +131,7 @@ export function Login() {
 
         {error && <div className="g" style={{ padding: 10, marginTop: 4, borderLeft: '3px solid var(--r)', color: 'var(--r)', fontSize: 14 }}>{error}</div>}
 
-        <button type="submit" className="btn btn-g" disabled={login.isPending || (!captchaToken && !(typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()))}>
+        <button type="submit" className="btn btn-g" disabled={login.isPending || !captchaToken}>
           {login.isPending ? t('auth.signingIn') : `${t('auth.signIn')} →`}
         </button>
 
