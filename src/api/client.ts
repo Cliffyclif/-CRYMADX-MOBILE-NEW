@@ -397,6 +397,14 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
     if (profile.kycStatus === 'approved') score += 5
     score = Math.min(100, Math.max(0, score))
 
+    // Pull the most recent session timestamp for the "last login" row.
+    const sortedSessions = [...sessionsArr].sort((a, b) => {
+      const ta = new Date(a.createdAt ?? a.lastUsedAt ?? a.lastUsed ?? a.created_at ?? 0).getTime()
+      const tb = new Date(b.createdAt ?? b.lastUsedAt ?? b.lastUsed ?? b.created_at ?? 0).getTime()
+      return tb - ta
+    })
+    const lastLoginAt = sortedSessions[0]?.createdAt ?? sortedSessions[0]?.lastUsedAt ?? null
+
     return {
       score,
       twoFAEnabled,
@@ -406,6 +414,11 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
       backupCodesUnused: 0,
       antiPhishingCode: antiPhishingCode || '—',
       activeSessions,
+      // Extra fields the SecurityHub uses (not in the legacy mock type).
+      phone: profile.phone ?? null,
+      phoneVerified: !!profile.phoneVerified,
+      kycStatus: profile.kycStatus ?? 'none',
+      lastLoginAt,
     }
   },
 
