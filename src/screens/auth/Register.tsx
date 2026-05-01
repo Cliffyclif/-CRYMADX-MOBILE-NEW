@@ -8,6 +8,7 @@ import { ROUTES } from '../../routes'
 import { useEndpointMutation } from '../../api/hooks'
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn'
 import { haptics } from '../../lib/haptics'
+import { isNativeApp } from '../../lib/platform'
 
 export function Register() {
   const { t } = useTranslation()
@@ -45,7 +46,10 @@ export function Register() {
       setError('Please accept the Terms of Service to continue')
       return
     }
-    if (!captchaToken) {
+    // Captcha is required on the web (Cloudflare Turnstile widget). Skipped
+    // inside the APK — the backend bypasses captcha when the request carries
+    // X-Mobile-App: 1 (set automatically by api/client.ts in Capacitor).
+    if (!isNativeApp() && !captchaToken) {
       setError('Please complete the security check')
       return
     }
@@ -138,7 +142,11 @@ export function Register() {
 
         {error && <div className="g" style={{ padding: 10, marginTop: 4, borderLeft: '3px solid var(--r)', color: 'var(--r)', fontSize: 14 }}>{error}</div>}
 
-        <button type="submit" className="btn btn-g" disabled={m.isPending || !agreed || !captchaToken}>
+        <button
+          type="submit"
+          className="btn btn-g"
+          disabled={m.isPending || !agreed || (!isNativeApp() && !captchaToken)}
+        >
           {m.isPending ? t('auth.creating') : t('common.continue')}
         </button>
 
