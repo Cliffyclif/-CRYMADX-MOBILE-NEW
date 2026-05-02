@@ -537,6 +537,40 @@ iframe[src*="challenges.cloudflare.com"] {
   max-width: 100%;
 }
 
+/* Turnstile host — centers a 300x65 widget; on viewports narrower than
+   320px (Fold cover, very small phones), proportionally scale the iframe
+   so it never overflows the auth-card content area. We use a CSS scale
+   transform on the iframe directly so the layout box shrinks with it
+   (transform alone leaves the box at 300×65 and clips). */
+.turnstile-host {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 10px 0;
+  min-width: 0;
+}
+.turnstile-host > div { max-width: 100%; }
+.turnstile-host iframe { max-width: 100% !important; }
+@media (max-width: 320px) {
+  .turnstile-host {
+    /* 0.92 fits a 300×65 widget into ~276px container with a 4px buffer */
+    transform: scale(0.92);
+    transform-origin: top center;
+    margin: 6px 0 0;
+  }
+}
+@media (max-width: 280px) {
+  .turnstile-host { transform: scale(0.82); }
+}
+
+/* Inputs with a trailing button (e.g. password show/hide eye) — give the
+   action button a small left margin so it doesn't sit flush against the
+   text caret. */
+.inp > button[type="button"] {
+  padding: 4px 0 4px 8px;
+  margin-right: -2px;
+}
+
 /* Desktop frame — give the appearance of a phone for review */
 @media (min-width: 768px) {
   .app-root { padding: 24px; align-items: flex-start; }

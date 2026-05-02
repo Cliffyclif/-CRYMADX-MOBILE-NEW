@@ -27,17 +27,18 @@ type Props = {
 }
 
 export function TurnstileWidget({ onVerify, onExpire, onError }: Props) {
+  // 'normal' size = deterministic 300×65 widget that centers in the row.
+  // 'flexible' was overflowing the auth-card content area on some phones
+  // because Cloudflare expanded it beyond the container's actual width.
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0', width: '100%', minWidth: 0, overflow: 'hidden' }}>
-      <div style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
-        <Turnstile
-          siteKey={SITE_KEY}
-          onSuccess={onVerify}
-          onExpire={onExpire}
-          onError={onError}
-          options={{ theme: 'auto', size: 'flexible' }}
-        />
-      </div>
+    <div className="turnstile-host">
+      <Turnstile
+        siteKey={SITE_KEY}
+        onSuccess={onVerify}
+        onExpire={onExpire}
+        onError={onError}
+        options={{ theme: 'auto', size: 'normal' }}
+      />
     </div>
   )
 }
