@@ -107,7 +107,7 @@ export const ENDPOINTS = {
   // ---- Auth ----
   'api.auth.register':         { method: 'POST', path: '/auth/register' },
   'api.auth.verify-email':     { method: 'POST', path: '/auth/verify-email' },
-  'api.auth.resend-code':      { method: 'POST', path: '/auth/resend-code' },
+  'api.auth.resend-code':      { method: 'POST', path: '/auth/resend-verification' },
   'api.auth.complete-profile': { method: 'POST', path: '/auth/complete-profile' },
   'api.auth.login':            { method: 'POST', path: '/auth/login' },
   /** Google sign-in. Body: { credential: <Google access token> }. Returns the

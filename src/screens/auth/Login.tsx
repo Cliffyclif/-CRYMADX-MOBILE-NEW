@@ -23,8 +23,10 @@ export function Login() {
   const [show, setShow] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
 
   const login = useEndpointMutation<{ body: { email: string; password: string; captchaToken?: string } }, AuthSession>('api.auth.login')
+  const resend = useEndpointMutation<{ body: { email: string } }, { message: string }>('api.auth.resend-code')
   const { biometricEnabled, biometricAvailable, authenticate } = useBiometricLock(false)
   const google = useGoogleSignIn()
 
@@ -129,7 +131,31 @@ export function Login() {
           onError={() => { setCaptchaToken(null); setError('Security check failed — please retry') }}
         />
 
-        {error && <div className="g" style={{ padding: 10, marginTop: 4, borderLeft: '3px solid var(--r)', color: 'var(--r)', fontSize: 14 }}>{error}</div>}
+        {error && (
+          <div className="g" style={{ padding: 10, marginTop: 4, borderLeft: '3px solid var(--r)', color: 'var(--r)', fontSize: 14 }}>
+            <div>{error}</div>
+            {/email.*not.*verified|verify.*your.*email/i.test(error) && (
+              <button
+                type="button"
+                disabled={resend.isPending}
+                onClick={async () => {
+                  setError(null); setInfo(null)
+                  try {
+                    await resend.mutateAsync({ body: { email } })
+                    setInfo('Verification code sent. Check your inbox, then enter it on the next screen.')
+                    setTimeout(() => nav(ROUTES['route.auth.verify-email'].path, { state: { email } }), 800)
+                  } catch (e) {
+                    setError((e as Error).message)
+                  }
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--gl)', fontWeight: 700, padding: 0, marginTop: 6, cursor: 'pointer', fontSize: 14 }}
+              >
+                {resend.isPending ? 'Sending code…' : 'Resend verification code →'}
+              </button>
+            )}
+          </div>
+        )}
+        {info && <div className="g" style={{ padding: 10, marginTop: 4, borderLeft: '3px solid var(--gl)', color: 'var(--gl)', fontSize: 14 }}>{info}</div>}
 
         <button type="submit" className="btn btn-g" disabled={login.isPending || !captchaToken}>
           {login.isPending ? t('auth.signingIn') : `${t('auth.signIn')} →`}

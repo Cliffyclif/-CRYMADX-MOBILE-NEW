@@ -15,7 +15,9 @@ export function VerifyEmail() {
   const [seconds, setSeconds] = useState(54)
   const [error, setError] = useState<string | null>(null)
   const refs = useRef<Array<HTMLInputElement | null>>([])
+  const [info, setInfo] = useState<string | null>(null)
   const m = useEndpointMutation('api.auth.verify-email')
+  const resend = useEndpointMutation('api.auth.resend-code')
 
   useEffect(() => {
     if (seconds <= 0) return
@@ -42,6 +44,18 @@ export function VerifyEmail() {
     try {
       await m.mutateAsync({ body: { code: joined, email } })
       nav(ROUTES['route.auth.complete-profile'].path)
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }
+
+  const handleResend = async () => {
+    setError(null)
+    setInfo(null)
+    try {
+      await resend.mutateAsync({ body: { email } })
+      setInfo('A new code has been sent to your email.')
+      setSeconds(54)
     } catch (err) {
       setError((err as Error).message)
     }
@@ -79,6 +93,7 @@ export function VerifyEmail() {
         </div>
 
         {error && <div className="g" style={{ padding: 10, marginBottom: 8, borderLeft: '3px solid var(--r)', color: 'var(--r)', fontSize: 14 }}>{error}</div>}
+        {info && <div className="g" style={{ padding: 10, marginBottom: 8, borderLeft: '3px solid var(--gl)', color: 'var(--gl)', fontSize: 14 }}>{info}</div>}
 
         <button type="submit" className="btn btn-g" disabled={m.isPending || code.some(c => !c)}>
           {m.isPending ? t('auth.verifying') : t('auth.verify')}
@@ -87,7 +102,11 @@ export function VerifyEmail() {
         <div className="t2" style={{ textAlign: 'center', marginTop: 14, fontSize: 14 }}>
           {t('auth.didntReceive')} {seconds > 0
             ? <span className="t3">{t('auth.resendIn2', { seconds })}</span>
-            : <span className="grn" style={{ cursor: 'pointer' }} onClick={() => setSeconds(54)}>{t('auth.resendCode')}</span>
+            : (
+              resend.isPending
+                ? <span className="t3">Sending…</span>
+                : <span className="grn" style={{ cursor: 'pointer' }} onClick={handleResend}>{t('auth.resendCode')}</span>
+            )
           }
         </div>
        </div>
