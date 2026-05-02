@@ -4,9 +4,16 @@ const config: CapacitorConfig = {
   appId: 'io.crymadx.app',
   appName: 'CrymadX',
   webDir: 'dist',
-  // Server URL is intentionally NOT set — the app loads its bundle from
-  // the local APK assets so it works fully offline. Live updates can be
-  // wired later via @capgo/capacitor-updater without changing this.
+  // The app's bundle still loads from local APK assets (offline-capable);
+  // `hostname` only changes what window.location reports inside the WebView,
+  // so origin-bound services like Cloudflare Turnstile match the same
+  // allow-list as the real website (https://mobile.crymadx.io). Without
+  // this, Capacitor's default 'localhost' tripped the dev fallback path
+  // and showed the orange "For testing only" banner over the captcha.
+  server: {
+    hostname: 'mobile.crymadx.io',
+    androidScheme: 'https',
+  },
   android: {
     backgroundColor: '#060d09',
     // Allow plain http for the local emulator only (production hits HTTPS).
