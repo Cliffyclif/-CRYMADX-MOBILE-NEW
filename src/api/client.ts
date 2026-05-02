@@ -847,14 +847,14 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
     const chain = (variant?.chainId ?? asset).toUpperCase()
     const tokenSym = variant ? asset : asset
 
-    const url = new URL(`${API_BASE_URL}/balance/withdraw/fee`)
-    url.searchParams.set('chain', chain)
-    url.searchParams.set('amount', amount)
-    url.searchParams.set('token', tokenSym)
+    // Build URL via concat — `new URL()` throws when API_BASE_URL is the
+    // relative `/api` Vite-proxy value (dev mode).
+    const qs = new URLSearchParams({ chain, amount, token: tokenSym })
+    const fetchUrl = `${API_BASE_URL}/balance/withdraw/fee?${qs.toString()}`
 
     const headers: Record<string, string> = { 'Accept': 'application/json' }
     if (token) headers['Authorization'] = `Bearer ${token}`
-    const res = await fetch(url.toString(), { headers })
+    const res = await fetch(fetchUrl, { headers })
     if (!res.ok) {
       // Don't blow up the screen — return a zero fee shape so the form stays usable.
       return { asset, fee: '0', feeUsd: '0', estimatedTime: '—' }
