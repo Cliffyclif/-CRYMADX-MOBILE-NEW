@@ -14,7 +14,9 @@ import { ScreenHeader } from '../../components/ScreenHeader'
 import { Icon, type IconName } from '../../components/Icon'
 import { ROUTES, routeFor, type RouteId } from '../../routes'
 
-type Category = 'Buy Crypto' | 'Trade' | 'Earn' | 'NFT' | 'Account' | 'Engagement' | 'Support'
+type Category =
+  | 'Buy Crypto' | 'Trade' | 'Earn' | 'NFT' | 'Card' | 'AI'
+  | 'Account' | 'Security' | 'Settings' | 'Engagement' | 'Support' | 'Legal'
 
 type ServiceItem = {
   id: string
@@ -29,55 +31,102 @@ type ServiceItem = {
   recommended?: boolean
   /** "HOT" badge */
   hot?: boolean
+  /** extra search keywords (semicolon-separated) for the search box —
+   *  e.g. "Help Center" should match "support" too */
+  keywords?: string
 }
 
 const SERVICES: ServiceItem[] = [
-  // Buy Crypto
-  { id: 'deposit',     label: 'Deposit',        icon: 'dl',       category: 'Buy Crypto', route: 'route.wallet.deposit-pick', recommended: true },
-  { id: 'buy',         label: 'Buy Crypto',     icon: 'dollar',   category: 'Buy Crypto', route: 'route.fiat.buy',            recommended: true },
-  { id: 'p2p-buy',     label: 'P2P Trading',    icon: 'handshake',category: 'Buy Crypto', route: 'route.p2p.market' },
+  // ────────────────────────────── BUY CRYPTO ──────────────────────────────
+  { id: 'deposit',       label: 'Deposit',          icon: 'dl',        category: 'Buy Crypto',   route: 'route.wallet.deposit-pick', recommended: true, keywords: 'receive crypto address qr' },
+  { id: 'buy',           label: 'Buy Crypto',       icon: 'dollar',    category: 'Buy Crypto',   route: 'route.fiat.buy',            recommended: true, keywords: 'fiat card bank purchase' },
+  { id: 'p2p-buy',       label: 'P2P Trading',      icon: 'handshake', category: 'Buy Crypto',   route: 'route.p2p.market',          keywords: 'peer escrow local currency' },
+  { id: 'p2p-payments',  label: 'Payment Methods',  icon: 'card',      category: 'Buy Crypto',   route: 'route.p2p.payments',        keywords: 'p2p bank transfer methods' },
 
-  // Trade
-  { id: 'spot',        label: 'Spot Trade',     icon: 'chart',    category: 'Trade', path: routeFor('route.trading.spot', { pair: 'BTC/USDT' }), recommended: true, hot: true },
-  { id: 'convert',     label: 'Convert',        icon: 'swap',     category: 'Trade', route: 'route.wallet.convert', recommended: true },
-  { id: 'activity',    label: 'Activity',       icon: 'trend-up', category: 'Trade', route: 'route.trading.activity' },
-  { id: 'markets',     label: 'Markets',        icon: 'bar',      category: 'Trade', route: 'route.tab.markets' },
-  { id: 'send',        label: 'Send',           icon: 'send',     category: 'Trade', route: 'route.wallet.withdraw' },
+  // ─────────────────────────────── TRADE ─────────────────────────────────
+  { id: 'spot',          label: 'Spot Trade',       icon: 'chart',     category: 'Trade', path: routeFor('route.trading.spot', { pair: 'BTC/USDT' }), recommended: true, hot: true, keywords: 'order book limit market' },
+  { id: 'convert',       label: 'Convert',          icon: 'swap',      category: 'Trade', route: 'route.wallet.convert', recommended: true, keywords: 'swap exchange instant' },
+  { id: 'activity',      label: 'Activity',         icon: 'trend-up',  category: 'Trade', route: 'route.trading.activity' },
+  { id: 'markets',       label: 'Markets',          icon: 'bar',       category: 'Trade', route: 'route.tab.markets',     keywords: 'prices charts pairs' },
+  { id: 'send',          label: 'Send',             icon: 'send',      category: 'Trade', route: 'route.wallet.withdraw', keywords: 'withdraw transfer external' },
 
-  // Earn
-  { id: 'earn',        label: 'Earn Hub',       icon: 'zap',      category: 'Earn', route: 'route.earn.hub', recommended: true },
-  { id: 'staking',     label: 'Staking',        icon: 'target',   category: 'Earn', route: 'route.earn.staking' },
-  { id: 'savings',     label: 'Savings',        icon: 'piggy',    category: 'Earn', route: 'route.earn.savings' },
-  { id: 'autoinvest',  label: 'Auto-Invest',    icon: 'refresh',  category: 'Earn', route: 'route.earn.autoinvest' },
-  { id: 'vault',       label: 'Vault',          icon: 'archive',  category: 'Earn', route: 'route.earn.vault' },
+  // ─────────────────────────────── EARN ──────────────────────────────────
+  { id: 'earn',          label: 'Earn Hub',         icon: 'zap',       category: 'Earn', route: 'route.earn.hub', recommended: true },
+  { id: 'staking',       label: 'Staking',          icon: 'target',    category: 'Earn', route: 'route.earn.staking',     keywords: 'apy yield reward' },
+  { id: 'savings',       label: 'Savings',          icon: 'piggy',     category: 'Earn', route: 'route.earn.savings',     keywords: 'interest deposit fixed' },
+  { id: 'autoinvest',    label: 'Auto-Invest',      icon: 'refresh',   category: 'Earn', route: 'route.earn.autoinvest',  keywords: 'dca recurring schedule' },
+  { id: 'vault',         label: 'Vault',            icon: 'archive',   category: 'Earn', route: 'route.earn.vault',       keywords: 'lock secure earn' },
 
-  // NFT
-  { id: 'nft',         label: 'My NFTs',        icon: 'grid',     category: 'NFT', route: 'route.nft.gallery' },
-  { id: 'nftmarket',   label: 'NFT Market',     icon: 'layers',   category: 'NFT', route: 'route.nft.market' },
+  // ─────────────────────────────── NFT ───────────────────────────────────
+  { id: 'nft',           label: 'My NFTs',          icon: 'grid',      category: 'NFT', route: 'route.nft.gallery',       keywords: 'collectibles gallery' },
+  { id: 'nftmarket',     label: 'NFT Market',       icon: 'layers',    category: 'NFT', route: 'route.nft.market',        keywords: 'marketplace buy sell' },
 
-  // Account
-  { id: 'card',        label: 'Card',           icon: 'card',     category: 'Account', recommended: true, route: 'route.card.hub' },
-  { id: 'wallet',      label: 'Wallet',         icon: 'wallet',   category: 'Account', route: 'route.tab.wallet' },
-  { id: 'beneficiaries', label: 'Saved',        icon: 'users',    category: 'Account', route: 'route.wallet.beneficiaries' },
-  { id: 'history',     label: 'Tx History',     icon: 'clock',    category: 'Account', route: 'route.wallet.tx-history' },
-  { id: 'kyc',         label: 'KYC',            icon: 'shield',   category: 'Account', route: 'route.kyc.status' },
-  { id: 'security',    label: 'Security',       icon: 'lock',     category: 'Account', route: 'route.security.hub' },
-  { id: 'apikeys',     label: 'API Keys',       icon: 'key',      category: 'Account', route: 'route.settings.api-keys' },
+  // ─────────────────────────────── CARD ──────────────────────────────────
+  { id: 'card',          label: 'Card',             icon: 'card',      category: 'Card', route: 'route.card.hub',         recommended: true, keywords: 'visa spend cashback' },
+  { id: 'card-apply',    label: 'Apply for Card',   icon: 'rocket',    category: 'Card', route: 'route.card.onboarding',  keywords: 'order new visa kyc' },
+  { id: 'card-topup',    label: 'Top Up',           icon: 'plus',      category: 'Card', route: 'route.card.topup',       keywords: 'fund load card' },
+  { id: 'card-tx',       label: 'Card Activity',    icon: 'clock',     category: 'Card', route: 'route.card.transactions',keywords: 'card transactions spending' },
+  { id: 'card-settings', label: 'Card Settings',    icon: 'settings',  category: 'Card', route: 'route.card.settings',    keywords: 'freeze pin limit' },
 
-  // Engagement
-  { id: 'rewards',     label: 'Rewards Hub',    icon: 'trophy',   category: 'Engagement', recommended: true, route: 'route.engage.rewards' },
-  { id: 'referral',    label: 'Refer & Earn',   icon: 'gift',     category: 'Engagement', recommended: true, route: 'route.engage.referral' },
-  { id: 'alerts',      label: 'Price Alerts',   icon: 'bell',     category: 'Engagement', route: 'route.settings.alerts' },
-  { id: 'announcements',label:'Announcements',  icon: 'flag',     category: 'Engagement', route: 'route.engage.announcements' },
+  // ─────────────────────────────── AI ────────────────────────────────────
+  { id: 'ai-chat',       label: 'AI Chat',          icon: 'bot',       category: 'AI', route: 'route.tab.ai',             recommended: true, keywords: 'copilot assistant' },
+  { id: 'ai-voice',      label: 'Voice Mode',       icon: 'mic',       category: 'AI', route: 'route.ai.voice',           keywords: 'speak microphone hands-free' },
+  { id: 'ai-history',    label: 'Chat History',     icon: 'cards',     category: 'AI', route: 'route.ai.history',         keywords: 'conversations past' },
+  { id: 'ai-memory',     label: 'AI Memory',        icon: 'briefcase', category: 'AI', route: 'route.ai.memory',          keywords: 'context remember' },
+  { id: 'ai-scheduled',  label: 'Scheduled Actions',icon: 'pin',       category: 'AI', route: 'route.ai.scheduled',       keywords: 'automation triggers' },
+  { id: 'ai-tools',      label: 'AI Tools',         icon: 'tool',      category: 'AI', route: 'route.ai.tools',           keywords: 'capabilities permissions' },
+  { id: 'ai-settings',   label: 'AI Settings',      icon: 'compass',   category: 'AI', route: 'route.ai.settings',        keywords: 'model voice persona' },
 
-  // Support
-  { id: 'help',        label: 'Help Center',    icon: 'help',     category: 'Support', route: 'route.support.help' },
-  { id: 'tickets',     label: 'My Tickets',     icon: 'msg',      category: 'Support', route: 'route.support.tickets' },
-  { id: 'contact',     label: 'Contact',        icon: 'phone',    category: 'Support', route: 'route.support.contact' },
-  { id: 'status',      label: 'System Status',  icon: 'info',     category: 'Support', route: 'route.legal.status' },
+  // ─────────────────────────────── ACCOUNT ───────────────────────────────
+  { id: 'wallet',        label: 'Wallet',           icon: 'wallet',    category: 'Account', route: 'route.tab.wallet',     keywords: 'balances assets portfolio' },
+  { id: 'beneficiaries', label: 'Saved Addresses',  icon: 'users',     category: 'Account', route: 'route.wallet.beneficiaries', keywords: 'whitelist contacts' },
+  { id: 'history',       label: 'Transaction History', icon: 'clock',  category: 'Account', route: 'route.wallet.tx-history',    keywords: 'transactions past' },
+  { id: 'kyc',           label: 'KYC Verification', icon: 'shield',    category: 'Account', route: 'route.kyc.status',     keywords: 'identity verify documents' },
+  { id: 'kyc-levels',    label: 'KYC Levels',       icon: 'star',      category: 'Account', route: 'route.kyc.levels',     keywords: 'tiers limits' },
+
+  // ─────────────────────────────── SECURITY ──────────────────────────────
+  { id: 'security',      label: 'Security Hub',     icon: 'lock',      category: 'Security', route: 'route.security.hub' },
+  { id: 'sec-2fa',       label: '2FA',              icon: 'fp',        category: 'Security', route: 'route.security.2fa',           keywords: 'authenticator totp' },
+  { id: 'sec-backup',    label: 'Backup Codes',     icon: 'cards',     category: 'Security', route: 'route.security.backup-codes',  keywords: 'recovery 2fa' },
+  { id: 'sec-password',  label: 'Change Password',  icon: 'key',       category: 'Security', route: 'route.security.password',      keywords: 'reset login' },
+  { id: 'sec-pin',       label: 'App PIN',          icon: 'bookmark',  category: 'Security', route: 'route.security.pin',           keywords: 'lock biometric' },
+  { id: 'sec-sessions',  label: 'Active Sessions',  icon: 'phone',     category: 'Security', route: 'route.security.sessions',      keywords: 'devices logout' },
+  { id: 'sec-antiphish', label: 'Anti-Phishing',    icon: 'shield',    category: 'Security', route: 'route.security.anti-phishing', keywords: 'email code phrase' },
+
+  // ─────────────────────────────── SETTINGS ─────────────────────────────
+  { id: 'set-notifs',    label: 'Notifications',    icon: 'bell',      category: 'Settings', route: 'route.settings.notifications', keywords: 'push email alerts' },
+  { id: 'set-theme',     label: 'Theme',            icon: 'sun',       category: 'Settings', route: 'route.settings.theme',         keywords: 'dark light appearance' },
+  { id: 'set-language',  label: 'Language',         icon: 'globe',     category: 'Settings', route: 'route.settings.language',      keywords: 'locale translate' },
+  { id: 'set-currency',  label: 'Display Currency', icon: 'dollar',    category: 'Settings', route: 'route.settings.currency',      keywords: 'fiat usd ngn' },
+  { id: 'set-alerts',    label: 'Price Alerts',     icon: 'flag',      category: 'Settings', route: 'route.settings.alerts',        keywords: 'notification price target' },
+  { id: 'set-developer', label: 'Developer',        icon: 'tool',      category: 'Settings', route: 'route.settings.developer',     keywords: 'debug logs' },
+  { id: 'set-apikeys',   label: 'API Keys',         icon: 'key',       category: 'Settings', route: 'route.settings.api-keys',      keywords: 'developer trading bot' },
+  { id: 'set-ecosystem', label: 'Ecosystem',        icon: 'layers',    category: 'Settings', route: 'route.settings.ecosystem',     keywords: 'partners integrations' },
+
+  // ────────────────────────────── ENGAGEMENT ─────────────────────────────
+  { id: 'rewards',       label: 'Rewards Hub',      icon: 'trophy',    category: 'Engagement', recommended: true, route: 'route.engage.rewards', keywords: 'xp tier badges' },
+  { id: 'tier',          label: 'My Tier',          icon: 'star',      category: 'Engagement', route: 'route.engage.tier',                       keywords: 'level vip benefits' },
+  { id: 'referral',      label: 'Refer & Earn',     icon: 'gift',      category: 'Engagement', recommended: true, route: 'route.engage.referral', keywords: 'invite bonus friends' },
+  { id: 'announcements', label: "What's New",       icon: 'flag',      category: 'Engagement', route: 'route.engage.announcements',              keywords: 'news updates announcements' },
+  { id: 'notif-feed',    label: 'Notifications',    icon: 'bell',      category: 'Engagement', route: 'route.engage.notifications',              keywords: 'inbox updates' },
+
+  // ─────────────────────────────── SUPPORT ──────────────────────────────
+  { id: 'help',          label: 'Help Center',      icon: 'help',      category: 'Support', route: 'route.support.help',     keywords: 'support faq guide articles' },
+  { id: 'tickets',       label: 'My Tickets',       icon: 'msg',       category: 'Support', route: 'route.support.tickets',  keywords: 'support requests' },
+  { id: 'contact',       label: 'Contact Support',  icon: 'phone',     category: 'Support', route: 'route.support.contact',  keywords: 'email chat live' },
+  { id: 'status',        label: 'System Status',    icon: 'info',      category: 'Support', route: 'route.legal.status',     keywords: 'uptime incidents' },
+  { id: 'scan',          label: 'Scan QR',          icon: 'camera',    category: 'Support', route: 'route.misc.scan-qr',     keywords: 'qr code wallet' },
+
+  // ─────────────────────────────── LEGAL ────────────────────────────────
+  { id: 'about',         label: 'About CrymadX',    icon: 'info',      category: 'Legal', route: 'route.legal.about',     keywords: 'company team' },
+  { id: 'terms',         label: 'Terms of Service', icon: 'doc',       category: 'Legal', route: 'route.legal.terms',     keywords: 'agreement legal' },
+  { id: 'privacy',       label: 'Privacy Policy',   icon: 'shield',    category: 'Legal', route: 'route.legal.privacy',   keywords: 'data gdpr' },
 ]
 
-const CATEGORIES: ('Recommended' | Category)[] = ['Recommended', 'Buy Crypto', 'Trade', 'Earn', 'NFT', 'Account', 'Engagement', 'Support']
+const CATEGORIES: ('Recommended' | Category)[] = [
+  'Recommended', 'Buy Crypto', 'Trade', 'Earn', 'NFT', 'Card', 'AI',
+  'Account', 'Security', 'Settings', 'Engagement', 'Support', 'Legal',
+]
 
 const FAV_KEY = 'crymadx.services.favorites'
 
@@ -115,7 +164,11 @@ export function Services() {
   const visibleItems = useMemo(() => {
     const filter = q.trim().toLowerCase()
     if (filter) {
-      return SERVICES.filter(s => s.label.toLowerCase().includes(filter) || s.category.toLowerCase().includes(filter))
+      return SERVICES.filter(s =>
+        s.label.toLowerCase().includes(filter)
+        || s.category.toLowerCase().includes(filter)
+        || (s.keywords ?? '').toLowerCase().includes(filter)
+      )
     }
     if (tab === 'Recommended') return SERVICES.filter(s => s.recommended)
     return SERVICES.filter(s => s.category === tab)
