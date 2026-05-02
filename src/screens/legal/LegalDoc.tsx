@@ -78,18 +78,35 @@ export function LegalDoc({ title, lastUpdated, sections, intro }: Props) {
       {sections.map(section => {
         const isOpen = expanded.has(section.key)
         return (
-          <div key={section.key} className="g" style={{ padding: 0, marginBottom: 8, overflow: 'hidden' }}>
+          <div
+            key={section.key}
+            style={{
+              marginBottom: 8,
+              background: 'rgba(27, 140, 62, 0.04)',
+              borderRadius: 14,
+              boxShadow: '0 2px 12px rgba(0, 0, 0, 0.15)',
+            }}
+          >
             <button
               onClick={() => toggle(section.key)}
               style={{
-                width: '100%', padding: '14px 14px',
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
+                width: '100%',
+                padding: '14px 14px',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                textAlign: 'left',
                 color: 'var(--text-strong)',
+                minHeight: 50,
               }}
             >
-              <h3 style={{ flex: 1, margin: 0, fontSize: 15, fontWeight: 700 }}>{t(section.title)}</h3>
-              <span style={{ color: 'var(--text-mid-40)', fontSize: 12, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>▾</span>
+              <h3 style={{ flex: 1, margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text-strong)', lineHeight: 1.3 }}>
+                {t(section.title)}
+              </h3>
+              <span style={{ color: 'var(--text-mid-40)', fontSize: 12, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0 }}>▾</span>
             </button>
             {isOpen && (
               <div style={{ padding: '0 14px 16px', color: 'var(--text-mid-50)', fontSize: 13, lineHeight: 1.65 }}>
