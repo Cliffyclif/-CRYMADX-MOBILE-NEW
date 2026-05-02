@@ -669,9 +669,14 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
   'api.tx.list': async ({ query, token }) => {
     const headers: Record<string, string> = { 'Accept': 'application/json' }
     if (token) headers['Authorization'] = `Bearer ${token}`
-    const url = new URL(`${API_BASE_URL}/balance/transactions`)
-    for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v)
-    const res = await fetch(url.toString(), { headers })
+    // API_BASE_URL is `/api` in dev (Vite proxy) and absolute in prod.
+    // `new URL('/api/...')` throws on a relative base, so build the query
+    // string manually and append — works in both environments.
+    const qs = new URLSearchParams()
+    for (const [k, v] of Object.entries(query)) qs.set(k, String(v))
+    const qsString = qs.toString()
+    const fetchUrl = `${API_BASE_URL}/balance/transactions${qsString ? `?${qsString}` : ''}`
+    const res = await fetch(fetchUrl, { headers })
     if (!res.ok) {
       if (res.status === 401) throw new ApiError('UNAUTHENTICATED', 'Sign in required', 401)
       return { items: [], nextCursor: null, total: 0 }
