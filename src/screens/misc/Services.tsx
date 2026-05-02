@@ -124,8 +124,8 @@ const SERVICES: ServiceItem[] = [
   { id: 'cookies',       label: 'Cookie Policy',    icon: 'doc',       category: 'Legal', route: 'route.legal.cookies',   keywords: 'cookies tracking gdpr eprivacy' },
 ]
 
-const CATEGORIES: ('Recommended' | Category)[] = [
-  'Recommended', 'Buy Crypto', 'Trade', 'Earn', 'NFT', 'Card', 'AI',
+const CATEGORIES: ('All' | 'Recommended' | Category)[] = [
+  'All', 'Recommended', 'Buy Crypto', 'Trade', 'Earn', 'NFT', 'Card', 'AI',
   'Account', 'Security', 'Settings', 'Engagement', 'Support', 'Legal',
 ]
 
@@ -146,7 +146,7 @@ function saveFavs(ids: string[]) {
 
 export function Services() {
   const nav = useNavigate()
-  const [tab, setTab] = useState<typeof CATEGORIES[number]>('Recommended')
+  const [tab, setTab] = useState<typeof CATEGORIES[number]>('All')
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState(false)
   const [favs, setFavs] = useState<string[]>(() => loadFavs())
@@ -171,6 +171,7 @@ export function Services() {
         || (s.keywords ?? '').toLowerCase().includes(filter)
       )
     }
+    if (tab === 'All') return SERVICES
     if (tab === 'Recommended') return SERVICES.filter(s => s.recommended)
     return SERVICES.filter(s => s.category === tab)
   }, [tab, q])
@@ -256,7 +257,7 @@ export function Services() {
       {/* Grouped service tiles */}
       {grouped.map(([cat, items]) => (
         <div key={cat} style={{ marginTop: 12 }}>
-          {(q || tab === 'Recommended') && (
+          {(q || tab === 'All' || tab === 'Recommended') && (
             <div className="t3" style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text-mid-50)' }}>{cat}</div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
