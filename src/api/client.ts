@@ -1944,7 +1944,17 @@ export async function api<T = unknown>(
   if (!res.ok) {
     const code = json?.error?.code ?? json?.code ?? `HTTP_${res.status}`
     const message = json?.error?.message ?? json?.message ?? json?.error ?? res.statusText
-    if (res.status === 401) {
+    // Only clear the session when the 401 is actually about the token —
+    // "Token expired", "Invalid token", "No token provided", etc. Some
+    // microservices return 401 for unrelated reasons (feature gates,
+    // service-side auth that hasn't been wired through the gateway), and
+    // wiping localStorage on those false positives logs valid users out.
+    const msgStr = typeof message === 'string' ? message.toLowerCase() : ''
+    const codeStr = typeof code === 'string' ? code.toLowerCase() : ''
+    const looksLikeTokenIssue =
+      /token.*(expired|invalid|missing|provided)|invalid.*token|expired.*token|unauthenticated|jwt|session.*expired/.test(msgStr) ||
+      /token|jwt|unauth/.test(codeStr)
+    if (res.status === 401 && looksLikeTokenIssue) {
       try {
         setToken(null)
         setRefreshToken(null)
