@@ -28,14 +28,16 @@ type Props = {
 
 export function TurnstileWidget({ onVerify, onExpire, onError }: Props) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0' }}>
-      <Turnstile
-        siteKey={SITE_KEY}
-        onSuccess={onVerify}
-        onExpire={onExpire}
-        onError={onError}
-        options={{ theme: 'auto', size: 'flexible' }}
-      />
+    <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0', width: '100%', minWidth: 0, overflow: 'hidden' }}>
+      <div style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
+        <Turnstile
+          siteKey={SITE_KEY}
+          onSuccess={onVerify}
+          onExpire={onExpire}
+          onError={onError}
+          options={{ theme: 'auto', size: 'flexible' }}
+        />
+      </div>
     </div>
   )
 }

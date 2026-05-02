@@ -488,6 +488,55 @@ body.light .auth-card {
     0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
+/* =========================================================================
+   Narrow-screen adaptive sizing
+   Devices like the Samsung Fold cover screen and very small Android phones
+   render the app in <=380px width, where the default 36px/24px auth-card
+   padding plus 14px screen gutter eats so much of the row that captcha
+   widgets and buttons overflow the visible area. This block compresses
+   spacing/typography enough to fit comfortably without changing layout.
+   ========================================================================= */
+@media (max-width: 380px) {
+  .screen { padding-left: 10px; padding-right: 10px; }
+  .auth-card {
+    padding: 24px 16px 22px;
+    border-radius: 22px;
+  }
+  .auth-card h2 { font-size: 22px; margin-top: 10px; }
+  .auth-card h3 { font-size: 16px; }
+  .auth-card .inp {
+    padding: 12px 12px;
+    min-height: 50px;
+    border-radius: 12px;
+    margin: 6px 0;
+  }
+  .auth-card .btn {
+    min-height: 50px;
+    padding: 14px 14px;
+    font-size: 15px;
+  }
+  /* Cloudflare Turnstile renders inside a child <div>; bound it to the
+     container and let the flexible-size widget shrink to fit. */
+  .auth-card iframe[src*="turnstile"],
+  .auth-card iframe[src*="challenges.cloudflare.com"] {
+    max-width: 100% !important;
+  }
+}
+@media (max-width: 320px) {
+  .screen { padding-left: 8px; padding-right: 8px; }
+  .auth-card { padding: 18px 12px 18px; }
+  .auth-card h2 { font-size: 20px; }
+}
+
+/* Universal: keep any embedded Cloudflare iframe (and direct child
+   wrapper of the TurnstileWidget) bound to its container so it never
+   forces horizontal scroll on narrow screens. */
+.auth-card > div > iframe,
+iframe[src*="turnstile"],
+iframe[src*="challenges.cloudflare.com"] {
+  max-width: 100%;
+}
+
 /* Desktop frame — give the appearance of a phone for review */
 @media (min-width: 768px) {
   .app-root { padding: 24px; align-items: flex-start; }
