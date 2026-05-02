@@ -1003,13 +1003,72 @@
    First pass used --bg-shell / --bg-deep (~#060d09 / #0a160d), which felt
    like dropping the illustrations into a black hole. Lifted to a layered
    emerald wash: a soft top glow + a tri-stop dark-green gradient that
-   keeps the slide feeling alive while still reading as dark mode.
-   Welcome + final keep their bold emerald frames untouched. */
+   keeps the slide feeling alive while still reading as dark mode. */
 body:not(.light) .onb-stage:not(.onb-stage--welcome):not(.onb-stage--final) {
   background:
     radial-gradient(ellipse 92% 55% at 50% -10%, rgba(0, 200, 83, 0.16), transparent 70%),
     linear-gradient(180deg, #0e1a14 0%, #14241c 55%, #0f1d16 100%);
 }
+
+/* Welcome + final in dark mode — same dark family as the middle slides
+   (they were originally bright emerald gradients which clashed against
+   a dark theme). Welcome adds a soft emerald glow at the BOTTOM (rising
+   sun feel); final mirrors it at the TOP (closing arch). Light mode
+   keeps the bold emerald gradients on these two slides — see the
+   `.onb-stage--welcome / --final` rules earlier in this file. */
+body:not(.light) .onb-stage--welcome {
+  background:
+    radial-gradient(ellipse 110% 70% at 50% 110%, rgba(0, 200, 83, 0.30), transparent 55%),
+    radial-gradient(ellipse 92% 55% at 50% -10%, rgba(0, 200, 83, 0.16), transparent 70%),
+    linear-gradient(180deg, #0e1a14 0%, #14241c 55%, #0f1d16 100%);
+}
+body:not(.light) .onb-stage--final {
+  background:
+    radial-gradient(ellipse 110% 70% at 50% -10%, rgba(0, 200, 83, 0.30), transparent 55%),
+    radial-gradient(ellipse 92% 55% at 50% 110%, rgba(0, 200, 83, 0.16), transparent 70%),
+    linear-gradient(180deg, #0f1d16 0%, #14241c 50%, #0e1a14 100%);
+}
+
+/* Title + subtitle on welcome/final used to be solid white because they
+   sat on bright emerald. On the new dark backgrounds they need to match
+   the sub-tone of the middle slides so they don't look stamped on. */
+body:not(.light) .onb-stage--welcome .onb-title,
+body:not(.light) .onb-stage--final .onb-title { color: #f5fbf6; }
+body:not(.light) .onb-stage--welcome .onb-sub,
+body:not(.light) .onb-stage--final .onb-sub { color: rgba(255, 255, 255, 0.72); }
+
+/* CTA pill on welcome/final defaults to white-on-emerald in light mode.
+   In dark mode use the same brand-green gradient pill the middle slides
+   use, so we don't have a stark white pill on a dark surface. */
+body:not(.light) .onb-stage--welcome .onb-cta,
+body:not(.light) .onb-stage--final .onb-cta {
+  background: linear-gradient(135deg, #1B8C3E 0%, #00C853 100%);
+  color: #fff;
+  box-shadow:
+    0 10px 24px rgba(0, 200, 83, 0.32),
+    0 2px 6px rgba(0, 200, 83, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+body:not(.light) .onb-stage--welcome .onb-cta-arrow,
+body:not(.light) .onb-stage--final .onb-cta-arrow {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+/* Active dot on welcome/final defaults to solid white on emerald — flip
+   it to the brand emerald gradient so it matches the middle slides. */
+body:not(.light) .onb-stage--welcome .onb-dot,
+body:not(.light) .onb-stage--final .onb-dot { background: rgba(255, 255, 255, 0.22); }
+body:not(.light) .onb-stage--welcome .onb-dot--a,
+body:not(.light) .onb-stage--final .onb-dot--a {
+  background: linear-gradient(90deg, #1B8C3E, #00C853);
+}
+
+/* Footer sub-text on welcome/final — match middle slides */
+body:not(.light) .onb-stage--welcome .onb-foot-sub,
+body:not(.light) .onb-stage--final .onb-foot-sub { color: rgba(255, 255, 255, 0.66); }
+body:not(.light) .onb-stage--welcome .onb-foot-sub a,
+body:not(.light) .onb-stage--final .onb-foot-sub a { color: var(--gl, #00C853); text-decoration: none; }
 
 /* §4b — text colors. Welcome + final overrides already win via specificity. */
 body:not(.light) .onb-title { color: #f5fbf6; }
