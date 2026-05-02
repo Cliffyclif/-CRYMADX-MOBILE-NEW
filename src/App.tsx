@@ -142,6 +142,7 @@ import { Contact } from './screens/support/Contact'
 // Phase 4 — Legal & Misc
 import { Terms } from './screens/legal/Terms'
 import { Privacy } from './screens/legal/Privacy'
+import { Cookie } from './screens/legal/Cookie'
 import { About } from './screens/legal/About'
 import { Status } from './screens/legal/Status'
 import { ScanQR } from './screens/misc/ScanQR'
@@ -355,6 +356,7 @@ function AppInner() {
           {/* Legal & Misc */}
           <Route path={ROUTES['route.legal.terms'].path}     element={<Terms />} />
           <Route path={ROUTES['route.legal.privacy'].path}   element={<Privacy />} />
+          <Route path={ROUTES['route.legal.cookies'].path}   element={<Cookie />} />
           <Route path={ROUTES['route.legal.about'].path}     element={<About />} />
           <Route path={ROUTES['route.legal.status'].path}    element={<Status />} />
           <Route path={ROUTES['route.misc.scan-qr'].path}    element={<ProtectedRoute><ScanQR /></ProtectedRoute>} />

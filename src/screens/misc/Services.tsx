@@ -121,6 +121,7 @@ const SERVICES: ServiceItem[] = [
   { id: 'about',         label: 'About CrymadX',    icon: 'info',      category: 'Legal', route: 'route.legal.about',     keywords: 'company team' },
   { id: 'terms',         label: 'Terms of Service', icon: 'doc',       category: 'Legal', route: 'route.legal.terms',     keywords: 'agreement legal' },
   { id: 'privacy',       label: 'Privacy Policy',   icon: 'shield',    category: 'Legal', route: 'route.legal.privacy',   keywords: 'data gdpr' },
+  { id: 'cookies',       label: 'Cookie Policy',    icon: 'doc',       category: 'Legal', route: 'route.legal.cookies',   keywords: 'cookies tracking gdpr eprivacy' },
 ]
 
 const CATEGORIES: ('Recommended' | Category)[] = [

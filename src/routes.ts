@@ -144,6 +144,7 @@ export const ROUTES = {
   // Legal & misc
   'route.legal.terms':         { path: '/legal/terms' },
   'route.legal.privacy':       { path: '/legal/privacy' },
+  'route.legal.cookies':       { path: '/legal/cookies' },
   'route.legal.about':         { path: '/about' },
   'route.legal.status':        { path: '/status' },
   'route.misc.scan-qr':        { path: '/scan' },
@@ -195,6 +196,7 @@ export const PUBLIC_ROUTES: RouteId[] = [
   'route.auth.biometric',
   'route.legal.terms',
   'route.legal.privacy',
+  'route.legal.cookies',
   'route.legal.about',
   'route.legal.status',
   'route.ai.shared-viewer', // public share viewer
