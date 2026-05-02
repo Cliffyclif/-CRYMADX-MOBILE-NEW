@@ -999,9 +999,16 @@
    (signed-off art, intentionally not flipped).
    ════════════════════════════════════════════════════════════════════ */
 
-/* §4a — stage background (welcome + final keep their emerald frames) */
+/* §4a — stage background.
+   First pass used --bg-shell / --bg-deep (~#060d09 / #0a160d), which felt
+   like dropping the illustrations into a black hole. Lifted to a layered
+   emerald wash: a soft top glow + a tri-stop dark-green gradient that
+   keeps the slide feeling alive while still reading as dark mode.
+   Welcome + final keep their bold emerald frames untouched. */
 body:not(.light) .onb-stage:not(.onb-stage--welcome):not(.onb-stage--final) {
-  background: linear-gradient(180deg, var(--bg-shell, #060d09) 0%, var(--bg-deep, #0a160d) 100%);
+  background:
+    radial-gradient(ellipse 92% 55% at 50% -10%, rgba(0, 200, 83, 0.16), transparent 70%),
+    linear-gradient(180deg, #0e1a14 0%, #14241c 55%, #0f1d16 100%);
 }
 
 /* §4b — text colors. Welcome + final overrides already win via specificity. */
