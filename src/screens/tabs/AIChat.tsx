@@ -41,6 +41,30 @@ type ChatConversation = {
   messageCount?: number
 }
 
+// Server (Mongo) message shape returned by GET /conversations/:id.
+// Mirrors ConversationDetail: _id (not id), content (not text),
+// optional toolCalls with embedded results.
+type ServerMessage = {
+  _id?: string
+  id?: string
+  role: 'user' | 'assistant' | 'tool'
+  content?: string | null
+  toolCalls?: Array<{ id?: string; name?: string; result?: unknown }>
+  createdAt?: string
+}
+
+// localStorage key for the active conversation id. Survives refresh so
+// the user doesn't lose context when the page reloads.
+const ACTIVE_CONVO_KEY = 'crymadx.ai.activeConversation'
+const RESTORE_ATTEMPTED_KEY = 'crymadx.ai.restoreAttempted'
+
+// Module-level guard. Reset on full page reload (which is what we want — a
+// fresh tab gets one chance to restore the saved conversation; stale ids
+// are cleared in the catch and won't re-fetch on tab navigation).
+let restoreAttempted: boolean = (() => {
+  try { return sessionStorage.getItem(RESTORE_ATTEMPTED_KEY) === '1' } catch { return false }
+})()
+
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? 'https://backend.crymadx.io/api').replace(/\/$/, '')
 // API_BASE includes `/api`. The chat routes live at /api/ai/web on the
 // gateway, so we strip the trailing `/api` to compose `/api/ai/web/...`.
@@ -70,9 +94,8 @@ export function AIChat() {
   const user = useAuth(s => s.user)
   const firstName = user?.firstName ?? 'there'
 
-  const [msgs, setMsgs] = useState<Msg[]>([
-    { id: 'seed', role: 'assistant', content: t('ai.greeting', { name: firstName }) },
-  ])
+  const greetingMsg = (): Msg => ({ id: 'seed', role: 'assistant', content: t('ai.greeting', { name: firstName }) })
+  const [msgs, setMsgs] = useState<Msg[]>([greetingMsg()])
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -88,6 +111,65 @@ export function AIChat() {
   // Cancel stream on unmount
   useEffect(() => () => abortRef.current?.abort(), [])
 
+  // Restore active conversation across refresh. If localStorage has an
+  // active id, fetch the conversation and hydrate its messages so the
+  // user doesn't lose context. New chat button explicitly clears this.
+  useEffect(() => {
+    let cancelled = false
+    const savedId = (() => {
+      try { return localStorage.getItem(ACTIVE_CONVO_KEY) } catch { return null }
+    })()
+    if (!savedId) return
+    // React StrictMode in dev double-invokes effects, which makes us fire
+    // two GET /conversations/:id and surface two 404s in DevTools when the
+    // saved id is stale. Module-level + sessionStorage guard prevents the
+    // second hit and the duplicate console error.
+    if (restoreAttempted) return
+    restoreAttempted = true
+    try { sessionStorage.setItem(RESTORE_ATTEMPTED_KEY, '1') } catch {}
+    ;(async () => {
+      try {
+        const res = await chatReq<{ conversation: ChatConversation; messages: ServerMessage[] }>(
+          `/conversations/${encodeURIComponent(savedId)}`,
+        )
+        if (cancelled) return
+        // Filter out tool messages (rendered as widgets on the assistant
+        // turn that called them) and empty assistant stubs.
+        const visible = (res.messages || []).filter(m => {
+          if (m.role === 'tool') return false
+          const hasContent = typeof m.content === 'string' && m.content.trim().length > 0
+          const hasTools = Array.isArray(m.toolCalls) && m.toolCalls.length > 0
+          return hasContent || hasTools
+        })
+        const hydratedMsgs: Msg[] = visible.map((m, i) => {
+          const id = m._id ?? m.id ?? `msg-${i}`
+          const toolResults = (m.toolCalls || [])
+            .filter(tc => tc && tc.result)
+            .map((tc, j) => ({
+              id: tc.id ?? `tool-${i}-${j}`,
+              name: tc.name ?? '',
+              result: tc.result,
+            } as ToolResult))
+          return {
+            id,
+            role: m.role === 'user' ? 'user' : 'assistant',
+            content: m.content || '',
+            toolResults: toolResults.length > 0 ? toolResults : undefined,
+          }
+        })
+        if (hydratedMsgs.length > 0) {
+          setMsgs(hydratedMsgs)
+          setConversationId(savedId)
+        }
+      } catch {
+        // 404 or stale id — clear and start fresh.
+        try { localStorage.removeItem(ACTIVE_CONVO_KEY) } catch {}
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const ensureConversation = async (): Promise<string> => {
     if (conversationId) return conversationId
     const res = await chatReq<{ conversation: ChatConversation }>('/conversations', {
@@ -96,7 +178,18 @@ export function AIChat() {
     })
     const id = res.conversation._id
     setConversationId(id)
+    try { localStorage.setItem(ACTIVE_CONVO_KEY, id) } catch {}
     return id
+  }
+
+  const startNewChat = () => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setStreaming(false)
+    setConversationId(null)
+    setMsgs([greetingMsg()])
+    setDraft('')
+    try { localStorage.removeItem(ACTIVE_CONVO_KEY) } catch {}
   }
 
   const onSend = async (e?: React.FormEvent) => {
@@ -299,6 +392,15 @@ export function AIChat() {
           <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)' }}>CrymadX AI</div>
           <div className="t3"><span className="grn">●</span> {t('ai.online')}</div>
         </div>
+        <button
+          onClick={startNewChat}
+          aria-label={t('ai.newChat') as string}
+          title={t('ai.newChat') as string}
+          disabled={streaming}
+          style={{ background: 'none', border: 'none', padding: 6, cursor: streaming ? 'not-allowed' : 'pointer', display: 'flex', opacity: streaming ? 0.45 : 1 }}
+        >
+          <Icon name="plus" size={16} color="var(--text-mid-50)" />
+        </button>
         <button
           onClick={() => setHistoryOpen(true)}
           aria-label={t('ai.history') as string}
