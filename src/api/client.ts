@@ -25,8 +25,13 @@ type CallOpts = {
   token?: string
 }
 
-const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? 'true') !== 'false'
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787/api/v2').replace(/\/$/, '')
+// Default to PRODUCTION mode — mock mode is opt-in via VITE_USE_MOCK=true.
+// Previous default ('true') silently shipped APKs that talked to the in-process
+// mock dispatcher, making register/login/etc appear to work while never
+// touching the real backend. Production builds (Railway, GH Actions APK)
+// don't have a .env file, so any default of 'true' is dangerous.
+const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? 'false') === 'true'
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'https://backend.crymadx.io/api').replace(/\/$/, '')
 
 const TOKEN_KEY = 'crymadx.auth.token'
 const REFRESH_TOKEN_KEY = 'crymadx.auth.refresh'
