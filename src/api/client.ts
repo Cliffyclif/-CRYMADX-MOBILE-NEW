@@ -358,7 +358,86 @@ async function fetchPrices(token: string | null | undefined): Promise<Record<str
   }
 }
 
+// Free crypto news from CryptoCompare's public Min-API.
+// No API key required for the news endpoint. Used as a fallback when the
+// admin-curated announcements feed is empty so the "What's New" screen
+// is never blank.
+type CCNewsItem = {
+  id: string | number
+  title: string
+  body?: string
+  url?: string
+  imageurl?: string
+  source?: string
+  published_on?: number
+  categories?: string
+  tags?: string
+}
+async function fetchFreeCryptoNews(limit = 12): Promise<any[]> {
+  try {
+    const res = await fetch('https://min-api.cryptocompare.com/data/v2/news/?lang=EN', {
+      headers: { 'Accept': 'application/json' },
+      // Backend ID returned by CryptoCompare is a number; coerce to string for
+      // React keys and our Announcement.id contract.
+    })
+    if (!res.ok) return []
+    const json = await res.json()
+    const items: CCNewsItem[] = json?.Data ?? []
+    return items.slice(0, limit).map((n, i) => {
+      const cats = (n.categories || '').toUpperCase()
+      // Coarse mapping into our four-tab taxonomy:
+      //  - new coin / market mentions  → 'listings'
+      //  - exchange / regulation news  → 'maintenance'
+      //  - everything else             → 'product'
+      // Promo only fires for backend-curated items; news never lands there.
+      let category: 'product' | 'listings' | 'maintenance' = 'product'
+      if (/EXCHANGE|REGULATION|TECHNOLOGY|MINING/.test(cats)) category = 'maintenance'
+      else if (/ALTCOIN|TRADING|MARKET|BTC|ETH/.test(cats)) category = 'listings'
+      const emoji = category === 'listings' ? '📈' : category === 'maintenance' ? '⚙️' : '📰'
+      return {
+        id: `cc-${n.id}`,
+        emoji,
+        title: n.title || 'Crypto news',
+        body: (n.body || '').slice(0, 220).replace(/\s+/g, ' ').trim(),
+        category,
+        createdAt: n.published_on ? new Date(n.published_on * 1000).toISOString() : new Date().toISOString(),
+        pinned: i === 0, // pin the freshest item
+        url: n.url,
+        source: n.source,
+        imageUrl: n.imageurl,
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
 const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<string, string>; query: Record<string, string>; body?: any; token?: string | null }) => Promise<unknown>>> = {
+  // Announcements — try the admin-curated feed first; if it's empty or
+  // unavailable, fall back to CryptoCompare's free news API so the
+  // "What's New" tab is never blank for new users.
+  'api.announcements.list': async ({ token }) => {
+    const headers: Record<string, string> = { 'Accept': 'application/json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    let curated: any[] = []
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/announcements/public`, { headers })
+      if (res.ok) {
+        const raw = await res.json()
+        const arr = raw?.announcements ?? raw?.items ?? (Array.isArray(raw) ? raw : []) ?? []
+        curated = arr.map((a: any) => deepCamel(a))
+      }
+    } catch { /* swallow — fall through to news */ }
+
+    const news = await fetchFreeCryptoNews(12)
+    // Curated items always rank first (they're hand-picked product/promo);
+    // CryptoCompare news fills the rest. If curated already has a pinned
+    // entry, drop news's auto-pinned flag so we don't show two pinned cards.
+    const curatedHasPinned = curated.some((a: any) => a.pinned)
+    const merged = [...curated, ...(curatedHasPinned ? news.map((n: any) => ({ ...n, pinned: false })) : news)]
+    return { items: merged }
+  },
+
   // Security summary — backend has no /security/summary endpoint, so we
   // build the SecuritySummary shape client-side by composing /user/profile,
   // /user/sessions, /user/anti-phishing in parallel. Failures are tolerated:
