@@ -18,7 +18,7 @@ export function Login() {
   const nav = useNavigate()
   const loc = useLocation()
   const signIn = useAuth(s => s.signIn)
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState((loc.state as { email?: string } | null)?.email ?? '')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
   const [error, setError] = useState<string | null>(null)

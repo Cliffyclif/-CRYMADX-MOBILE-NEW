@@ -51,6 +51,8 @@ export function Register() {
     }
   }
 
+  const isEmailTakenError = !!error && /already (exists|registered)|EMAIL_TAKEN/i.test(error)
+
   const strength = password.length >= 12 ? 4 : password.length >= 8 ? 3 : password.length >= 4 ? 2 : 1
 
   return (
@@ -99,7 +101,20 @@ export function Register() {
           onError={() => { setCaptchaToken(null); setError('Security check failed — please retry') }}
         />
 
-        {error && <div className="g" style={{ padding: 10, marginTop: 4, borderLeft: '3px solid var(--r)', color: 'var(--r)', fontSize: 14 }}>{error}</div>}
+        {error && (
+          <div className="g" style={{ padding: 10, marginTop: 4, borderLeft: '3px solid var(--r)', color: 'var(--r)', fontSize: 14 }}>
+            <div>{error}</div>
+            {isEmailTakenError && (
+              <button
+                type="button"
+                onClick={() => nav(ROUTES['route.auth.login'].path, { state: { email } })}
+                style={{ background: 'none', border: 'none', color: 'var(--gl)', fontWeight: 700, padding: 0, marginTop: 6, cursor: 'pointer', fontSize: 14 }}
+              >
+                Log in instead →
+              </button>
+            )}
+          </div>
+        )}
 
         <button type="submit" className="btn btn-g" disabled={m.isPending || !captchaToken}>
           {m.isPending ? t('auth.creating') : t('common.continue')}
