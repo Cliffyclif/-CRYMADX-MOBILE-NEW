@@ -358,56 +358,67 @@ async function fetchPrices(token: string | null | undefined): Promise<Record<str
   }
 }
 
-// Free crypto news from CryptoCompare's public Min-API.
-// No API key required for the news endpoint. Used as a fallback when the
-// admin-curated announcements feed is empty so the "What's New" screen
-// is never blank.
-type CCNewsItem = {
-  id: string | number
+// Free crypto news from CoinGecko's public news API.
+// No API key required for /api/v3/news, CORS allows browser access from
+// any origin, ~150 items per page. Used as a fallback when the admin-
+// curated announcements feed is empty so the "What's New" screen is
+// never blank.
+//
+// Previously used CryptoCompare's news endpoint, but they gated it behind
+// an API key in 2026. CoinGecko remains keyless for this endpoint as of
+// May 2026.
+type CGNewsItem = {
+  id: number | string
   title: string
-  body?: string
+  description?: string
   url?: string
-  imageurl?: string
-  source?: string
-  published_on?: number
-  categories?: string
-  tags?: string
+  thumb_2x?: string
+  thumb?: string
+  news_site?: string
+  author?: string
+  created_at?: number  // unix seconds
+  updated_at?: number
+  locale?: string
 }
 async function fetchFreeCryptoNews(limit = 12): Promise<any[]> {
   try {
-    const res = await fetch('https://min-api.cryptocompare.com/data/v2/news/?lang=EN', {
+    const res = await fetch('https://api.coingecko.com/api/v3/news?page=1', {
       headers: { 'Accept': 'application/json' },
-      // Backend ID returned by CryptoCompare is a number; coerce to string for
-      // React keys and our Announcement.id contract.
     })
-    if (!res.ok) return []
+    if (!res.ok) {
+      console.warn('[news] CoinGecko returned', res.status)
+      return []
+    }
     const json = await res.json()
-    const items: CCNewsItem[] = json?.Data ?? []
+    const items: CGNewsItem[] = Array.isArray(json?.data) ? json.data : []
+    if (items.length === 0) {
+      console.warn('[news] CoinGecko returned empty data array')
+    }
     return items.slice(0, limit).map((n, i) => {
-      const cats = (n.categories || '').toUpperCase()
-      // Coarse mapping into our four-tab taxonomy:
-      //  - new coin / market mentions  → 'listings'
-      //  - exchange / regulation news  → 'maintenance'
-      //  - everything else             → 'product'
-      // Promo only fires for backend-curated items; news never lands there.
+      // Coarse category mapping. CoinGecko doesn't tag the news so we
+      // infer from title keywords. Falls back to 'product' for general.
+      const t = (n.title || '').toLowerCase()
       let category: 'product' | 'listings' | 'maintenance' = 'product'
-      if (/EXCHANGE|REGULATION|TECHNOLOGY|MINING/.test(cats)) category = 'maintenance'
-      else if (/ALTCOIN|TRADING|MARKET|BTC|ETH/.test(cats)) category = 'listings'
+      if (/listing|launch|airdrop|ico|presale|new (coin|token)/.test(t)) category = 'listings'
+      else if (/regulation|sec |hack|exploit|outage|exchange/.test(t)) category = 'maintenance'
       const emoji = category === 'listings' ? '📈' : category === 'maintenance' ? '⚙️' : '📰'
       return {
-        id: `cc-${n.id}`,
+        id: `cg-${n.id}`,
         emoji,
         title: n.title || 'Crypto news',
-        body: (n.body || '').slice(0, 220).replace(/\s+/g, ' ').trim(),
+        body: (n.description || '').slice(0, 220).replace(/\s+/g, ' ').trim(),
         category,
-        createdAt: n.published_on ? new Date(n.published_on * 1000).toISOString() : new Date().toISOString(),
+        createdAt: n.created_at
+          ? new Date(n.created_at * 1000).toISOString()
+          : new Date().toISOString(),
         pinned: i === 0, // pin the freshest item
         url: n.url,
-        source: n.source,
-        imageUrl: n.imageurl,
+        source: n.news_site || n.author || 'CoinGecko',
+        imageUrl: n.thumb_2x || n.thumb,
       }
     })
-  } catch {
+  } catch (e) {
+    console.error('[news] CoinGecko fetch failed', e)
     return []
   }
 }
@@ -430,11 +441,16 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
     } catch { /* swallow — fall through to news */ }
 
     const news = await fetchFreeCryptoNews(12)
-    // Curated items always rank first (they're hand-picked product/promo);
-    // CryptoCompare news fills the rest. If curated already has a pinned
-    // entry, drop news's auto-pinned flag so we don't show two pinned cards.
     const curatedHasPinned = curated.some((a: any) => a.pinned)
     const merged = [...curated, ...(curatedHasPinned ? news.map((n: any) => ({ ...n, pinned: false })) : news)]
+    // Loud log so we can diagnose why the screen shows nothing — covers
+    // the case where CryptoCompare is rate-limiting / blocked / returning
+    // an unexpected shape. Remove once the news flow is stable.
+    if (merged.length === 0) {
+      console.warn('[announcements] empty list — curated:', curated.length, 'news:', news.length)
+    } else {
+      console.log('[announcements] returning', merged.length, 'items', { curated: curated.length, news: news.length })
+    }
     return { items: merged }
   },
 
