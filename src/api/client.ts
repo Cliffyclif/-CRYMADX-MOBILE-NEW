@@ -427,31 +427,21 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
   // Announcements — try the admin-curated feed first; if it's empty or
   // unavailable, fall back to CryptoCompare's free news API so the
   // "What's New" tab is never blank for new users.
-  'api.announcements.list': async ({ token }) => {
-    const headers: Record<string, string> = { 'Accept': 'application/json' }
-    if (token) headers['Authorization'] = `Bearer ${token}`
-    let curated: any[] = []
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/announcements/public`, { headers })
-      if (res.ok) {
-        const raw = await res.json()
-        const arr = raw?.announcements ?? raw?.items ?? (Array.isArray(raw) ? raw : []) ?? []
-        curated = arr.map((a: any) => deepCamel(a))
-      }
-    } catch { /* swallow — fall through to news */ }
-
+  'api.announcements.list': async (_ctx) => {
+    // Source 1: admin-curated feed at /admin/announcements/public.
+    // Currently unbuilt on the backend — every probe returns 404 and
+    // pollutes the console on focus refetches. Re-enable below once the
+    // admin-announcements service ships:
+    //
+    //   const headers: Record<string, string> = { 'Accept': 'application/json' }
+    //   if (_ctx.token) headers['Authorization'] = `Bearer ${_ctx.token}`
+    //   const res = await fetch(`${API_BASE_URL}/admin/announcements/public`, { headers })
+    //   const arr = res.ok ? (await res.json())?.announcements ?? [] : []
+    //   const curated = arr.map((a: any) => deepCamel(a))
+    //
+    // Source 2 (currently the only source): CoinGecko free news.
     const news = await fetchFreeCryptoNews(12)
-    const curatedHasPinned = curated.some((a: any) => a.pinned)
-    const merged = [...curated, ...(curatedHasPinned ? news.map((n: any) => ({ ...n, pinned: false })) : news)]
-    // Loud log so we can diagnose why the screen shows nothing — covers
-    // the case where CryptoCompare is rate-limiting / blocked / returning
-    // an unexpected shape. Remove once the news flow is stable.
-    if (merged.length === 0) {
-      console.warn('[announcements] empty list — curated:', curated.length, 'news:', news.length)
-    } else {
-      console.log('[announcements] returning', merged.length, 'items', { curated: curated.length, news: news.length })
-    }
-    return { items: merged }
+    return { items: news }
   },
 
   // Security summary — backend has no /security/summary endpoint, so we
