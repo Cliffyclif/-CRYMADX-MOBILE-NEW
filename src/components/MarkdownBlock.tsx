@@ -26,8 +26,12 @@ export function MarkdownBlock({ content }: { content: string }) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          // Render paragraphs as <div>, not <p>. react-markdown v9 dropped
+          // the `inline` prop on <code>, so block-style CodeBlock (a <div>)
+          // can now end up inside a <p>, which React refuses to hydrate.
+          // Using <div> for the paragraph wrapper avoids that entirely.
           p: ({ children }) => (
-            <p style={{ margin: '0 0 8px', lineHeight: 1.55 }}>{children}</p>
+            <div style={{ margin: '0 0 8px', lineHeight: 1.55 }}>{children}</div>
           ),
           ul: ({ children }) => (
             <ul style={{ margin: '4px 0 8px', paddingLeft: 18 }}>{children}</ul>
@@ -80,9 +84,16 @@ export function MarkdownBlock({ content }: { content: string }) {
             />
           ),
           code: (props: any) => {
-            const { inline, children } = props
+            const { inline, className, children } = props
             const text = String(children).replace(/\n$/, '')
-            if (inline) {
+            // react-markdown v9 dropped `inline` — fall back to detecting
+            // block code by either a fenced language class (```ts ...```)
+            // or an actual newline in the content.
+            const isBlock = inline === false || (inline === undefined && (
+              (typeof className === 'string' && /^language-/.test(className)) ||
+              text.includes('\n')
+            ))
+            if (!isBlock) {
               return (
                 <code
                   style={{
