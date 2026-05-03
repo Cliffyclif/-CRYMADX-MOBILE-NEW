@@ -29,6 +29,8 @@ import { api, getToken } from '../../api/client'
 import { fmt } from '../../lib/format'
 import { useSheetDismiss } from '../../hooks/useSheetDismiss'
 import { haptics } from '../../lib/haptics'
+import { useAuth } from '../../stores/auth'
+import { COUNTRIES } from '../../data/countries'
 
 type FiatCurrency = {
   code: string
@@ -98,9 +100,31 @@ const FALLBACK_PAY: PaymentMethod[] = [
   { id: 'apple_pay', name: 'Apple Pay', icon: 'apple' },
 ]
 
+/**
+ * Normalize whatever the profile has stored under `country` into an ISO-2 code.
+ * Accepts the ISO-2 code directly ("US"), the ISO-3 code ("USA" → first match
+ * by `code` is best-effort), or the country name ("United States"). Returns
+ * empty string when no match — caller should treat that as "country unknown".
+ */
+function toCountryAlpha2(input: string | undefined | null): string {
+  if (!input) return ''
+  const v = input.trim()
+  if (!v) return ''
+  if (v.length === 2 && /^[A-Za-z]{2}$/.test(v)) return v.toUpperCase()
+  const byName = COUNTRIES.find(c => c.name.toLowerCase() === v.toLowerCase())
+  if (byName) return byName.code
+  // Try contains-match — handles "Republic of X" vs "X" mismatches
+  const fuzzy = COUNTRIES.find(c =>
+    c.name.toLowerCase().includes(v.toLowerCase()) ||
+    v.toLowerCase().includes(c.name.toLowerCase()),
+  )
+  return fuzzy?.code ?? ''
+}
+
 export function BuyCrypto() {
   const { t } = useTranslation()
   const nav = useNavigate()
+  const user = useAuth(s => s.user)
 
   const { data: currencies } = useEndpoint<CurrenciesResponse>('api.fiat.currencies')
   const fiatList = currencies?.fiat?.length ? currencies.fiat : FALLBACK_FIAT
@@ -221,6 +245,27 @@ export function BuyCrypto() {
       return
     }
 
+    // Pre-fill Guardarian with whatever profile data we have so the user
+    // isn't asked to re-enter email + country inside the iframe. Backend
+    // forwards these as Guardarian's `customer.contact_info.email` and
+    // `customer.billing_info.{first_name,last_name,country_alpha_2}` —
+    // when those are present Guardarian skips its manual-entry step.
+    // Only the fields we actually have are sent; missing pieces (DOB,
+    // street address) Guardarian collects on its own as needed.
+    const userData = user
+      ? (() => {
+          const country = toCountryAlpha2(user.country)
+          const data: Record<string, any> = {
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+          }
+          if (user.phone) data.phone = user.phone
+          if (country) data.address = { country }
+          return data
+        })()
+      : undefined
+
     try {
       const order = await createOrder.mutateAsync({
         body: {
@@ -231,6 +276,7 @@ export function BuyCrypto() {
           network: network || selectedCrypto.defaultNetwork || '',
           paymentMethod: selectedPayment.id,
           walletAddress,
+          userData,
         },
       }) as { checkoutUrl?: string; redirectUrl?: string; widgetUrl?: string; orderId?: string; checkout_url?: string; redirect_url?: string; widget_url?: string; order_id?: string }
 

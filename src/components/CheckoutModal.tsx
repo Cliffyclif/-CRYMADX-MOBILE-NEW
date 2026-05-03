@@ -85,49 +85,72 @@ export function CheckoutModal({ open, url, onClose, onComplete, title, provider 
     return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey) }
   }, [open, onClose])
 
-  // Heuristic: if the iframe doesn't fire a "ready" postMessage within 8s,
-  // we suspect Guardarian's pre-auth call failed (404 from non-whitelisted
-  // origin). Show the "Continue in browser" CTA so the user has an escape
-  // hatch instead of a blank iframe.
+  // Safety-net timeout: if the iframe never fires *any* signal (not even
+  // its `load` event) after 45s, surface the "Continue in browser" CTA so
+  // the user isn't staring at an empty modal forever. We used to time out
+  // at 8s based on postMessage events, but Guardarian's hosted page loads
+  // fine without firing a recognised "ready" message — that produced false
+  // positives where the iframe was working and we yanked it.
   useEffect(() => {
     if (!open || !url) return
     if (stage !== 'loading') return
     const timer = setTimeout(() => {
       setStage(s => (s === 'loading' ? 'preauth_failed' : s))
-    }, 8000)
+    }, 45000)
     return () => clearTimeout(timer)
   }, [open, url, stage])
 
   // postMessage listener — Guardarian + Transak event IDs (Guardarian
   // preserved Transak's event names for backwards compat with old
-  // integrations).
+  // integrations). Match the documented event IDs *exactly* — earlier
+  // versions used loose `includes('FAIL'|'SUCCESS'|'CANCEL')` checks, which
+  // matched random messages from reCAPTCHA, Vite HMR, and other widgets
+  // running inside the iframe and accidentally unmounted it mid-flow.
   useEffect(() => {
     if (!open) return
+    const KNOWN = new Set([
+      'TRANSAK_ORDER_SUCCESSFUL', 'TRANSAK_ORDER_FAILED', 'TRANSAK_ORDER_CANCELLED',
+      'TRANSAK_ORDER_CREATED',    'TRANSAK_WIDGET_INIT_FAILED', 'TRANSAK_ERROR',
+      'TRANSAK_WIDGET_LOADED',    'TRANSAK_WIDGET_OPEN',         'TRANSAK_WIDGET_CLOSE',
+      'GUARDARIAN_ORDER_COMPLETED', 'GUARDARIAN_ORDER_FAILED', 'GUARDARIAN_ORDER_CANCELLED',
+      'GUARDARIAN_WIDGET_LOADED',
+    ])
     const onMessage = (ev: MessageEvent) => {
       const data = ev.data
-      if (!data) return
-      const id = ((typeof data === 'object' ? data.event_id ?? data.type ?? data.event ?? data.status : data) ?? '').toString().toUpperCase()
-      if (!id) return
-      if (id === 'TRANSAK_ORDER_SUCCESSFUL' || id.includes('SUCCESS') || id === 'COMPLETED' || id === 'ORDER_COMPLETED') {
-        haptics.success()
-        setStage('completed')
-        onComplete?.('completed')
-        setTimeout(() => onClose(), 800)
-      } else if (id === 'TRANSAK_ORDER_FAILED' || id.includes('FAIL') || id === 'ERROR' || id === 'DECLINED') {
-        haptics.error()
-        setStage('failed')
-        onComplete?.('failed')
-      } else if (id === 'TRANSAK_ORDER_CANCELLED' || id.includes('CANCEL')) {
-        setStage('cancelled')
-        onComplete?.('cancelled')
-        setTimeout(() => onClose(), 200)
-      } else if (id === 'TRANSAK_WIDGET_INIT_FAILED' || id === 'TRANSAK_ERROR') {
-        // Pre-auth failed inside the iframe — surface the browser fallback.
-        setStage('preauth_failed')
-      } else if (id === 'TRANSAK_ORDER_CREATED' || id.includes('PROCESSING')) {
-        setStage('processing')
-      } else if (id.includes('LOADED') || id.includes('READY') || id.includes('INIT')) {
-        setStage(s => (s === 'loading' ? 'ready' : s))
+      if (!data || typeof data !== 'object') return
+      const rawId = (data.event_id ?? data.type ?? data.event ?? '').toString().toUpperCase()
+      if (!KNOWN.has(rawId)) return
+      switch (rawId) {
+        case 'TRANSAK_ORDER_SUCCESSFUL':
+        case 'GUARDARIAN_ORDER_COMPLETED':
+          haptics.success()
+          setStage('completed')
+          onComplete?.('completed')
+          setTimeout(() => onClose(), 800)
+          break
+        case 'TRANSAK_ORDER_FAILED':
+        case 'GUARDARIAN_ORDER_FAILED':
+          haptics.error()
+          setStage('failed')
+          onComplete?.('failed')
+          break
+        case 'TRANSAK_ORDER_CANCELLED':
+        case 'GUARDARIAN_ORDER_CANCELLED':
+          setStage('cancelled')
+          onComplete?.('cancelled')
+          setTimeout(() => onClose(), 200)
+          break
+        case 'TRANSAK_WIDGET_INIT_FAILED':
+        case 'TRANSAK_ERROR':
+          setStage('preauth_failed')
+          break
+        case 'TRANSAK_ORDER_CREATED':
+          setStage('processing')
+          break
+        case 'TRANSAK_WIDGET_LOADED':
+        case 'GUARDARIAN_WIDGET_LOADED':
+          setStage(s => (s === 'loading' ? 'ready' : s))
+          break
       }
     }
     window.addEventListener('message', onMessage)
@@ -268,13 +291,17 @@ export function CheckoutModal({ open, url, onClose, onComplete, title, provider 
         </div>
       )}
 
-      {/* Iframe — kept mounted while in iframe-friendly stages */}
+      {/* Iframe — kept mounted while in iframe-friendly stages.
+          `onLoad` fires even for cross-origin docs once the document has
+          loaded, so we use it as the canonical "iframe is alive" signal
+          and disarm the safety-net timeout. */}
       {url && showIframe && (
         <iframe
           ref={iframeRef}
           src={url}
           allow="payment; camera; microphone; clipboard-read; clipboard-write; accelerometer; encrypted-media; geolocation"
           referrerPolicy="no-referrer-when-downgrade"
+          onLoad={() => setStage(s => (s === 'loading' ? 'ready' : s))}
           style={{ flex: 1, border: 'none', background: '#fff', width: '100%' }}
           title="Checkout"
         />
