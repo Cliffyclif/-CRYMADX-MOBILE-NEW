@@ -67,22 +67,24 @@ export function ScanQR() {
   // ── Native scanner first (Capacitor APK), fall back to web zxing ──────
   useEffect(() => {
     let cancelled = false
+    // Build tag — must be visible if the new ScanQR code is running.
+    // If you ever load this screen and don't see "scan-v3" in the
+    // bottom-right corner, you're on a stale cached bundle.
+    console.log('[ScanQR] mount — initialising scanner (build scan-v3)')
     ;(async () => {
-      // Try native — if the platform supports it, this resolves with a value.
-      const r = await nativeScan().catch(() => ({ kind: 'none' as const }))
-      if (cancelled) return
-      if (r.kind === 'value') {
-        onScannedText(r.value)
-        return
+      // On the web, useQRScanner returns { kind: 'web' } immediately. We
+      // skip calling it entirely on non-Capacitor environments to avoid the
+      // dynamic-import detour, which keeps the camera flow synchronous.
+      const isCapacitor = typeof (globalThis as any).Capacitor?.isNativePlatform === 'function'
+        && (globalThis as any).Capacitor.isNativePlatform()
+      if (isCapacitor) {
+        const r = await nativeScan().catch(() => ({ kind: 'none' as const }))
+        if (cancelled) return
+        if (r.kind === 'value') { onScannedText(r.value); return }
+        if (r.kind === 'none') { nav(-1); return }
       }
-      if (r.kind === 'none') {
-        // Native scanner cancelled / no value — leave the modal close to the
-        // user (they pressed back). Pop back to where they came from.
-        nav(-1)
-        return
-      }
-
-      // r.kind === 'web' — start the live camera + zxing here
+      // Web path — start camera here. Doesn't matter if it's localhost,
+      // production web, or a Capacitor WebView fallback.
       await startWebScanner()
     })()
 
@@ -138,19 +140,26 @@ export function ScanQR() {
     } catch (e: any) {
       const name = e?.name ?? ''
       let msg = 'Camera unavailable'
+      let shouldAutoRetry = false
       if (name === 'NotAllowedError' || /denied|permission/i.test(e?.message ?? '')) {
-        msg = 'Camera access denied. Allow it in your browser to scan QR codes.'
+        msg = 'Camera access denied. Allow it in your browser settings.'
       } else if (name === 'NotFoundError') {
         msg = 'No camera detected on this device.'
       } else if (name === 'NotReadableError') {
-        msg = 'Camera is already in use by another app or tab.'
+        // Most often macOS hasn't released the camera from a previous tab /
+        // Photo Booth / Zoom yet. Retry once after 2.5s — usually clears.
+        msg = 'Camera is in use by another tab/app. Retrying…'
+        shouldAutoRetry = true
       } else if (name === 'OverconstrainedError') {
-        msg = "Couldn't find a camera matching the requested settings."
+        msg = "Couldn't match a camera to the requested settings."
       } else if (e?.message) {
         msg = e.message
       }
       setError(msg)
       setCameraReady(false)
+      if (shouldAutoRetry) {
+        setTimeout(() => { if (!handledRef.current) startWebScanner() }, 2500)
+      }
     }
   }
 
@@ -199,6 +208,11 @@ export function ScanQR() {
   return (
     <div className="app-root">
       <div className="app-shell" style={{ background: '#000' }}>
+        {/* Build tag — visible only if the new code is running. Remove
+            once the user confirms the scanner works. */}
+        <div style={{ position: 'absolute', bottom: 6, right: 8, zIndex: 50, fontSize: 9, color: 'rgba(0,200,83,.6)', fontFamily: 'monospace', pointerEvents: 'none' }}>
+          scan-v3
+        </div>
         {/* Top bar */}
         <div style={{ position: 'absolute', top: 30, left: 0, right: 0, display: 'flex', alignItems: 'center', padding: '0 14px', zIndex: 30 }}>
           <button onClick={() => nav(-1)} style={{ background: 'rgba(255,255,255,.1)', border: 'none', display: 'flex', cursor: 'pointer', borderRadius: 16, padding: 8 }}>
@@ -221,6 +235,35 @@ export function ScanQR() {
         <div style={{ position: 'absolute', inset: '90px 30px 130px', border: '2px solid var(--gl)', borderRadius: 20, boxShadow: '0 0 0 9999px rgba(0,0,0,.55), 0 0 0 1px var(--gl)', zIndex: 5 }}>
           <Corner pos="tl" /><Corner pos="tr" /><Corner pos="bl" /><Corner pos="br" />
           <div className="scan-line" style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, var(--gl), transparent)', boxShadow: '0 0 12px var(--gl)' }} />
+          {/* In-frame placeholder shown only when the live video isn't
+              attached yet — makes it obvious where the camera feed will
+              appear once the stream is granted. Removed once the video
+              starts playing (cameraReady=true). */}
+          {!cameraReady && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              gap: 12, color: 'rgba(255,255,255,.55)',
+              pointerEvents: 'none', textAlign: 'center', padding: 24,
+            }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: 28,
+                background: 'rgba(255,255,255,.06)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Icon name="camera" size={26} color="rgba(255,255,255,.6)" />
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>
+                {error ? 'Camera unavailable' : 'Waiting for camera…'}
+              </div>
+              {!error && (
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', maxWidth: 240 }}>
+                  Live preview will appear in this frame
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Status / hint */}
