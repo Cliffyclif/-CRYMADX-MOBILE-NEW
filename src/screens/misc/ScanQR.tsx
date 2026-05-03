@@ -23,6 +23,7 @@ export function ScanQR() {
   const [manualOpen, setManualOpen] = useState(false)
   const [manualText, setManualText] = useState('')
   const [detectedPreview, setDetectedPreview] = useState<DetectedAddress | null>(null)
+  const [cameraReady, setCameraReady] = useState(false)
   const { scan: nativeScan } = useQRScanner()
 
   // Hand the detected address off to the Withdraw screen with everything
@@ -82,39 +83,76 @@ export function ScanQR() {
       }
 
       // r.kind === 'web' — start the live camera + zxing here
-      try {
-        const reader = new BrowserQRCodeReader()
-        const controls = await reader.decodeFromConstraints(
-          {
-            video: {
-              facingMode: { ideal: 'environment' },
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-            },
-          },
-          videoRef.current!,
-          (result, _err, ctrl) => {
-            if (cancelled || handledRef.current) return
-            if (result) {
-              try { ctrl.stop() } catch { /* ignore */ }
-              onScannedText(result.getText())
-            }
-            // benign 'NotFoundException' on every empty frame — skip
-          },
-        )
-        stopFnRef.current = controls
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? 'Camera unavailable')
-      }
+      await startWebScanner()
     })()
 
     return () => {
       cancelled = true
       try { stopFnRef.current?.stop() } catch { /* ignore */ }
       stopFnRef.current = null
+      // Tear down any media tracks we own so we don't keep the camera
+      // locked when the user navigates away.
+      const stream = (videoRef.current?.srcObject as MediaStream | null) ?? null
+      stream?.getTracks().forEach(t => { try { t.stop() } catch { /* ignore */ } })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Two-phase camera start: get the stream first so we can raise a real
+  // permission / availability error, then hand the live <video> to zxing
+  // for decoding. Single getUserMedia call.
+  async function startWebScanner() {
+    setError(null)
+    setCameraReady(false)
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Camera API not available — try a modern browser')
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      })
+      const video = videoRef.current
+      if (!video) {
+        stream.getTracks().forEach(t => t.stop())
+        return
+      }
+      video.srcObject = stream
+      try { await video.play() } catch { /* iOS autoplay quirk; ignore */ }
+      setCameraReady(true)
+
+      const reader = new BrowserQRCodeReader()
+      const controls = await reader.decodeFromVideoElement(video, (result, _err, ctrl) => {
+        if (handledRef.current) return
+        if (result) {
+          try { ctrl.stop() } catch { /* ignore */ }
+          onScannedText(result.getText())
+        }
+        // benign 'NotFoundException' on every empty frame — skip
+      })
+      stopFnRef.current = controls
+    } catch (e: any) {
+      const name = e?.name ?? ''
+      let msg = 'Camera unavailable'
+      if (name === 'NotAllowedError' || /denied|permission/i.test(e?.message ?? '')) {
+        msg = 'Camera access denied. Allow it in your browser to scan QR codes.'
+      } else if (name === 'NotFoundError') {
+        msg = 'No camera detected on this device.'
+      } else if (name === 'NotReadableError') {
+        msg = 'Camera is already in use by another app or tab.'
+      } else if (name === 'OverconstrainedError') {
+        msg = "Couldn't find a camera matching the requested settings."
+      } else if (e?.message) {
+        msg = e.message
+      }
+      setError(msg)
+      setCameraReady(false)
+    }
+  }
 
   // Toggle flashlight (browser only — getUserMedia track has applyConstraints
   // for torch on supported devices).
@@ -188,10 +226,27 @@ export function ScanQR() {
         {/* Status / hint */}
         <div style={{ position: 'absolute', bottom: 110, left: 0, right: 0, textAlign: 'center', color: '#fff', fontSize: 14, zIndex: 30, padding: '0 24px' }}>
           {error
-            ? <span style={{ color: 'var(--r)' }}>{error}</span>
+            ? (
+              <div>
+                <div style={{ color: 'var(--r)', marginBottom: 8 }}>{error}</div>
+                <button
+                  onClick={startWebScanner}
+                  style={{
+                    background: 'var(--gl)', color: '#0a3d1e',
+                    border: 'none', borderRadius: 24,
+                    padding: '8px 18px', fontSize: 13, fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Try again
+                </button>
+              </div>
+            )
             : detectedPreview
               ? <span className="grn">Found {chainLabel(detectedPreview)} address — opening Send…</span>
-              : 'Position the QR code in the frame'}
+              : cameraReady
+                ? 'Position the QR code in the frame'
+                : 'Starting camera…'}
         </div>
 
         {/* Bottom action row */}
