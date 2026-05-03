@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { PhoneShell } from '../../components/PhoneShell'
@@ -18,14 +18,29 @@ import type { Beneficiary } from '../../mock/db'
 
 type Net = { id: string; name: string; description: string; recommended?: boolean }
 
+// Pre-fill payload pushed in via location.state from the QR scanner.
+type ScanPrefill = {
+  asset?: string
+  network?: string
+  address?: string
+  amount?: string
+  memo?: string
+  tag?: string
+  ambiguous?: boolean
+  fromScanner?: boolean
+}
+
 export function Withdraw() {
   const { t } = useTranslation()
   const nav = useNavigate()
+  const loc = useLocation()
+  const prefill = (loc.state as ScanPrefill | null) ?? null
   const { data: bal } = useEndpoint<{ items: Balance[] }>('api.wallet.balances.list')
-  const [asset, setAsset] = useState<string>('BTC')
-  const [address, setAddress] = useState('')
-  const [amount, setAmount] = useState('')
-  const [network, setNetwork] = useState<string>('')
+  const [asset, setAsset] = useState<string>(prefill?.asset || 'BTC')
+  const [address, setAddress] = useState(prefill?.address || '')
+  const [amount, setAmount] = useState(prefill?.amount || '')
+  const [network, setNetwork] = useState<string>(prefill?.network || '')
+  const prefillToastShown = useRef(false)
   const [scanOpen, setScanOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const { scan } = useQRScanner()
@@ -76,13 +91,31 @@ export function Withdraw() {
     .filter(t => t.type === 'withdraw' && matchesAsset(t, asset))
     .slice(0, 5)
 
-  // When asset changes, reset network to recommended
+  // When asset changes, reset network to recommended. Skip the reset if the
+  // current network is already valid for this asset (e.g. prefilled from
+  // the QR scanner with an exact match like 'polygon' for MATIC).
   useEffect(() => {
     const list = nets?.networks ?? []
     if (list.length === 0) { setNetwork(''); return }
+    const stillValid = network && list.some(n => n.id.toLowerCase() === network.toLowerCase())
+    if (stillValid) return
     const reco = list.find(n => n.recommended)?.id ?? list[0].id
     setNetwork(reco)
-  }, [nets, asset])
+  }, [nets, asset, network])
+
+  // One-time toast when the user lands here from the QR scanner so they
+  // see what was detected and don't think the form just magically filled.
+  useEffect(() => {
+    if (!prefill?.fromScanner || prefillToastShown.current) return
+    prefillToastShown.current = true
+    const msg = prefill.ambiguous
+      ? `${prefill.asset} address detected — confirm the network if not Ethereum`
+      : `${prefill.asset} (${prefill.network}) address pre-filled from QR`
+    toast.success(msg)
+    // Clear scanner state from history so a back nav doesn't re-trigger
+    nav(loc.pathname, { replace: true, state: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const networkLabel = nets?.networks?.find(n => n.id === network)?.name ?? network
 
