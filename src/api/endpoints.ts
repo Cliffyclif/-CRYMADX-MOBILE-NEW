@@ -269,6 +269,8 @@ export const ENDPOINTS = {
   'api.fiat.quote':            { method: 'POST', path: '/fiat/quote' },
   'api.fiat.order.create':     { method: 'POST', path: '/fiat/orders' },
   'api.fiat.order.status':     { method: 'GET',  path: '/fiat/orders/:orderId' },
+  'api.fiat.order.refresh':    { method: 'POST', path: '/fiat/orders/:orderId/refresh' },
+  'api.fiat.sell.refresh':     { method: 'POST', path: '/fiat/sell/:orderId/refresh' },
 
   // ---- Engagement ----
   'api.rewards.summary':       { method: 'GET',  path: '/rewards' },

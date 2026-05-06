@@ -213,6 +213,21 @@ export function BuyCrypto() {
   }, [fiatAmount, fiatCode, cryptoSymbol, network, paymentId, selectedCrypto, selectedFiat, selectedPayment])
 
   const createOrder = useEndpointMutation<{ body: any }, any>('api.fiat.order.create')
+  const refreshOrder = useEndpointMutation<{ pathParams: { orderId: string } }, any>('api.fiat.order.refresh')
+
+  // Mints a fresh Guardarian checkout URL for an existing order (called
+  // by CheckoutModal on retry / reopen). Returns null if refresh fails.
+  const onRefreshCheckoutUrl = async (orderId: string): Promise<string | null> => {
+    try {
+      const r = await refreshOrder.mutateAsync({ pathParams: { orderId } })
+      const fresh = r?.checkoutUrl ?? r?.redirectUrl ?? r?.checkout_url ?? r?.redirect_url ?? null
+      if (fresh) setCheckoutUrl(fresh)
+      return fresh
+    } catch (err) {
+      console.error('[BuyCrypto] refresh checkout failed:', err)
+      return null
+    }
+  }
 
   const submit = async () => {
     if (!quote || !selectedCrypto || !selectedFiat || !selectedPayment) return
@@ -455,6 +470,8 @@ export function BuyCrypto() {
         title={`${selectedFiat?.code ?? ''} → ${cryptoSymbol}`}
         onClose={() => setCheckoutUrl(null)}
         onComplete={onCheckoutComplete}
+        orderId={pendingOrderId}
+        onRefreshUrl={onRefreshCheckoutUrl}
       />
     </PhoneShell>
   )

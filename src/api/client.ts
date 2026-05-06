@@ -112,6 +112,8 @@ const REAL_PATH_OVERRIDES: Partial<Record<EndpointId, string>> = {
   'api.fiat.quote':             '/fiat/buy/estimate',
   'api.fiat.order.create':      '/fiat/buy/create',
   'api.fiat.order.status':      '/fiat/order/:orderId',
+  'api.fiat.order.refresh':     '/fiat/buy/refresh/:orderId',
+  'api.fiat.sell.refresh':      '/fiat/sell/refresh/:orderId',
 
   // ---- KYC (kyc-service via gateway /api/kyc) ----
   'api.user.kyc.status':        '/kyc/status',

@@ -60,19 +60,51 @@ interface Props {
   title?: string
   /** Provider name shown in the footer (e.g. "Guardarian"). */
   provider?: string
+  /** Order id used to mint a fresh checkout URL when the original
+   *  auth_token has been consumed. Required for the in-modal "retry"
+   *  flow to work — without it the retry button silently no-ops. */
+  orderId?: string | null
+  /** Called when the modal needs a fresh checkout URL (retry / Safari
+   *  external open). Should return a new pre-authenticated URL. */
+  onRefreshUrl?: (orderId: string) => Promise<string | null>
 }
 
-type Stage = 'loading' | 'ready' | 'processing' | 'preauth_failed' | 'completed' | 'failed' | 'cancelled'
+type Stage = 'loading' | 'ready' | 'processing' | 'preauth_failed' | 'safari_external' | 'completed' | 'failed' | 'cancelled'
 
-export function CheckoutModal({ open, url, onClose, onComplete, title, provider = 'Guardarian' }: Props) {
+// Detect Safari and iOS — these browsers partition third-party storage
+// so aggressively that even iframe + storage-access can't keep
+// Guardarian's session alive across navigations. For these we go
+// straight to the in-app browser (Capacitor) or external tab (web).
+function isSafariLike(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  const isIOS = /iPad|iPhone|iPod/.test(ua)
+  const isSafariBrowser = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua)
+  return isIOS || isSafariBrowser
+}
+
+export function CheckoutModal({ open, url, onClose, onComplete, title, provider = 'Guardarian', orderId, onRefreshUrl }: Props) {
   const { t } = useTranslation()
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [stage, setStage] = useState<Stage>('loading')
+  const [activeUrl, setActiveUrl] = useState<string | null>(url)
+  const [refreshing, setRefreshing] = useState(false)
 
   // Reset state when URL changes
   useEffect(() => {
     if (!url) return
-    setStage('loading')
+    setActiveUrl(url)
+    // Safari/iOS: skip iframe entirely, go straight to external browser.
+    // Storage partitioning makes Guardarian's session unreliable inside
+    // any iframe on these browsers, even with storage-access + credentialless.
+    if (isSafariLike()) {
+      setStage('safari_external')
+      // Fire the open synchronously so it's still inside the user-gesture
+      // chain that started this modal — popup blockers stay quiet.
+      openInExternalBrowser(url).catch(() => { /* user can retry via button */ })
+    } else {
+      setStage('loading')
+    }
   }, [url])
 
   // Lock body scroll + ESC to close
@@ -85,20 +117,19 @@ export function CheckoutModal({ open, url, onClose, onComplete, title, provider 
     return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey) }
   }, [open, onClose])
 
-  // Safety-net timeout: if the iframe never fires *any* signal (not even
-  // its `load` event) after 45s, surface the "Continue in browser" CTA so
-  // the user isn't staring at an empty modal forever. We used to time out
-  // at 8s based on postMessage events, but Guardarian's hosted page loads
-  // fine without firing a recognised "ready" message — that produced false
-  // positives where the iframe was working and we yanked it.
+  // Safety-net timeout: if the iframe never fires its `load` event after
+  // 90s, surface the "Continue in browser" CTA so the user isn't staring
+  // at an empty modal forever. Bumped from 45s — Guardarian's CDN edge
+  // can take 30-60s on slow mobile connections, and false-positives
+  // (yanking a working iframe) cost more than waiting an extra minute.
   useEffect(() => {
-    if (!open || !url) return
+    if (!open || !activeUrl) return
     if (stage !== 'loading') return
     const timer = setTimeout(() => {
       setStage(s => (s === 'loading' ? 'preauth_failed' : s))
-    }, 45000)
+    }, 90000)
     return () => clearTimeout(timer)
-  }, [open, url, stage])
+  }, [open, activeUrl, stage])
 
   // postMessage listener — Guardarian + Transak event IDs (Guardarian
   // preserved Transak's event names for backwards compat with old
@@ -164,17 +195,47 @@ export function CheckoutModal({ open, url, onClose, onComplete, title, provider 
   }
 
   const handleContinueInBrowser = async () => {
-    if (!url) return
+    const target = activeUrl || url
+    if (!target) return
     haptics.medium()
-    await openInExternalBrowser(url)
+    await openInExternalBrowser(target)
     // Don't close immediately — give the user time to come back to confirm.
     setStage('processing')
   }
 
+  // Mint a fresh checkout URL from the backend (used by retry + Safari
+  // "reopen" paths). Guardarian's auth_token is single-use / TTL'd, so a
+  // fresh transaction-with-same-orderId is the correct way to recover.
+  const handleRefreshUrl = async (): Promise<string | null> => {
+    if (!orderId || !onRefreshUrl) return activeUrl || url || null
+    setRefreshing(true)
+    try {
+      const fresh = await onRefreshUrl(orderId)
+      if (fresh) {
+        setActiveUrl(fresh)
+        return fresh
+      }
+    } catch (err) {
+      console.error('[checkout] refresh failed:', err)
+    } finally {
+      setRefreshing(false)
+    }
+    return activeUrl || url || null
+  }
+
+  // "Try the embed anyway" → mint fresh URL first so we don't reuse a
+  // burned auth_token, then re-mount the iframe.
+  const handleRetryEmbed = async () => {
+    haptics.selection()
+    const fresh = await handleRefreshUrl()
+    if (fresh) setStage('loading')
+  }
+
   if (!open) return null
 
-  const showIframe = stage === 'loading' || stage === 'ready' || stage === 'processing'
-  const hostname = url ? safeHostname(url) : ''
+  const iframeUrl = activeUrl || url
+  const showIframe = (stage === 'loading' || stage === 'ready' || stage === 'processing') && !!iframeUrl
+  const hostname = iframeUrl ? safeHostname(iframeUrl) : ''
 
   return (
     <div
@@ -263,11 +324,40 @@ export function CheckoutModal({ open, url, onClose, onComplete, title, provider 
             <Icon name="globe" size={14} color="#fff" />
             {t('buy.openInBrowser') || 'Open in browser'}
           </button>
+          {orderId && onRefreshUrl && (
+            <button
+              onClick={handleRetryEmbed}
+              disabled={refreshing}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.6)', fontSize: 13, marginTop: 8, cursor: refreshing ? 'wait' : 'pointer' }}
+            >
+              {refreshing
+                ? (t('buy.refreshingCheckout') || 'Refreshing checkout…')
+                : (t('buy.tryEmbedAnyway') || 'Try the embed anyway')}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Safari / iOS — iframe is unreliable, point user at external browser */}
+      {stage === 'safari_external' && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, color: '#fff', textAlign: 'center', gap: 12 }}>
+          <div style={{ width: 64, height: 64, borderRadius: 32, background: 'rgba(0,200,83,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="globe" size={32} color="var(--gl)" />
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 700 }}>
+            {t('buy.openedInBrowserTitle') || 'Checkout opened in your browser'}
+          </div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,.7)', maxWidth: 320, lineHeight: 1.5 }}>
+            {t('buy.openedInBrowserBody') ||
+              'Complete your payment in the new window. Your wallet address and email are pre-filled. Come back here once you\'re done.'}
+          </div>
           <button
-            onClick={() => { setStage('loading'); /* allow iframe another shot */ }}
-            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.6)', fontSize: 13, marginTop: 8, cursor: 'pointer' }}
+            onClick={handleContinueInBrowser}
+            className="btn btn-g"
+            style={{ marginTop: 8, maxWidth: 280, padding: '14px 18px' }}
           >
-            {t('buy.tryEmbedAnyway') || 'Try the embed anyway'}
+            <Icon name="globe" size={14} color="#fff" />
+            {t('buy.reopenCheckout') || 'Reopen checkout'}
           </button>
         </div>
       )}
@@ -292,14 +382,24 @@ export function CheckoutModal({ open, url, onClose, onComplete, title, provider 
       )}
 
       {/* Iframe — kept mounted while in iframe-friendly stages.
-          `onLoad` fires even for cross-origin docs once the document has
-          loaded, so we use it as the canonical "iframe is alive" signal
-          and disarm the safety-net timeout. */}
-      {url && showIframe && (
+          The stable React `key` prevents the iframe from being thrown
+          away when sibling JSX (loading shimmer, footer state) changes.
+          `credentialless` + `allow="storage-access"` opt this iframe
+          into the modern Web Platform unpartitioned-storage flow so
+          Guardarian's session cookies survive cross-origin context.
+          Without these, Chrome 130+ and Safari ITP partition cookies
+          per top-level origin, breaking Guardarian's auth handoff
+          partway through the checkout (user gets re-prompted for email).
+          `onLoad` fires even for cross-origin docs once the document
+          has loaded, so we use it as the canonical "iframe is alive"
+          signal and disarm the safety-net timeout. */}
+      {showIframe && iframeUrl && (
         <iframe
+          key="checkout-iframe"
           ref={iframeRef}
-          src={url}
-          allow="payment; camera; microphone; clipboard-read; clipboard-write; accelerometer; encrypted-media; geolocation"
+          src={iframeUrl}
+          {...({ credentialless: 'true' } as any)}
+          allow="payment; camera; microphone; clipboard-read; clipboard-write; accelerometer; encrypted-media; geolocation; storage-access"
           referrerPolicy="no-referrer-when-downgrade"
           onLoad={() => setStage(s => (s === 'loading' ? 'ready' : s))}
           style={{ flex: 1, border: 'none', background: '#fff', width: '100%' }}
