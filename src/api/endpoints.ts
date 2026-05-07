@@ -292,6 +292,13 @@ export const ENDPOINTS = {
   'api.referral.stats':        { method: 'GET',  path: '/referral/stats' },
   /** Auth — apply someone else's code at signup time. */
   'api.referral.apply':        { method: 'POST', path: '/referral/apply' },
+  /** Tier+referral commission system (volume-aggregator schema). */
+  'api.referral.tier':         { method: 'GET',  path: '/referral/tier' },
+  'api.referral.earnings':     { method: 'GET',  path: '/referral/earnings' },
+  'api.referral.earnings.summary': { method: 'GET', path: '/referral/earnings/summary' },
+  'api.referral.payouts':      { method: 'GET',  path: '/referral/payouts' },
+  'api.referral.payouts.request': { method: 'POST', path: '/referral/payouts/request' },
+  'api.referral.payouts.cancel':  { method: 'POST', path: '/referral/payouts/:id/cancel' },
   'api.notifications.list':    { method: 'GET',  path: '/notifications' },
   'api.notifications.read':    { method: 'POST', path: '/notifications/read' },
   'api.notifications.read-one': { method: 'PATCH', path: '/notifications/:id/read' },
