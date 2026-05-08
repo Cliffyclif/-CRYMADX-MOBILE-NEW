@@ -41,6 +41,7 @@ export const ROUTES = {
   'route.wallet.tx-history':   { path: '/wallet/transactions' },
   'route.wallet.tx-detail':    { path: '/wallet/transactions/:txId' },
   'route.wallet.beneficiaries': { path: '/wallet/beneficiaries' },
+  'route.wallet.whitelist.confirm': { path: '/wallet/whitelist/confirm' },
 
   // Trading
   'route.trading.spot':        { path: '/trade/:pair' },

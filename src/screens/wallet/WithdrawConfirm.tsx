@@ -35,6 +35,12 @@ export function WithdrawConfirm() {
   const [saveAddress, setSaveAddress] = useState(false)
   const [savedName, setSavedName] = useState('')
   const [disclaimerOpen, setDisclaimerOpen] = useState(false)
+  // Bug #5 — capture the EXACT moment the user clicks "I Agree" so the
+  // server can verify the disclaimer was acknowledged within the last 5min.
+  const [acknowledgedAt, setAcknowledgedAt] = useState<string | null>(null)
+  // Bug #4 — surface 2FA TOTP keypad when the backend says we need it.
+  const [needs2FA, setNeeds2FA] = useState(false)
+  const [totp, setTotp] = useState('')
 
   // Check whether this exact address is already whitelisted+active.
   // If yes, the OTP step is hidden — backend will accept the withdrawal
@@ -122,17 +128,29 @@ export function WithdrawConfirm() {
       setError(t('withdraw.enterSixDigitCode') || 'Enter the 6-digit code from your email')
       return
     }
+    if (needs2FA && totp.length !== 6) {
+      setError(t('withdraw.enter2FA') || 'Enter the 6-digit code from your authenticator app')
+      return
+    }
     try {
-      const body = isWhitelisted
+      const body: any = isWhitelisted
         ? { ...state }
         : { ...state, otpCode: otp }
+      if (needs2FA) body.twoFactorCode = totp
       const tx = await withdraw.mutateAsync({ body })
       haptics.success()
 
       // Save to address book if the user opted in. The disclaimer modal has
-      // already been agreed-to in the toggle handler below — that's why we
-      // can include the acknowledgedAt stamp directly here.
+      // already been agreed-to in the toggle handler below — capture that
+      // exact timestamp (Bug #5). If it's older than 5min, the backend will
+      // reject with ACK_STALE so we re-open the disclaimer.
       if (!alreadyOnWhitelist && saveAddress && savedName.trim()) {
+        const ackToSend = acknowledgedAt
+        if (!ackToSend || Date.now() - new Date(ackToSend).getTime() > 4 * 60 * 1000) {
+          // Stale — reopen disclaimer instead of sending. The withdrawal already
+          // succeeded; user can re-add later from Beneficiaries screen.
+          console.warn('[withdraw] Acknowledgment stale, address not saved')
+        } else {
         try {
           await saveBeneficiary.mutateAsync({
             body: {
@@ -141,7 +159,7 @@ export function WithdrawConfirm() {
               network: state.network,
               chain: state.network,
               address: state.address,
-              acknowledgedAt: new Date().toISOString(),
+              acknowledgedAt: ackToSend,
             },
           })
           toast.success(
@@ -152,6 +170,7 @@ export function WithdrawConfirm() {
           // Don't block the success flow on a save failure
           console.warn('[withdraw] Could not save address:', e?.message)
         }
+        }
       }
 
       // Pass the freshly-created tx as state so the detail screen can show
@@ -160,9 +179,18 @@ export function WithdrawConfirm() {
         replace: true,
         state: { justSubmitted: tx, asset: state.asset, amount: state.amount, address: state.address, network: state.network },
       })
-    } catch (err) {
+    } catch (err: any) {
       haptics.error()
-      setError((err as Error).message)
+      // Bug #4 — backend may return requires2FA: true when 2FA is enabled and
+      // the address isn't active-whitelisted. Surface the keypad and let the
+      // user retry without leaving the screen.
+      const flag = err?.data?.requires2FA ?? err?.requires2FA
+      if (flag && !needs2FA) {
+        setNeeds2FA(true)
+        setError(t('withdraw.needs2FA') || 'Two-factor authentication required. Enter the 6-digit code from your authenticator app.')
+        return
+      }
+      setError(err?.message ?? 'Withdrawal failed')
     }
   }
 
@@ -261,6 +289,7 @@ export function WithdrawConfirm() {
                   // Toggling OFF — no confirmation needed.
                   setSaveAddress(false)
                   setSavedName('')
+                  setAcknowledgedAt(null)  // Clear the disclaimer timestamp
                 } else {
                   // Toggling ON — show the disclaimer first. The toggle is
                   // only flipped if the user clicks "I Agree".
@@ -389,6 +418,65 @@ export function WithdrawConfirm() {
         </>
       )}
 
+      {/* 2FA TOTP step — shown when backend returned requires2FA OR user has active 2FA + not whitelisted.
+          Stays compact below the OTP step to keep the flow visible without a second screen. */}
+      {needs2FA && (
+        <>
+          <h3 style={{ marginTop: 14 }}>{t('withdraw.enter2FATitle') || 'Enter 2FA code'}</h3>
+          <div className="t3" style={{ marginBottom: 6 }}>
+            {t('withdraw.enter2FABody') || 'Open your authenticator app and enter the 6-digit code for CrymadX.'}
+          </div>
+          <div className="pdots">
+            {[0, 1, 2, 3, 4, 5].map(i => <div key={i} className={`pdot ${totp.length > i ? 'f' : ''}`} />)}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const raw = await navigator.clipboard.readText()
+                  const digits = (raw || '').replace(/\D/g, '').slice(0, 6)
+                  if (digits.length === 0) {
+                    toast.error('Clipboard has no digits')
+                    return
+                  }
+                  setTotp(digits)
+                } catch {
+                  toast.error('Could not read clipboard')
+                }
+              }}
+              style={{
+                background: 'rgba(0,200,83,.1)',
+                color: 'var(--gl)',
+                border: '1px solid rgba(0,200,83,.3)',
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 700,
+                padding: '6px 14px',
+                cursor: 'pointer',
+                fontFamily: 'Outfit',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <Icon name="copy" size={12} color="var(--gl)" />
+              Paste 2FA code
+            </button>
+          </div>
+          <div className="kpad">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, '⌫'].map((v, i) => (
+              <button key={i} className="kk" onClick={() => {
+                if (v === '⌫') setTotp(p => p.slice(0, -1))
+                else if (v !== '') setTotp(p => p.length < 6 ? p + v : p)
+              }} style={{ width: 40, height: 40, fontSize: 14, visibility: v === '' ? 'hidden' : 'visible' }}>
+                {v}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
       {error && <div className="g" style={{ padding: 10, marginTop: 4, borderLeft: '3px solid var(--r)', color: 'var(--r)', fontSize: 14 }}>{error}</div>}
 
       <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
@@ -400,7 +488,8 @@ export function WithdrawConfirm() {
           disabled={
             withdraw.isPending ||
             wlLoading ||
-            (!isWhitelisted && otp.length !== 6)
+            (!isWhitelisted && otp.length !== 6) ||
+            (needs2FA && totp.length !== 6)
           }
         >
           <Icon name="fp" size={12} color="#fff" />
@@ -413,6 +502,10 @@ export function WithdrawConfirm() {
         onAgree={() => {
           setDisclaimerOpen(false)
           setSaveAddress(true)
+          // Bug #5 — capture the moment of agreement so the server can verify
+          // it's recent (within 5 min). Stamping at submit-time was lying
+          // about when the user actually consented.
+          setAcknowledgedAt(new Date().toISOString())
         }}
         onCancel={() => setDisclaimerOpen(false)}
       />

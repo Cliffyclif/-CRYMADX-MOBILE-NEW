@@ -274,14 +274,30 @@ function writeLS<T>(key: string, value: T): void {
 // hasn't been deployed yet (returns sentinel '__fallback__' on 404/503).
 // ─────────────────────────────────────────────────────────────────────────
 const WHITELIST_FALLBACK = '__fallback__' as const
-let _whitelistDisabled = false
+// Bug #7 — time-bounded disable. A single 404 used to wedge the whole feature
+// into localStorage-fallback mode for the rest of the session, which silently
+// hid all server-side whitelist state. Now we re-try every 60s.
+const WHITELIST_DISABLE_MS = 60_000
+let _whitelistDisabledUntil: number | null = null
+
+/** Public for tests / Beneficiaries refresh button — clears the disable timer. */
+export function resetWhitelistDisable() {
+  _whitelistDisabledUntil = null
+}
+
 async function whitelistFetch<T>(
   method: string,
   path: string,
   token: string | null | undefined,
   body?: any,
 ): Promise<T | typeof WHITELIST_FALLBACK> {
-  if (_whitelistDisabled) return WHITELIST_FALLBACK
+  if (_whitelistDisabledUntil !== null && Date.now() < _whitelistDisabledUntil) {
+    return WHITELIST_FALLBACK
+  }
+  // Disable timer expired — clear it and retry.
+  if (_whitelistDisabledUntil !== null) {
+    _whitelistDisabledUntil = null
+  }
   const headers: Record<string, string> = { 'Accept': 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
   if (body !== undefined) headers['Content-Type'] = 'application/json'
@@ -292,8 +308,11 @@ async function whitelistFetch<T>(
       body: body !== undefined ? JSON.stringify(body) : undefined,
     })
     if (res.status === 404) {
-      // Route not deployed — disable for the rest of this session
-      _whitelistDisabled = true
+      // Route not deployed (or briefly unreachable) — disable for 60s, not
+      // forever. This matters in production where a brief deploy hiccup used
+      // to silently break the feature for the entire session.
+      _whitelistDisabledUntil = Date.now() + WHITELIST_DISABLE_MS
+      console.warn('[whitelist-fetch] disabled until', new Date(_whitelistDisabledUntil).toISOString())
       return WHITELIST_FALLBACK
     }
     if (!res.ok) {
@@ -314,6 +333,9 @@ async function whitelistFetch<T>(
     return data as T
   } catch (e) {
     if (e instanceof ApiError) throw e
+    // Network error — also disable briefly so we don't hammer a flapping route.
+    _whitelistDisabledUntil = Date.now() + WHITELIST_DISABLE_MS
+    console.warn('[whitelist-fetch] network error, disabled until', new Date(_whitelistDisabledUntil).toISOString())
     return WHITELIST_FALLBACK
   }
 }
