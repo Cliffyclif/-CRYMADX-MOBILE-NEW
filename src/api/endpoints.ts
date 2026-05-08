@@ -122,6 +122,10 @@ export const ENDPOINTS = {
   // ---- User ----
   'api.user.profile.get':      { method: 'GET',  path: '/user/profile' },
   'api.user.profile.update':   { method: 'PATCH', path: '/user/profile' },
+  /** Caller's own permanent UID (auto-mints if missing — defensive). */
+  'api.user.uid':              { method: 'GET',  path: '/user/uid' },
+  /** Public-ish recipient lookup by UID. Returns {userId, displayName, kycLevel} or 404. */
+  'api.user.uid.lookup':       { method: 'GET',  path: '/user/uid/lookup' },
   'api.user.kyc.status':       { method: 'GET',  path: '/user/kyc' },
   'api.user.kyc.start':        { method: 'POST', path: '/user/kyc/start' },
   /** Real in-house KYC: multipart upload (front, back, selfie, livenessVideo, personalInfo) */
@@ -136,6 +140,10 @@ export const ENDPOINTS = {
   'api.wallet.networks.list':  { method: 'GET',  path: '/wallet/networks/:asset' },
   'api.wallet.withdraw.create': { method: 'POST', path: '/wallet/withdraw' },
   'api.wallet.withdraw.fee':   { method: 'GET',  path: '/wallet/withdraw/fee' },
+  /** UID-to-UID internal transfer (instant, no fee). */
+  'api.transfer.internal.create': { method: 'POST', path: '/transfer/internal' },
+  'api.transfer.internal.list':   { method: 'GET',  path: '/transfers/internal' },
+  'api.transfer.internal.get':    { method: 'GET',  path: '/transfers/internal/:transferId' },
   'api.wallet.convert.quote':  { method: 'POST', path: '/wallet/convert/quote' },
   'api.wallet.convert.execute': { method: 'POST', path: '/wallet/convert/execute' },
 

@@ -12,7 +12,18 @@ import { fmt } from '../../lib/format'
 import { haptics } from '../../lib/haptics'
 import type { Transaction } from '../../api/endpoints'
 
-type WithdrawState = { asset: string; network: string; address: string; amount: string; fee: string }
+// Address-mode state (existing flow)
+type AddressWithdrawState = {
+  mode?: 'address'
+  asset: string; network: string; address: string; amount: string; fee: string
+}
+// UID-mode state (new internal-transfer flow)
+type UidWithdrawState = {
+  mode: 'uid'
+  asset: string; network: string; amount: string; fee: '0'
+  recipientUid: string; recipientName: string
+}
+type WithdrawState = AddressWithdrawState | UidWithdrawState
 
 type WhitelistCheck = {
   whitelisted: boolean
@@ -42,14 +53,15 @@ export function WithdrawConfirm() {
   const [needs2FA, setNeeds2FA] = useState(false)
   const [totp, setTotp] = useState('')
 
-  // Check whether this exact address is already whitelisted+active.
-  // If yes, the OTP step is hidden — backend will accept the withdrawal
-  // without an otpCode for active whitelist matches.
+  // Whitelist check — chain+address for address mode, uid for UID mode.
+  // If active-whitelisted, the OTP/2FA step is hidden.
   const { data: wl, isLoading: wlLoading } = useEndpoint<WhitelistCheck>(
     'api.wallet.whitelist.check',
     {
       query: state
-        ? { asset: state.asset, chain: state.network, address: state.address }
+        ? (isUidMode
+            ? { uid: (state as UidWithdrawState).recipientUid }
+            : { asset: state.asset, chain: state.network, address: (state as AddressWithdrawState).address })
         : {},
     },
     { enabled: !!state },
@@ -60,9 +72,14 @@ export function WithdrawConfirm() {
   // to add it again and trigger a 409 conflict.
   const alreadyOnWhitelist = !!wl?.status
 
+  const isUidMode = state?.mode === 'uid'
   const sendOtp = useEndpointMutation<{ body: { purpose: string } }, unknown>('api.otp.send')
-  const withdraw = useEndpointMutation<{ body: WithdrawState & { otpCode?: string } }, Transaction>('api.wallet.withdraw.create', {
+  const withdraw = useEndpointMutation<{ body: any }, Transaction>('api.wallet.withdraw.create', {
     invalidates: ['api.wallet.balances.list', 'api.tx.list'],
+  })
+  // UID-mode internal transfer mutation
+  const internalTransfer = useEndpointMutation<{ body: any }, any>('api.transfer.internal.create', {
+    invalidates: ['api.wallet.balances.list', 'api.tx.list', 'api.transfer.internal.list'],
   })
   const saveBeneficiary = useEndpointMutation('api.beneficiaries.create', {
     invalidates: ['api.beneficiaries.list', 'api.wallet.whitelist.list'],
@@ -133,11 +150,27 @@ export function WithdrawConfirm() {
       return
     }
     try {
-      const body: any = isWhitelisted
-        ? { ...state }
-        : { ...state, otpCode: otp }
-      if (needs2FA) body.twoFactorCode = totp
-      const tx = await withdraw.mutateAsync({ body })
+      let tx: any
+      if (isUidMode) {
+        // ─── Internal UID transfer ───
+        const u = state as UidWithdrawState
+        const body: any = {
+          recipientUid: u.recipientUid,
+          asset: u.asset,
+          chain: u.network,
+          amount: u.amount,
+        }
+        if (!isWhitelisted) body.otpCode = otp
+        if (needs2FA) body.twoFactorCode = totp
+        const res = await internalTransfer.mutateAsync({ body })
+        tx = { id: res?.transfer?.id ?? `transfer_${Date.now()}` }
+      } else {
+        const body: any = isWhitelisted
+          ? { ...state }
+          : { ...state, otpCode: otp }
+        if (needs2FA) body.twoFactorCode = totp
+        tx = await withdraw.mutateAsync({ body })
+      }
       haptics.success()
 
       // Save to address book if the user opted in. The disclaimer modal has
@@ -152,16 +185,23 @@ export function WithdrawConfirm() {
           console.warn('[withdraw] Acknowledgment stale, address not saved')
         } else {
         try {
-          await saveBeneficiary.mutateAsync({
-            body: {
-              name: savedName.trim(),
-              asset: state.asset,
-              network: state.network,
-              chain: state.network,
-              address: state.address,
-              acknowledgedAt: ackToSend,
-            },
-          })
+          // Branch save shape by mode: UID or address
+          const saveBody: any = isUidMode
+            ? {
+                kind: 'uid',
+                name: savedName.trim(),
+                uid: (state as UidWithdrawState).recipientUid,
+                acknowledgedAt: ackToSend,
+              }
+            : {
+                name: savedName.trim(),
+                asset: state.asset,
+                network: state.network,
+                chain: state.network,
+                address: (state as AddressWithdrawState).address,
+                acknowledgedAt: ackToSend,
+              }
+          await saveBeneficiary.mutateAsync({ body: saveBody })
           toast.success(
             t('withdraw.addressSavedPending') ||
               `${savedName.trim()} saved — active in 24 hours (or confirm via email)`,
@@ -177,7 +217,15 @@ export function WithdrawConfirm() {
       // it even if /transactions hasn't picked it up yet.
       nav(routeFor('route.wallet.tx-detail', { txId: tx.id }), {
         replace: true,
-        state: { justSubmitted: tx, asset: state.asset, amount: state.amount, address: state.address, network: state.network },
+        state: {
+          justSubmitted: tx,
+          asset: state.asset,
+          amount: state.amount,
+          network: state.network,
+          ...(isUidMode
+            ? { recipientUid: (state as UidWithdrawState).recipientUid, recipientName: (state as UidWithdrawState).recipientName }
+            : { address: (state as AddressWithdrawState).address }),
+        },
       })
     } catch (err: any) {
       haptics.error()
@@ -210,19 +258,48 @@ export function WithdrawConfirm() {
       </div>
 
       <div className="g" style={{ padding: 10, marginTop: 6 }}>
-        {[
-          [t('common.to'), shorten(state.address)],
-          [t('common.network'), state.network],
-          ['You send', `${fmt(amountNum)} ${state.asset}`],
-          [t('withdraw.networkFee'), `${fmt(feeNum)} ${state.asset}`],
-          ['Recipient receives', `${recipientReceives} ${state.asset}`],
-        ].map(([k, v]) => (
+        {(isUidMode
+          ? [
+              [t('common.to'), `@${(state as UidWithdrawState).recipientUid}${(state as UidWithdrawState).recipientName ? ' — ' + (state as UidWithdrawState).recipientName : ''}`],
+              [t('common.network'), state.network],
+              ['You send', `${fmt(amountNum)} ${state.asset}`],
+              ['Fee', 'Free — internal transfer'],
+              ['Recipient receives', `${fmt(amountNum)} ${state.asset}`],
+            ]
+          : [
+              [t('common.to'), shorten((state as AddressWithdrawState).address)],
+              [t('common.network'), state.network],
+              ['You send', `${fmt(amountNum)} ${state.asset}`],
+              [t('withdraw.networkFee'), `${fmt(feeNum)} ${state.asset}`],
+              ['Recipient receives', `${recipientReceives} ${state.asset}`],
+            ]
+        ).map(([k, v]) => (
           <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, margin: '4px 0' }}>
             <span className="t3">{k}</span>
             <span style={{ color: 'var(--text-strong)' }}>{v}</span>
           </div>
         ))}
       </div>
+
+      {isUidMode && (
+        <div
+          className="g"
+          style={{
+            padding: 10,
+            marginTop: 6,
+            borderLeft: '3px solid var(--gl)',
+            background: 'rgba(0,200,83,.06)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="zap" size={16} color="var(--gl)" />
+            <div className="t3" style={{ fontSize: 12, lineHeight: 1.4 }}>
+              <strong style={{ color: 'var(--gl)' }}>Internal transfer.</strong>{' '}
+              Funds arrive in @{(state as UidWithdrawState).recipientUid}'s wallet instantly. No on-chain fee.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Whitelisted-address banner — replaces the OTP step entirely. */}
       {isWhitelisted && (
@@ -487,6 +564,7 @@ export function WithdrawConfirm() {
           style={{ flex: 1, padding: 10, margin: 0 }}
           disabled={
             withdraw.isPending ||
+            internalTransfer.isPending ||
             wlLoading ||
             (!isWhitelisted && otp.length !== 6) ||
             (needs2FA && totp.length !== 6)

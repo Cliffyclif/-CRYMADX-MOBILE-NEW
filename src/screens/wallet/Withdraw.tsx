@@ -40,6 +40,10 @@ export function Withdraw() {
   const [address, setAddress] = useState(prefill?.address || '')
   const [amount, setAmount] = useState(prefill?.amount || '')
   const [network, setNetwork] = useState<string>(prefill?.network || '')
+  // UID-mode state — when active, recipient is identified by their CrymadX UID
+  // and the transfer is internal (no on-chain TX, no fee).
+  const [mode, setMode] = useState<'address' | 'uid'>('address')
+  const [uid, setUid] = useState('')
   const prefillToastShown = useRef(false)
   const [scanOpen, setScanOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -47,7 +51,21 @@ export function Withdraw() {
 
   const { data: saved } = useEndpoint<{ items: Beneficiary[] }>('api.beneficiaries.list')
   const savedForAsset = (saved?.items ?? []).filter(
-    b => String(b.asset).toUpperCase() === asset.toUpperCase(),
+    b => (b as any).kind !== 'uid' && String(b.asset).toUpperCase() === asset.toUpperCase(),
+  )
+  // Saved UID beneficiaries (independent of asset — UIDs are asset-agnostic)
+  const savedUids = (saved?.items ?? []).filter(b => (b as any).kind === 'uid')
+
+  // Live recipient lookup when in UID mode. Debounced through React Query's
+  // built-in cache: same UID won't re-fetch within 30s.
+  const normalizedUid = uid.trim().toUpperCase().replace(/[^0-9A-Z]/g, '')
+  const uidLookupValid = mode === 'uid' && (normalizedUid.length === 6 || normalizedUid.length === 8)
+  const { data: uidPreview, isLoading: uidLoading, error: uidError } = useEndpoint<{
+    uid: string; userId: string; displayName: string; kycLevel: number
+  }>(
+    'api.user.uid.lookup',
+    { query: { uid: normalizedUid } },
+    { enabled: uidLookupValid, retry: false, staleTime: 30_000 },
   )
 
   const onScanClick = async () => {
@@ -121,10 +139,29 @@ export function Withdraw() {
 
   const exceedsBalance = !!amount && parseFloat(amount) > balanceAmount
   const continueToConfirm = () => {
-    nav(ROUTES['route.wallet.withdraw.confirm'].path, {
-      state: { asset, address, amount, fee, network },
-    })
+    if (mode === 'uid') {
+      // Internal UID-to-UID transfer — handled differently in confirm screen.
+      // No on-chain network fee; recipient identified by UID + display name.
+      nav(ROUTES['route.wallet.withdraw.confirm'].path, {
+        state: {
+          mode: 'uid',
+          asset,
+          network,
+          amount,
+          fee: '0',
+          recipientUid: normalizedUid,
+          recipientName: uidPreview?.displayName ?? '',
+        },
+      })
+    } else {
+      nav(ROUTES['route.wallet.withdraw.confirm'].path, {
+        state: { mode: 'address', asset, address, amount, fee, network },
+      })
+    }
   }
+  const canContinue = mode === 'address'
+    ? !!address && !!amount && parseFloat(amount) > 0 && !!network && !exceedsBalance
+    : uidLookupValid && !!uidPreview && !!amount && parseFloat(amount) > 0 && !exceedsBalance
 
   return (
     <PhoneShell noTabs>
@@ -134,6 +171,41 @@ export function Withdraw() {
         <div className="step"><div className="sn d">✓</div><div className="st">Asset</div></div>
         <div className="step"><div className="sn a">2</div><div className="st">Amount</div></div>
         <div className="step"><div className="sn">3</div><div className="st">Confirm</div></div>
+      </div>
+
+      {/* Send mode toggle: external blockchain address vs CrymadX UID */}
+      <div
+        role="tablist"
+        style={{
+          display: 'flex',
+          gap: 4,
+          padding: 4,
+          marginTop: 8,
+          background: 'var(--surface-soft)',
+          border: '1px solid var(--divider-soft)',
+          borderRadius: 12,
+        }}
+      >
+        {(['address', 'uid'] as const).map((m) => (
+          <button
+            key={m}
+            role="tab"
+            aria-selected={mode === m}
+            onClick={() => { setMode(m); haptics.selection() }}
+            style={{
+              flex: 1, padding: '10px 12px',
+              background: mode === m ? 'var(--bg)' : 'transparent',
+              border: 'none', borderRadius: 8,
+              fontSize: 13, fontWeight: 700,
+              color: mode === m ? 'var(--gl)' : 'var(--text-mid-40)',
+              cursor: 'pointer',
+              boxShadow: mode === m ? '0 1px 3px rgba(0,0,0,.06)' : 'none',
+              transition: 'all .15s',
+            }}
+          >
+            {m === 'address' ? '⛓️ Blockchain address' : '⚡ CrymadX UID'}
+          </button>
+        ))}
       </div>
 
       {/* Asset row */}
@@ -149,8 +221,8 @@ export function Withdraw() {
         <AssetPicker value={asset} onChange={setAsset} />
       </div>
 
-      {/* Network selector — only when asset has multiple supported networks */}
-      {(nets?.networks?.length ?? 0) > 1 && (
+      {/* Network selector — address mode only. UID mode is chain-internal. */}
+      {mode === 'address' && (nets?.networks?.length ?? 0) > 1 && (
         <div className="g" style={{ padding: 10, marginTop: 6, display: 'flex', alignItems: 'center' }}>
           <div className="t3" style={{ flex: 1 }}>{t('common.network')}</div>
           <select
@@ -167,43 +239,121 @@ export function Withdraw() {
         </div>
       )}
 
-      <div style={{ marginTop: 8 }}>
-        <div className="t3" style={{ marginBottom: 4, fontWeight: 700 }}>{t('common.address')}</div>
-        <div className="inp">
-          <Icon name="copy" size={14} />
-          <input placeholder={`Enter ${asset} address`} value={address} onChange={e => setAddress(e.target.value)} />
-          <button type="button" onClick={onScanClick} aria-label="Scan QR code" style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex' }}>
-            <Icon name="camera" size={14} color="var(--gl)" />
-          </button>
-        </div>
-        <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-          {savedForAsset.length > 0 && (
+      {mode === 'address' ? (
+        <div style={{ marginTop: 8 }}>
+          <div className="t3" style={{ marginBottom: 4, fontWeight: 700 }}>{t('common.address')}</div>
+          <div className="inp">
+            <Icon name="copy" size={14} />
+            <input placeholder={`Enter ${asset} address`} value={address} onChange={e => setAddress(e.target.value)} />
+            <button type="button" onClick={onScanClick} aria-label="Scan QR code" style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex' }}>
+              <Icon name="camera" size={14} color="var(--gl)" />
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+            {savedForAsset.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="badge badge-g"
+                style={{ cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}
+              >
+                📋 {t('withdraw.pickSaved') || 'Pick from saved'} ({savedForAsset.length})
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setPickerOpen(true)}
-              className="badge badge-g"
+              onClick={() => nav(ROUTES['route.wallet.beneficiaries'].path)}
+              className="badge badge-gd"
+              style={{ cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              ⚙️ {t('wallet.manageSaved') || 'Manage'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        // ─── UID mode: short code → recipient lookup ───
+        <div style={{ marginTop: 8 }}>
+          <div className="t3" style={{ marginBottom: 4, fontWeight: 700 }}>Recipient UID</div>
+          <div className="inp">
+            <Icon name="user" size={14} />
+            <input
+              placeholder="6-char code (e.g. AB3C9D)"
+              value={uid}
+              onChange={e => setUid(e.target.value.toUpperCase())}
+              maxLength={8}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              style={{ fontFamily: 'monospace', letterSpacing: 2, fontWeight: 700 }}
+            />
+          </div>
+          {/* Recipient preview */}
+          {uidLookupValid && (
+            <div
+              className="g"
               style={{
-                cursor: 'pointer',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                fontWeight: 700,
+                padding: 10,
+                marginTop: 6,
+                borderLeft: `3px solid ${uidPreview ? 'var(--gl)' : uidError ? 'var(--r)' : 'var(--gd)'}`,
+                background: uidPreview ? 'rgba(0,200,83,.06)' : uidError ? 'rgba(255,77,77,.06)' : 'rgba(255,193,7,.06)',
               }}
             >
-              📋 {t('withdraw.pickSaved') || 'Pick from saved'} ({savedForAsset.length})
-            </button>
+              {uidLoading && (
+                <div className="t3" style={{ fontSize: 12 }}>Looking up @{normalizedUid}…</div>
+              )}
+              {!uidLoading && uidPreview && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Icon name="check" size={16} color="var(--gl)" />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-strong)' }}>
+                      Sending to {uidPreview.displayName}
+                    </div>
+                    <div className="t3" style={{ fontSize: 11, fontFamily: 'monospace' }}>
+                      @{uidPreview.uid} {uidPreview.kycLevel >= 1 ? '· verified' : ''}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {!uidLoading && uidError && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Icon name="x" size={16} color="var(--r)" />
+                  <div className="t3" style={{ fontSize: 12, color: 'var(--r)' }}>
+                    {(uidError as any)?.statusCode === 404 ? "That UID doesn't belong to any CrymadX user" : 'Could not look up UID'}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
-          <button
-            type="button"
-            onClick={() => nav(ROUTES['route.wallet.beneficiaries'].path)}
-            className="badge badge-gd"
-            style={{ cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
-          >
-            ⚙️ {t('wallet.manageSaved') || 'Manage'}
-          </button>
+          {/* Saved UIDs picker */}
+          {savedUids.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+              {savedUids.slice(0, 6).map((b: any) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => { setUid(b.uid || ''); haptics.success() }}
+                  className="badge badge-g"
+                  style={{ cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600, padding: '4px 8px' }}
+                  title={b.name}
+                >
+                  ⚡ {b.name} (@{b.uid})
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => nav(ROUTES['route.wallet.beneficiaries'].path)}
+                className="badge badge-gd"
+                style={{ cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                ⚙️ Manage
+              </button>
+            </div>
+          )}
+          <div className="t3" style={{ fontSize: 11, marginTop: 8, opacity: 0.75 }}>
+            CrymadX UIDs are 6-character codes that identify another user on the platform. Internal transfers are instant and free — no on-chain fee.
+          </div>
         </div>
-      </div>
+      )}
 
       <div style={{ marginTop: 8 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -249,7 +399,7 @@ export function Withdraw() {
         className="btn btn-g"
         onClick={continueToConfirm}
         style={{ marginTop: 8 }}
-        disabled={!address || !amount || parseFloat(amount) <= 0 || !network || exceedsBalance}
+        disabled={!canContinue}
       >
         {t('common.continue')}
       </button>

@@ -69,6 +69,13 @@ const REAL_PATH_OVERRIDES: Partial<Record<EndpointId, string>> = {
   'api.wallet.balance.get':     '/balance/balances/:asset',
   'api.wallet.withdraw.create': '/balance/withdraw',
   'api.wallet.withdraw.fee':    '/balance/withdraw/fee',          // also overridden in FALLBACK to translate query
+  // ---- UID-based transfer (balance-service /transfer/internal) ----
+  'api.transfer.internal.create': '/balance/transfer/internal',
+  'api.transfer.internal.list':   '/balance/transfers/internal',
+  'api.transfer.internal.get':    '/balance/transfers/internal/:transferId',
+  // ---- User UID lookup (user-service /uid + /uid/lookup) ----
+  'api.user.uid':                 '/user/uid',
+  'api.user.uid.lookup':          '/user/uid/lookup',
   // Convert via swap-service (swapService.ts)
   'api.wallet.convert.quote':   '/swap/estimate',
   'api.wallet.convert.execute': '/swap/create',
@@ -344,10 +351,12 @@ function toClientBeneficiary(raw: any): any {
   if (!raw) return raw
   return {
     id: raw.id ?? raw._id ?? raw.beneficiaryId,
+    kind: raw.kind ?? 'address',     // 'address' | 'uid'
     name: raw.name,
     asset: raw.asset,
     network: raw.chain ?? raw.network,
     address: raw.address,
+    uid: raw.uid ?? null,            // populated when kind='uid'
     status: raw.status ?? 'active',
     favorite: !!raw.favorite,
     createdAt: raw.addedAt ?? raw.createdAt,
@@ -1092,13 +1101,26 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
     return { items: (items ?? []).map(toClientBeneficiary) }
   },
   'api.wallet.whitelist.add': async ({ body, token }) => {
-    const payload = {
-      name: body.name,
-      asset: String(body.asset || '').toUpperCase(),
-      chain: String(body.network || body.chain || '').toLowerCase(),
-      address: body.address,
-      twoFactorCode: body.twoFactorCode,
-    }
+    // UID-kind whitelist payload differs from address-kind. Pick the right one
+    // based on the body shape: presence of `uid` and/or kind='uid' triggers UID.
+    const isUid = body.kind === 'uid' || (!!body.uid && !body.address)
+    const payload: any = isUid
+      ? {
+          kind: 'uid',
+          name: body.name,
+          uid: String(body.uid || '').trim().toUpperCase().replace(/[^0-9A-Z]/g, ''),
+          acknowledgedAt: body.acknowledgedAt,
+          twoFactorCode: body.twoFactorCode,
+        }
+      : {
+          kind: 'address',
+          name: body.name,
+          asset: String(body.asset || '').toUpperCase(),
+          chain: String(body.network || body.chain || '').toLowerCase(),
+          address: body.address,
+          acknowledgedAt: body.acknowledgedAt,
+          twoFactorCode: body.twoFactorCode,
+        }
     const r = await whitelistFetch<any>('POST', '/balance/whitelist', token, payload)
     if (r === '__fallback__') throw new ApiError('NOT_AVAILABLE', 'Whitelist backend not deployed yet', 503)
     return r
@@ -1124,18 +1146,26 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
     return await res.json()
   },
   'api.wallet.whitelist.check': async ({ query, token }) => {
-    const qs = new URLSearchParams({
-      asset: String(query.asset || '').toUpperCase(),
-      chain: String(query.chain || '').toLowerCase(),
-      address: query.address || '',
-    }).toString()
-    const r = await whitelistFetch<any>('GET', `/balance/whitelist/check?${qs}`, token)
+    // UID lookup vs address lookup — driven by which query param is set.
+    const uid = String(query.uid || '').trim().toUpperCase().replace(/[^0-9A-Z]/g, '')
+    const params = new URLSearchParams()
+    if (uid) {
+      params.set('uid', uid)
+    } else {
+      if (query.asset) params.set('asset', String(query.asset).toUpperCase())
+      if (query.chain) params.set('chain', String(query.chain).toLowerCase())
+      if (query.address) params.set('address', String(query.address))
+    }
+    const r = await whitelistFetch<any>('GET', `/balance/whitelist/check?${params.toString()}`, token)
     if (r === '__fallback__') {
-      // Local check against localStorage
       const list = readLS<any[]>('beneficiaries', [])
+      if (uid) {
+        const hit = list.find((b: any) => b.kind === 'uid' && String(b.uid).toUpperCase() === uid)
+        return { whitelisted: !!hit, status: hit ? 'active' : null, uid }
+      }
       const a = String(query.address || '')
       const sym = String(query.asset || '').toUpperCase()
-      const hit = list.find(b => b.address === a && String(b.asset).toUpperCase() === sym)
+      const hit = list.find((b: any) => b.address === a && String(b.asset).toUpperCase() === sym)
       return { whitelisted: !!hit, status: hit ? 'active' : null }
     }
     return r ?? { whitelisted: false }
