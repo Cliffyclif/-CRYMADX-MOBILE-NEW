@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { PhoneShell } from '../../components/PhoneShell'
 import { BottomNav } from '../../components/BottomNav'
 import { Icon, type IconName } from '../../components/Icon'
@@ -20,6 +21,7 @@ export function Profile() {
   const toggleTheme = useTheme(s => s.toggle)
   const size = useDisplay(s => s.size)
   const { data: rewards } = useEndpoint<{ xp: number; tier: string; badges: number }>('api.rewards.summary', {}, { enabled: !!user })
+  const { data: uidData } = useEndpoint<{ uid: string; status: string }>('api.user.uid', {}, { enabled: !!user })
   // Real KYC + API key counts so the row badges aren't hardcoded.
   const { data: kyc } = useEndpoint<{ status?: string }>('api.user.kyc.status', {}, { enabled: !!user })
   const { data: apiKeys } = useEndpoint<{ items?: any[] } | any[]>('api.settings.api-keys.list', {}, { enabled: !!user })
@@ -71,6 +73,101 @@ export function Profile() {
         </div>
         <Icon name="edit" size={14} color="var(--gl)" />
       </div>
+
+      {/* CrymadX UID — share this code so other users can send you crypto instantly */}
+      {uidData?.uid && (
+        <div
+          className="g"
+          style={{
+            padding: 14,
+            marginBottom: 12,
+            background: 'linear-gradient(135deg, rgba(0,200,83,.08), rgba(0,200,83,.02))',
+            border: '1px solid rgba(0,200,83,.2)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              style={{
+                width: 36, height: 36, borderRadius: 18,
+                background: 'rgba(0,200,83,.14)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Icon name="zap" size={18} color="var(--gl)" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="t3" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, color: 'var(--gl)' }}>
+                Your CrymadX UID
+              </div>
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 800,
+                  fontFamily: 'monospace',
+                  letterSpacing: 4,
+                  color: 'var(--text-strong)',
+                  marginTop: 2,
+                }}
+              >
+                {uidData.uid}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(uidData.uid)
+                  toast.success('UID copied')
+                } catch {
+                  toast.error('Copy failed')
+                }
+              }}
+              aria-label="Copy UID"
+              style={{
+                background: 'rgba(0,200,83,.12)',
+                border: '1px solid rgba(0,200,83,.3)',
+                borderRadius: 8,
+                padding: '6px 10px',
+                fontSize: 11,
+                color: 'var(--gl)',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <Icon name="copy" size={12} color="var(--gl)" /> Copy
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const text = `Send me crypto on CrymadX — UID: ${uidData.uid}`
+                const nav: any = navigator
+                if (typeof nav?.share === 'function') {
+                  try { await nav.share({ title: 'My CrymadX UID', text }) } catch {}
+                } else {
+                  try { await navigator.clipboard.writeText(text); toast.success('Share text copied') } catch {}
+                }
+              }}
+              aria-label="Share UID"
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--divider)',
+                borderRadius: 8,
+                padding: 6,
+                cursor: 'pointer',
+                display: 'flex',
+              }}
+            >
+              <Icon name="share" size={12} color="var(--text-mid-40)" />
+            </button>
+          </div>
+          <div className="t3" style={{ fontSize: 11, marginTop: 8, opacity: 0.75 }}>
+            Friends with a CrymadX account can send you any crypto using just this code — instant, no fees.
+          </div>
+        </div>
+      )}
 
       <Section title={t('profile.myAccount').toUpperCase()} rows={account.map(([i, n, r, fn]) => ({ icon: i, name: n, value: r, onClick: fn }))} />
       <Section title={t('profile.rewards').toUpperCase()} rows={rewardsRows.map(([i, n, r, fn]) => ({ icon: i, name: n, value: r, valueClass: 'grn', onClick: fn }))} />

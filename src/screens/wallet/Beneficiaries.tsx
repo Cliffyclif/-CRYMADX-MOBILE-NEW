@@ -20,6 +20,9 @@ export function Beneficiaries() {
   const [asset, setAsset] = useState('BTC')
   const [network, setNetwork] = useState('')
   const [address, setAddress] = useState('')
+  const [uid, setUid] = useState('')
+  const [kind, setKind] = useState<'address' | 'uid'>('address')
+  const [tab, setTab] = useState<'address' | 'uid'>('address')
   const [disclaimerOpen, setDisclaimerOpen] = useState(false)
   // Bug #5 — capture the moment the user clicks "I Agree". The backend
   // verifies acknowledgedAt is within the last 5 minutes; stamping at submit
@@ -46,9 +49,17 @@ export function Beneficiaries() {
   // Validate inputs and open the disclaimer modal. Actual save runs after the
   // user clicks "I Agree" on the disclaimer.
   const handleSaveClick = () => {
-    if (!name.trim() || !address.trim() || !network) {
-      toast.error(t('wallet.fillAllFields') || 'Fill all fields')
-      return
+    if (kind === 'uid') {
+      const norm = uid.trim().toUpperCase().replace(/[^0-9A-Z]/g, '')
+      if (!name.trim() || (norm.length !== 6 && norm.length !== 8)) {
+        toast.error('Enter a name and a valid 6-character UID')
+        return
+      }
+    } else {
+      if (!name.trim() || !address.trim() || !network) {
+        toast.error(t('wallet.fillAllFields') || 'Fill all fields')
+        return
+      }
     }
     setDisclaimerOpen(true)
   }
@@ -58,9 +69,6 @@ export function Beneficiaries() {
     // Bug #5 — prefer the explicit timestamp the disclaimer's onAgree passed
     // in (most accurate). Fall back to state, then to now() as last-resort.
     const ack = ackOverride || acknowledgedAt || new Date().toISOString()
-    // If the captured ack is stale (>4min — keep 1min margin from the 5min
-    // server limit), reopen the disclaimer instead of submitting and getting
-    // ACK_STALE back.
     if (Date.now() - new Date(ack).getTime() > 4 * 60 * 1000) {
       toast.error('Please re-confirm — disclaimer expired')
       setAcknowledgedAt(null)
@@ -68,30 +76,45 @@ export function Beneficiaries() {
       return
     }
     try {
-      await create.mutateAsync({
-        body: {
-          name: name.trim(),
-          asset,
-          network,
-          chain: network,
-          address: address.trim(),
-          acknowledgedAt: ack,
-        },
-      })
+      const body: any = kind === 'uid'
+        ? {
+            kind: 'uid',
+            name: name.trim(),
+            uid: uid.trim().toUpperCase().replace(/[^0-9A-Z]/g, ''),
+            acknowledgedAt: ack,
+          }
+        : {
+            name: name.trim(),
+            asset,
+            network,
+            chain: network,
+            address: address.trim(),
+            acknowledgedAt: ack,
+          }
+      await create.mutateAsync({ body })
       toast.success(
-        t('wallet.beneficiaryAdded') ||
-          'Address saved. We just emailed you a link to confirm immediately — otherwise it activates in 24 hours.',
+        kind === 'uid'
+          ? `${name.trim()} saved — active in 24 hours, or confirm via the email link we just sent.`
+          : t('wallet.beneficiaryAdded') ||
+            'Address saved. We just emailed you a link to confirm immediately — otherwise it activates in 24 hours.',
       )
-      setName(''); setAddress(''); setShowAdd(false); setAcknowledgedAt(null)
+      setName(''); setAddress(''); setUid(''); setShowAdd(false); setAcknowledgedAt(null)
       refetch()
     } catch (e: any) {
       const code = e?.code
-      // Bug #10 — better error copy
       let msg: string
       if (code === 'NOT_AVAILABLE') {
         msg = 'The whitelist server is briefly unreachable. Try again in a moment.'
       } else if (code === 'ALREADY_SAVED') {
-        msg = 'You already saved this address on this network.'
+        msg = kind === 'uid' ? 'You already saved this UID.' : 'You already saved this address on this network.'
+      } else if (code === 'UID_NOT_FOUND') {
+        msg = "That UID doesn't belong to any CrymadX user."
+      } else if (code === 'UID_FROZEN') {
+        msg = 'This UID is currently frozen and can\'t be saved.'
+      } else if (code === 'UID_SELF') {
+        msg = "You can't save your own UID."
+      } else if (code === 'INVALID_UID') {
+        msg = 'UID format is invalid. It should be 6 characters, letters + digits.'
       } else if (code === 'ACK_REQUIRED' || code === 'ACK_STALE' || code === 'ACK_INVALID') {
         msg = 'Please re-confirm the security disclaimer.'
         setAcknowledgedAt(null)
@@ -120,7 +143,8 @@ export function Beneficiaries() {
     return (
       b.name?.toLowerCase().includes(q) ||
       b.asset?.toLowerCase().includes(q) ||
-      b.address?.toLowerCase().includes(q)
+      b.address?.toLowerCase().includes(q) ||
+      (b as any).uid?.toLowerCase().includes(q)
     )
   })
   const pending = items.filter(b => b.status === 'pending')
@@ -164,50 +188,82 @@ export function Beneficiaries() {
           <div className="t3" style={{ fontWeight: 700, marginBottom: 6 }}>
             {t('wallet.newBeneficiary')}
           </div>
+          {/* Address vs UID kind toggle */}
+          <div role="tablist" style={{ display: 'flex', gap: 4, padding: 4, marginBottom: 8, background: 'var(--surface-soft)', border: '1px solid var(--divider-soft)', borderRadius: 10 }}>
+            {(['address', 'uid'] as const).map((k) => (
+              <button
+                key={k}
+                role="tab"
+                aria-selected={kind === k}
+                onClick={() => setKind(k)}
+                style={{
+                  flex: 1, padding: '8px 10px',
+                  background: kind === k ? 'var(--bg)' : 'transparent',
+                  border: 'none', borderRadius: 8,
+                  fontSize: 12, fontWeight: 700,
+                  color: kind === k ? 'var(--gl)' : 'var(--text-mid-40)',
+                  cursor: 'pointer',
+                }}
+              >
+                {k === 'address' ? '⛓️ Address' : '⚡ UID'}
+              </button>
+            ))}
+          </div>
           <div className="inp">
             <Icon name="user" size={14} />
             <input
-              placeholder={t('wallet.labelPlaceholder') || 'Label (e.g. "Hardware wallet")'}
+              placeholder={kind === 'uid' ? 'Label (e.g. "Mom")' : (t('wallet.labelPlaceholder') || 'Label (e.g. "Hardware wallet")')}
               value={name}
               onChange={e => setName(e.target.value)}
               maxLength={60}
             />
           </div>
-          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-            <div className="inp" style={{ flex: 1, padding: 8, gap: 6 }}>
-              <CoinIcon symbol={asset} size={20} />
-              <span style={{ fontWeight: 700, color: 'var(--text-strong)', flex: 1 }}>{asset}</span>
-              <AssetPicker value={asset} onChange={setAsset} />
+          {kind === 'address' ? (
+            <>
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <div className="inp" style={{ flex: 1, padding: 8, gap: 6 }}>
+                  <CoinIcon symbol={asset} size={20} />
+                  <span style={{ fontWeight: 700, color: 'var(--text-strong)', flex: 1 }}>{asset}</span>
+                  <AssetPicker value={asset} onChange={setAsset} />
+                </div>
+                <select
+                  value={network}
+                  onChange={e => setNetwork(e.target.value)}
+                  className="inp"
+                  style={{ flex: 1, color: 'var(--text-strong)', fontFamily: 'Outfit', fontSize: 14 }}
+                >
+                  {(nets?.networks ?? []).map(n => (
+                    <option key={n.id} value={n.id} style={{ color: '#000' }}>{n.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="inp" style={{ marginTop: 6 }}>
+                <Icon name="copy" size={14} />
+                <input
+                  placeholder={t('wallet.addressPlaceholder') || `Enter ${asset} address`}
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                  style={{ fontFamily: 'monospace', fontSize: 13 }}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="inp" style={{ marginTop: 6 }}>
+              <Icon name="zap" size={14} color="var(--gl)" />
+              <input
+                placeholder="6-char UID (e.g. AB3C9D)"
+                value={uid}
+                onChange={e => setUid(e.target.value.toUpperCase())}
+                maxLength={8}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
+                style={{ fontFamily: 'monospace', fontSize: 14, letterSpacing: 2, fontWeight: 700 }}
+              />
             </div>
-            <select
-              value={network}
-              onChange={e => setNetwork(e.target.value)}
-              className="inp"
-              style={{
-                flex: 1,
-                color: 'var(--text-strong)',
-                fontFamily: 'Outfit',
-                fontSize: 14,
-              }}
-            >
-              {(nets?.networks ?? []).map(n => (
-                <option key={n.id} value={n.id} style={{ color: '#000' }}>
-                  {n.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="inp" style={{ marginTop: 6 }}>
-            <Icon name="copy" size={14} />
-            <input
-              placeholder={t('wallet.addressPlaceholder') || `Enter ${asset} address`}
-              value={address}
-              onChange={e => setAddress(e.target.value)}
-              autoComplete="off"
-              spellCheck={false}
-              style={{ fontFamily: 'monospace', fontSize: 13 }}
-            />
-          </div>
+          )}
           <div
             className="t3"
             style={{
@@ -234,7 +290,13 @@ export function Beneficiaries() {
               className="btn btn-g"
               style={{ flex: 1, padding: 8, margin: 0, fontSize: 14 }}
               onClick={handleSaveClick}
-              disabled={create.isPending || !name.trim() || !address.trim() || !network}
+              disabled={
+                create.isPending ||
+                !name.trim() ||
+                (kind === 'address'
+                  ? !address.trim() || !network
+                  : (() => { const n = uid.trim().toUpperCase().replace(/[^0-9A-Z]/g, ''); return n.length !== 6 && n.length !== 8 })())
+              }
             >
               {create.isPending ? (t('auth.savingDots') || 'Saving…') : (t('common.save') || 'Save')}
             </button>
@@ -299,24 +361,33 @@ export function Beneficiaries() {
 
 function BenRow({ b, onDelete }: { b: Beneficiary; onDelete: () => void }) {
   const isPending = b.status === 'pending'
+  const isUidKind = (b as any).kind === 'uid'
   return (
     <div className="li">
-      <CoinIcon symbol={b.asset} size={32} />
+      {isUidKind ? (
+        <div
+          style={{
+            width: 32, height: 32, borderRadius: 16,
+            background: 'rgba(0,200,83,.14)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <Icon name="zap" size={16} color="var(--gl)" />
+        </div>
+      ) : (
+        <CoinIcon symbol={b.asset} size={32} />
+      )}
       <div className="li-c">
         <div
           className="li-n"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            opacity: isPending ? 0.7 : 1,
-          }}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: isPending ? 0.7 : 1 }}
         >
           {b.name}
           {b.favorite && <span className="gld">★</span>}
         </div>
         <div className="li-s" style={{ fontFamily: 'monospace' }}>
-          {shorten(b.address)}
+          {isUidKind ? `@${(b as any).uid}` : shorten(b.address)}
         </div>
         {isPending && b.cooldownEndsAt && (
           <div className="t3" style={{ fontSize: 10, color: 'var(--gd)', marginTop: 2 }}>
@@ -329,7 +400,7 @@ function BenRow({ b, onDelete }: { b: Beneficiary; onDelete: () => void }) {
           className={`badge ${isPending ? 'badge-gd' : 'badge-g'}`}
           style={{ fontSize: 9 }}
         >
-          {isPending ? 'pending' : (b.network || b.asset)}
+          {isPending ? 'pending' : isUidKind ? 'UID' : (b.network || b.asset)}
         </span>
         <button
           onClick={onDelete}
