@@ -53,6 +53,8 @@ export function WithdrawConfirm() {
   const [needs2FA, setNeeds2FA] = useState(false)
   const [totp, setTotp] = useState('')
 
+  const isUidMode = state?.mode === 'uid'
+
   // Whitelist check — chain+address for address mode, uid for UID mode.
   // If active-whitelisted, the OTP/2FA step is hidden.
   const { data: wl, isLoading: wlLoading } = useEndpoint<WhitelistCheck>(
@@ -71,8 +73,6 @@ export function WithdrawConfirm() {
   // Used to hide the "Whitelist this address" toggle so the user doesn't try
   // to add it again and trigger a 409 conflict.
   const alreadyOnWhitelist = !!wl?.status
-
-  const isUidMode = state?.mode === 'uid'
   const sendOtp = useEndpointMutation<{ body: { purpose: string } }, unknown>('api.otp.send')
   const withdraw = useEndpointMutation<{ body: any }, Transaction>('api.wallet.withdraw.create', {
     invalidates: ['api.wallet.balances.list', 'api.tx.list'],

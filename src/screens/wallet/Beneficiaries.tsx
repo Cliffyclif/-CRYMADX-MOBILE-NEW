@@ -22,7 +22,6 @@ export function Beneficiaries() {
   const [address, setAddress] = useState('')
   const [uid, setUid] = useState('')
   const [kind, setKind] = useState<'address' | 'uid'>('address')
-  const [tab, setTab] = useState<'address' | 'uid'>('address')
   const [disclaimerOpen, setDisclaimerOpen] = useState(false)
   // Bug #5 — capture the moment the user clicks "I Agree". The backend
   // verifies acknowledgedAt is within the last 5 minutes; stamping at submit
