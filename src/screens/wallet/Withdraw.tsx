@@ -61,7 +61,11 @@ export function Withdraw() {
   const normalizedUid = uid.trim().toUpperCase().replace(/[^0-9A-Z]/g, '')
   const uidLookupValid = mode === 'uid' && (normalizedUid.length === 6 || normalizedUid.length === 8)
   const { data: uidPreview, isLoading: uidLoading, error: uidError } = useEndpoint<{
-    uid: string; userId: string; displayName: string; kycLevel: number
+    uid: string
+    userId: string
+    displayName: string
+    username: string | null
+    kycLevel: number
   }>(
     'api.user.uid.lookup',
     { query: { uid: normalizedUid } },
@@ -151,6 +155,7 @@ export function Withdraw() {
           fee: '0',
           recipientUid: normalizedUid,
           recipientName: uidPreview?.displayName ?? '',
+          recipientUsername: uidPreview?.username ?? null,
         },
       })
     } else {
@@ -302,16 +307,37 @@ export function Withdraw() {
                 <div className="t3" style={{ fontSize: 12 }}>Looking up @{normalizedUid}…</div>
               )}
               {!uidLoading && uidPreview && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Icon name="check" size={16} color="var(--gl)" />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-strong)' }}>
-                      Sending to {uidPreview.displayName}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {/* Avatar circle with first initial — visual anchor for confirmation */}
+                  <div
+                    style={{
+                      width: 44, height: 44, borderRadius: 22,
+                      background: 'rgba(0,200,83,.18)',
+                      color: 'var(--gl)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 800, fontSize: 18,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {(uidPreview.displayName || uidPreview.username || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="t3" style={{ fontSize: 10, color: 'var(--gl)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
+                      Confirm recipient
                     </div>
-                    <div className="t3" style={{ fontSize: 11, fontFamily: 'monospace' }}>
-                      @{uidPreview.uid} {uidPreview.kycLevel >= 1 ? '· verified' : ''}
+                    <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-strong)', lineHeight: 1.2, marginTop: 2 }}>
+                      {uidPreview.displayName || 'CrymadX user'}
+                    </div>
+                    {uidPreview.username && uidPreview.username !== uidPreview.displayName && (
+                      <div style={{ fontSize: 12, color: 'var(--gl)', fontWeight: 600, marginTop: 1 }}>
+                        @{uidPreview.username}
+                      </div>
+                    )}
+                    <div className="t3" style={{ fontSize: 11, fontFamily: 'monospace', marginTop: 2 }}>
+                      UID {uidPreview.uid} {uidPreview.kycLevel >= 1 ? '· verified' : '· unverified'}
                     </div>
                   </div>
+                  <Icon name="check" size={18} color="var(--gl)" />
                 </div>
               )}
               {!uidLoading && uidError && (
