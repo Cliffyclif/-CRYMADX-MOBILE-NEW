@@ -21,6 +21,11 @@ export function Beneficiaries() {
   const [network, setNetwork] = useState('')
   const [address, setAddress] = useState('')
   const [disclaimerOpen, setDisclaimerOpen] = useState(false)
+  // Bug #5 — capture the moment the user clicks "I Agree". The backend
+  // verifies acknowledgedAt is within the last 5 minutes; stamping at submit
+  // time (which is what the old code did) didn't reflect when the user
+  // actually consented.
+  const [acknowledgedAt, setAcknowledgedAt] = useState<string | null>(null)
 
   const create = useEndpointMutation('api.beneficiaries.create', { invalidates: ['api.beneficiaries.list', 'api.wallet.whitelist.list'] })
   const remove = useEndpointMutation('api.beneficiaries.delete', { invalidates: ['api.beneficiaries.list', 'api.wallet.whitelist.list'] })
@@ -48,8 +53,20 @@ export function Beneficiaries() {
     setDisclaimerOpen(true)
   }
 
-  const performSave = async () => {
+  const performSave = async (ackOverride?: string) => {
     setDisclaimerOpen(false)
+    // Bug #5 — prefer the explicit timestamp the disclaimer's onAgree passed
+    // in (most accurate). Fall back to state, then to now() as last-resort.
+    const ack = ackOverride || acknowledgedAt || new Date().toISOString()
+    // If the captured ack is stale (>4min — keep 1min margin from the 5min
+    // server limit), reopen the disclaimer instead of submitting and getting
+    // ACK_STALE back.
+    if (Date.now() - new Date(ack).getTime() > 4 * 60 * 1000) {
+      toast.error('Please re-confirm — disclaimer expired')
+      setAcknowledgedAt(null)
+      setDisclaimerOpen(true)
+      return
+    }
     try {
       await create.mutateAsync({
         body: {
@@ -58,21 +75,30 @@ export function Beneficiaries() {
           network,
           chain: network,
           address: address.trim(),
-          acknowledgedAt: new Date().toISOString(),
+          acknowledgedAt: ack,
         },
       })
       toast.success(
         t('wallet.beneficiaryAdded') ||
-          'Address saved. It becomes active in 24 hours — check your email to confirm immediately.',
+          'Address saved. We just emailed you a link to confirm immediately — otherwise it activates in 24 hours.',
       )
-      setName(''); setAddress(''); setShowAdd(false)
+      setName(''); setAddress(''); setShowAdd(false); setAcknowledgedAt(null)
       refetch()
     } catch (e: any) {
       const code = e?.code
-      const msg =
-        code === 'NOT_AVAILABLE'
-          ? 'Whitelist isn\'t enabled on the server yet. Try again shortly.'
-          : e?.message || 'Could not save'
+      // Bug #10 — better error copy
+      let msg: string
+      if (code === 'NOT_AVAILABLE') {
+        msg = 'The whitelist server is briefly unreachable. Try again in a moment.'
+      } else if (code === 'ALREADY_SAVED') {
+        msg = 'You already saved this address on this network.'
+      } else if (code === 'ACK_REQUIRED' || code === 'ACK_STALE' || code === 'ACK_INVALID') {
+        msg = 'Please re-confirm the security disclaimer.'
+        setAcknowledgedAt(null)
+        setDisclaimerOpen(true)
+      } else {
+        msg = e?.message || 'Could not save'
+      }
       toast.error(msg)
     }
   }
@@ -218,8 +244,18 @@ export function Beneficiaries() {
 
       <WhitelistDisclaimer
         open={disclaimerOpen}
-        onAgree={performSave}
-        onCancel={() => setDisclaimerOpen(false)}
+        onAgree={() => {
+          // Capture the agreement timestamp at the exact moment of consent
+          // (Bug #5) and pass it to performSave directly to avoid the
+          // async-state race.
+          const ack = new Date().toISOString()
+          setAcknowledgedAt(ack)
+          performSave(ack)
+        }}
+        onCancel={() => {
+          setDisclaimerOpen(false)
+          setAcknowledgedAt(null)
+        }}
       />
 
       {pending.length > 0 && (

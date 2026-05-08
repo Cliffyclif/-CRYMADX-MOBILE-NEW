@@ -31,6 +31,7 @@ import { Convert } from './screens/wallet/Convert'
 import { ConvertConfirm } from './screens/wallet/ConvertConfirm'
 import { AssetDetail } from './screens/wallet/AssetDetail'
 import { Beneficiaries } from './screens/wallet/Beneficiaries'
+import { WhitelistConfirm } from './screens/wallet/WhitelistConfirm'
 
 // Phase 2 — trading
 import { SpotTrading } from './screens/trading/SpotTrading'
@@ -245,6 +246,10 @@ function AppInner() {
           <Route path={ROUTES['route.wallet.tx-history'].path}     element={<ProtectedRoute><TxHistory /></ProtectedRoute>} />
           <Route path={ROUTES['route.wallet.tx-detail'].path}      element={<ProtectedRoute><TxDetail /></ProtectedRoute>} />
           <Route path={ROUTES['route.wallet.beneficiaries'].path}  element={<ProtectedRoute><Beneficiaries /></ProtectedRoute>} />
+          {/* Public — confirms an address whitelist entry from the email link.
+              Token in the URL is the proof; no auth required so the user can
+              click from any browser/device, even logged-out. */}
+          <Route path={ROUTES['route.wallet.whitelist.confirm'].path} element={<WhitelistConfirm />} />
 
           {/* Trading */}
           <Route path={ROUTES['route.trading.spot'].path}     element={<ProtectedRoute><SpotTrading /></ProtectedRoute>} />
