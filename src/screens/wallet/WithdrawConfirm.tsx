@@ -22,6 +22,7 @@ type UidWithdrawState = {
   mode: 'uid'
   asset: string; network: string; amount: string; fee: '0'
   recipientUid: string; recipientName: string
+  recipientUsername?: string | null
 }
 type WithdrawState = AddressWithdrawState | UidWithdrawState
 
@@ -252,6 +253,57 @@ export function WithdrawConfirm() {
         <div className="step"><div className="sn a">3</div><div className="st">{t('withdraw.stepConfirm')}</div></div>
       </div>
 
+      {/* UID-mode prominent recipient confirmation — surfaced ABOVE the amount
+          to make the "are you sending to the right person?" check the very
+          first thing the user sees on this screen. */}
+      {isUidMode && (() => {
+        const u = state as UidWithdrawState
+        const initial = (u.recipientName || u.recipientUsername || '?').charAt(0).toUpperCase()
+        return (
+          <div
+            className="g"
+            style={{
+              padding: 14,
+              marginTop: 8,
+              borderLeft: '3px solid var(--gl)',
+              background: 'linear-gradient(135deg, rgba(0,200,83,.10), rgba(0,200,83,.02))',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <div
+              style={{
+                width: 48, height: 48, borderRadius: 24,
+                background: 'rgba(0,200,83,.18)',
+                color: 'var(--gl)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 800, fontSize: 20,
+                flexShrink: 0,
+              }}
+            >
+              {initial}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="t3" style={{ fontSize: 10, color: 'var(--gl)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
+                Sending to
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-strong)', lineHeight: 1.2, marginTop: 2 }}>
+                {u.recipientName || 'CrymadX user'}
+              </div>
+              {u.recipientUsername && u.recipientUsername !== u.recipientName && (
+                <div style={{ fontSize: 13, color: 'var(--gl)', fontWeight: 600, marginTop: 1 }}>
+                  @{u.recipientUsername}
+                </div>
+              )}
+              <div className="t3" style={{ fontSize: 11, fontFamily: 'monospace', marginTop: 2 }}>
+                UID {u.recipientUid}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       <div className="g" style={{ padding: 14, marginTop: 8, textAlign: 'center' }}>
         <div className="t3">{t('withdraw.youSend')}</div>
         <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-strong)', margin: '6px 0' }}>{state.amount} {state.asset}</div>
@@ -260,7 +312,7 @@ export function WithdrawConfirm() {
       <div className="g" style={{ padding: 10, marginTop: 6 }}>
         {(isUidMode
           ? [
-              [t('common.to'), `@${(state as UidWithdrawState).recipientUid}${(state as UidWithdrawState).recipientName ? ' — ' + (state as UidWithdrawState).recipientName : ''}`],
+              [t('common.to'), `${(state as UidWithdrawState).recipientName || 'CrymadX user'}${(state as UidWithdrawState).recipientUsername ? ' (@' + (state as UidWithdrawState).recipientUsername + ')' : ''} · UID ${(state as UidWithdrawState).recipientUid}`],
               [t('common.network'), state.network],
               ['You send', `${fmt(amountNum)} ${state.asset}`],
               ['Fee', 'Free — internal transfer'],
