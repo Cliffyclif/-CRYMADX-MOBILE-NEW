@@ -905,8 +905,21 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
     const toAsset = String(body.toAsset ?? body.toToken ?? '').toUpperCase()
     const fromVariant = allAssets.find(a => a.symbol.toUpperCase() === fromAsset)
     const toVariant = allAssets.find(a => a.symbol.toUpperCase() === toAsset)
-    const fromChain = (fromVariant?.chainId ?? body.fromChain ?? fromAsset).toLowerCase()
-    const toChain = (toVariant?.chainId ?? body.toChain ?? toAsset).toLowerCase()
+    // Explicit body.fromChain/toChain wins. Only fall back to the asset's own
+    // canonical chainId when the asset is unambiguous. If neither side provided
+    // a chain AND the asset doesn't match in our registry, fail loudly rather
+    // than guessing — guessing a wrong chain here means funds go to the wrong
+    // wallet.
+    const fromChainRaw = body.fromChain ?? fromVariant?.chainId
+    const toChainRaw = body.toChain ?? toVariant?.chainId
+    if (!fromChainRaw) {
+      throw new ApiError('AMBIGUOUS_FROM_CHAIN', `Cannot resolve source chain for ${fromAsset}. Provide fromChain explicitly.`, 400)
+    }
+    if (!toChainRaw) {
+      throw new ApiError('AMBIGUOUS_TO_CHAIN', `Cannot resolve destination chain for ${toAsset}. Provide toChain explicitly.`, 400)
+    }
+    const fromChain = String(fromChainRaw).toLowerCase()
+    const toChain = String(toChainRaw).toLowerCase()
 
     // Resolve user's destination wallet for the to-chain. EVM chains share
     // the same ETH wallet (matic, base, arb, op, avax → ETH key in object form,
