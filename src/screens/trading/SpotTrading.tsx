@@ -100,6 +100,21 @@ export function SpotTrading() {
   })()
   const synth = isUsdcSynth ? 1 / usdcRate : 1
 
+  // Order book — fetched at limit=100 for the aggregation slider. Used
+  // as warm-start while the WS handshake is in flight, and as a fallback
+  // when WS is unavailable. Polling slowed from 2s → 10s now that WS
+  // pushes book updates every ~100ms.
+  const { data: bookRest } = useEndpoint<{ bids: Array<{ price: string; amount: string }>; asks: Array<{ price: string; amount: string }> }>('api.markets.orderbook', {
+    pathParams: { pair: pairStr }, query: { limit: 100 },
+  }, { refetchInterval: 10_000 })
+
+  // Live trades feed — REST is warm-start only; WS streams individual
+  // trades into wsTrades below.
+  const { data: tradesRes } = useEndpoint<{ items: Trade[] }>('api.markets.trades', {
+    pathParams: { pair: pairStr }, query: { limit: 30 },
+  }, { refetchInterval: 30_000 })
+  const restTrades = tradesRes?.items ?? []
+
   // ---------------------------------------------------------------------
   // Live market data via WebSocket (api-gateway proxies Binance combined
   // stream). Sub-second updates, replaces what used to be 2-5s polling.
@@ -156,21 +171,6 @@ export function SpotTrading() {
       low24h: rawPair.low24h ? (parseFloat(rawPair.low24h) * synth).toString() : rawPair.low24h,
     }
   }, [wsTicker, rawPair, synth, base, quote])
-
-  // Order book — fetched at limit=100 for the aggregation slider. Used
-  // as warm-start while the WS handshake is in flight, and as a fallback
-  // when WS is unavailable. Polling slowed from 2s → 10s now that WS
-  // pushes book updates every ~100ms.
-  const { data: bookRest } = useEndpoint<{ bids: Array<{ price: string; amount: string }>; asks: Array<{ price: string; amount: string }> }>('api.markets.orderbook', {
-    pathParams: { pair: pairStr }, query: { limit: 100 },
-  }, { refetchInterval: 10_000 })
-
-  // Live trades feed — REST is warm-start only; WS streams individual
-  // trades into wsTrades below.
-  const { data: tradesRes } = useEndpoint<{ items: Trade[] }>('api.markets.trades', {
-    pathParams: { pair: pairStr }, query: { limit: 30 },
-  }, { refetchInterval: 30_000 })
-  const restTrades = tradesRes?.items ?? []
 
   // Candles — refetched on interval change
   const [interval, setInterval] = useState<Interval>('15m')
