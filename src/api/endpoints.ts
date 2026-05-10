@@ -94,6 +94,21 @@ export type MarketPair = {
   low24h: string
 }
 
+// Quote response from /api/wallet/convert.quote (proxies to backend /swap/estimate).
+// Adapter at api/client.ts maps backend's `estimatedAmount` to `toAmount`.
+export type SwapQuote = {
+  quoteId: string
+  fromAsset: string
+  toAsset: string
+  fromAmount: string
+  toAmount: string
+  rate: string
+  feeUsdt: string
+  slippage: string
+  validForSec: number
+  minAmount?: string
+}
+
 export type AuthSession = {
   accessToken: string
   refreshToken: string

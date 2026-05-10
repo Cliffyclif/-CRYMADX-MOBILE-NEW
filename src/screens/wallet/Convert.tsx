@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PhoneShell } from '../../components/PhoneShell'
@@ -8,7 +8,7 @@ import { AssetPicker } from '../../components/AssetPicker'
 import { useEndpoint } from '../../api/hooks'
 import { api, getSupportedAssets } from '../../api/client'
 import { ROUTES } from '../../routes'
-import type { Balance } from '../../api/endpoints'
+import type { Balance, SwapQuote } from '../../api/endpoints'
 
 export function Convert() {
   const { t } = useTranslation()
@@ -17,8 +17,10 @@ export function Convert() {
   const [from, setFrom] = useState('BTC')
   const [to, setTo] = useState('USDT')
   const [amount, setAmount] = useState('')
-  const [quote, setQuote] = useState<{ toAmount: string; rate: string; feeUsdt: string; slippage: string; quoteId: string } | null>(null)
+  const [quote, setQuote] = useState<SwapQuote | null>(null)
   const [validForSec, setValidForSec] = useState(0)
+  const [quoteLoading, setQuoteLoading] = useState(false)
+  const isMountedRef = useRef(true)
 
   const fromBal = bal?.items?.find(b => b.asset === from)
 
@@ -42,21 +44,40 @@ export function Convert() {
   }, [allSupported, heldUsd])
 
   useEffect(() => {
-    if (!amount || parseFloat(amount) <= 0) { setQuote(null); return }
-    let cancelled = false
-    const t = setTimeout(async () => {
-      try {
-        const q = await api<{ toAmount: string; rate: string; feeUsdt: string; slippage: string; quoteId: string; validForSec: number }>('api.wallet.convert.quote', {
-          body: { fromAsset: from, toAsset: to, fromAmount: amount },
-        })
-        if (cancelled) return
-        setQuote(q); setValidForSec(q.validForSec)
-      } catch {
-        if (!cancelled) setQuote(null)
-      }
-    }, 250)
-    return () => { cancelled = true; clearTimeout(t) }
+    isMountedRef.current = true
+    return () => { isMountedRef.current = false }
+  }, [])
+
+  // Fetch a fresh quote. Used by both the debounce-on-input effect and the
+  // explicit "Refresh quote" button after expiry.
+  const fetchQuote = useCallback(async () => {
+    if (!amount || parseFloat(amount) <= 0) {
+      setQuote(null)
+      setValidForSec(0)
+      return
+    }
+    setQuoteLoading(true)
+    try {
+      const q = await api<SwapQuote>('api.wallet.convert.quote', {
+        body: { fromAsset: from, toAsset: to, fromAmount: amount },
+      })
+      if (!isMountedRef.current) return
+      setQuote(q)
+      setValidForSec(q.validForSec)
+    } catch {
+      if (!isMountedRef.current) return
+      setQuote(null)
+      setValidForSec(0)
+    } finally {
+      if (isMountedRef.current) setQuoteLoading(false)
+    }
   }, [from, to, amount])
+
+  useEffect(() => {
+    if (!amount || parseFloat(amount) <= 0) { setQuote(null); setValidForSec(0); return }
+    const handle = setTimeout(fetchQuote, 250)
+    return () => clearTimeout(handle)
+  }, [fetchQuote, amount])
 
   useEffect(() => {
     if (!validForSec) return
@@ -65,8 +86,13 @@ export function Convert() {
   }, [validForSec])
 
   const swap = () => { setFrom(to); setTo(from); setAmount('') }
+  const isExpired = !!quote && validForSec <= 0
 
-  const continueToConfirm = () => {
+  const continueOrRefresh = () => {
+    if (isExpired || (!quote && amount)) {
+      fetchQuote()
+      return
+    }
     if (!quote) return
     nav(ROUTES['route.wallet.convert.confirm'].path, { state: { from, to, fromAmount: amount, ...quote } })
   }
@@ -115,8 +141,21 @@ export function Convert() {
         </div>
       )}
 
-      <button className="btn btn-g" onClick={continueToConfirm} style={{ marginTop: 8 }} disabled={!quote || validForSec <= 0}>
-        {!amount ? t('convert.enterAmount') : !quote ? t('convert.gettingQuote') : validForSec <= 0 ? t('convert.refreshQuote') : t('common.continue')}
+      <button
+        className="btn btn-g"
+        onClick={continueOrRefresh}
+        style={{ marginTop: 8 }}
+        disabled={!amount || quoteLoading}
+      >
+        {!amount
+          ? t('convert.enterAmount')
+          : quoteLoading
+            ? t('convert.gettingQuote')
+            : isExpired
+              ? t('convert.refreshQuote', { defaultValue: 'Refresh quote' })
+              : !quote
+                ? t('convert.gettingQuote')
+                : t('common.continue')}
       </button>
     </PhoneShell>
   )
