@@ -94,7 +94,7 @@ export function Convert() {
       return
     }
     if (!quote) return
-    nav(ROUTES['route.wallet.convert.confirm'].path, { state: { from, to, fromAmount: amount, ...quote } })
+    nav(ROUTES['route.wallet.convert.confirm'].path, { state: { from, to, ...quote, fromAmount: amount } })
   }
 
   return (
