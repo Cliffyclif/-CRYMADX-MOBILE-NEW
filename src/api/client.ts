@@ -401,60 +401,41 @@ async function fetchPrices(token: string | null | undefined): Promise<Record<str
 // never blank.
 //
 // Previously used CryptoCompare's news endpoint, but they gated it behind
-// an API key in 2026. CoinGecko remains keyless for this endpoint as of
-// May 2026.
-type CGNewsItem = {
-  id: number | string
-  title: string
-  description?: string
-  url?: string
-  thumb_2x?: string
-  thumb?: string
-  news_site?: string
-  author?: string
-  created_at?: number  // unix seconds
-  updated_at?: number
-  locale?: string
-}
+// an API key in 2026. CoinGecko's free /v3/news endpoint went PRO-only
+// in May 2026, so we now consume our own /api/news/crypto aggregator
+// (Cointelegraph + DeCrypt RSS, server-side parsed and cached).
 async function fetchFreeCryptoNews(limit = 12): Promise<any[]> {
+  // Use our own backend aggregator. It pulls from Cointelegraph + DeCrypt
+  // RSS server-side, parses, normalizes, and caches for 10 minutes.
+  // Replaces the old direct CoinGecko call which is now PRO-only (401).
   try {
-    const res = await fetch('https://api.coingecko.com/api/v3/news?page=1', {
+    const res = await fetch(`${API_BASE_URL}/news/crypto?limit=${limit}`, {
       headers: { 'Accept': 'application/json' },
     })
     if (!res.ok) {
-      console.warn('[news] CoinGecko returned', res.status)
+      console.warn('[news] backend returned', res.status)
       return []
     }
     const json = await res.json()
-    const items: CGNewsItem[] = Array.isArray(json?.data) ? json.data : []
-    if (items.length === 0) {
-      console.warn('[news] CoinGecko returned empty data array')
-    }
+    const items: any[] = Array.isArray(json?.items) ? json.items : []
     return items.slice(0, limit).map((n, i) => {
-      // Coarse category mapping. CoinGecko doesn't tag the news so we
-      // infer from title keywords. Falls back to 'product' for general.
-      const t = (n.title || '').toLowerCase()
-      let category: 'product' | 'listings' | 'maintenance' = 'product'
-      if (/listing|launch|airdrop|ico|presale|new (coin|token)/.test(t)) category = 'listings'
-      else if (/regulation|sec |hack|exploit|outage|exchange/.test(t)) category = 'maintenance'
-      const emoji = category === 'listings' ? '📈' : category === 'maintenance' ? '⚙️' : '📰'
+      const cat = n.category || 'product'
+      const emoji = cat === 'listings' ? '📈' : cat === 'maintenance' ? '⚙️' : '📰'
       return {
-        id: `cg-${n.id}`,
+        id: n.id,
         emoji,
         title: n.title || 'Crypto news',
-        body: (n.description || '').slice(0, 220).replace(/\s+/g, ' ').trim(),
-        category,
-        createdAt: n.created_at
-          ? new Date(n.created_at * 1000).toISOString()
-          : new Date().toISOString(),
-        pinned: i === 0, // pin the freshest item
+        body: n.description || '',
+        category: cat,
+        createdAt: n.publishedAt || new Date().toISOString(),
+        pinned: i === 0,
         url: n.url,
-        source: n.news_site || n.author || 'CoinGecko',
-        imageUrl: n.thumb_2x || n.thumb,
+        source: n.source || 'CrymadX',
+        imageUrl: n.imageUrl,
       }
     })
   } catch (e) {
-    console.error('[news] CoinGecko fetch failed', e)
+    console.error('[news] backend fetch failed', e)
     return []
   }
 }
