@@ -90,10 +90,13 @@ const REAL_PATH_OVERRIDES: Partial<Record<EndpointId, string>> = {
   'api.markets.orderbook':      '/binance/depth',
 
   // ---- Trading (spot-trading-service)  ----
-  'api.trading.order.create':   '/spot/orders',
-  'api.trading.order.cancel':   '/spot/orders/:orderId',
+  // Backend at port 3051 exposes POST /order (singular) for create,
+  // /order/oco for OCO pairs, GET /orders + /orders/history for lists.
+  'api.trading.order.create':   '/spot/order',
+  'api.trading.order.oco':      '/spot/order/oco',
+  'api.trading.order.cancel':   '/spot/order/:orderId',
   'api.trading.orders.open':    '/spot/orders',
-  'api.trading.orders.history': '/spot/orders',
+  'api.trading.orders.history': '/spot/orders/history',
   'api.trading.trades':         '/spot/trades',
   'api.trading.trade':          '/spot/trades/:tradeId',
 

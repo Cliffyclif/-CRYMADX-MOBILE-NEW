@@ -10,7 +10,8 @@ import { ROUTES, routeFor } from '../../routes'
 import { fmt } from '../../lib/format'
 import { haptics } from '../../lib/haptics'
 import { checkReserveViolation } from '../../lib/chainReserves'
-import { getActivePairs, type TradingPairConfig } from '../../config/tradingPairs'
+import { getActivePairs, getPairBySymbol, type TradingPairConfig } from '../../config/tradingPairs'
+import { useBinanceWS } from '../../hooks/useBinanceWS'
 import { TradingViewChart } from '../../components/TradingViewChart'
 import type { Balance, MarketPair, Transaction } from '../../api/endpoints'
 
@@ -78,20 +79,98 @@ export function SpotTrading() {
   const [base, quote] = pairStr.split('/')
 
   // Live ticker — refetched periodically so the header price stays fresh
-  const { data: pair } = useEndpoint<MarketPair>('api.markets.pair', {
+  const { data: rawPair } = useEndpoint<MarketPair>('api.markets.pair', {
     pathParams: { pair: pairStr },
   }, { refetchInterval: 5_000 })
 
-  // Order book — refetched every 2s for the snappy feel of a real exchange
-  const { data: book } = useEndpoint<{ bids: Array<{ price: string; amount: string }>; asks: Array<{ price: string; amount: string }> }>('api.markets.orderbook', {
-    pathParams: { pair: pairStr },
-  }, { refetchInterval: 2_000 })
+  // USDC price synthesis. Some pairs (XRPUSDC, ADAUSDC, LINKUSDC, etc.)
+  // have no native Binance USDC market — they fall back to the matching
+  // USDT ticker. To express prices in true USDC terms we divide by the
+  // live USDC/USDT rate. Falls back to 1.0 (assume peg) if unavailable.
+  const pairCfg = useMemo(() => getPairBySymbol(`${base}${quote}`.toUpperCase()), [base, quote])
+  const isUsdcSynth = quote.toUpperCase() === 'USDC' && pairCfg?.binanceSymbol?.endsWith('USDT') === true
+  const { data: usdcRateRaw } = useEndpoint<MarketPair>(
+    'api.markets.pair',
+    { pathParams: { pair: 'USDC/USDT' } },
+    { refetchInterval: isUsdcSynth ? 30_000 : false, enabled: isUsdcSynth }
+  )
+  const usdcRate = (() => {
+    const r = parseFloat(usdcRateRaw?.price ?? '1')
+    return r > 0 ? r : 1
+  })()
+  const synth = isUsdcSynth ? 1 / usdcRate : 1
 
-  // Live trades feed — refetched every 3s
+  // ---------------------------------------------------------------------
+  // Live market data via WebSocket (api-gateway proxies Binance combined
+  // stream). Sub-second updates, replaces what used to be 2-5s polling.
+  // The REST `useEndpoint` calls above remain as a warm-start + fallback
+  // when WS is briefly down — we just prefer WS data when it's flowing.
+  // ---------------------------------------------------------------------
+  const wsSymbol = pairCfg?.binanceSymbol ?? null
+  const { ticker: wsTicker, book: wsBook, trades: wsTrades } = useBinanceWS(wsSymbol)
+
+  // Prefer WS data when present; fall back to REST shapes that match
+  // what the rest of this screen already consumes.
+  const book = useMemo(() => {
+    if (wsBook) {
+      return {
+        bids: wsBook.bids.map(([p, a]) => ({ price: p, amount: a })),
+        asks: wsBook.asks.map(([p, a]) => ({ price: p, amount: a })),
+      }
+    }
+    return bookRest
+  }, [wsBook, bookRest])
+
+  const trades: Trade[] = useMemo(() => {
+    if (wsTrades.length > 0) {
+      return wsTrades.map(t => ({
+        id: String(t.t),
+        price: parseFloat(t.p),
+        amount: parseFloat(t.q),
+        time: t.T,
+        isBuyerMaker: t.m,
+      }))
+    }
+    return restTrades
+  }, [wsTrades, restTrades])
+
+  const pair: MarketPair | undefined = useMemo(() => {
+    // Prefer WS ticker when available — it carries the freshest fields.
+    if (wsTicker) {
+      const sym = `${base}/${quote}`
+      return {
+        symbol: sym, base, quote,
+        price: (parseFloat(wsTicker.c) * synth).toString(),
+        change24h: wsTicker.P,
+        volume24h: wsTicker.v,
+        high24h: (parseFloat(wsTicker.h) * synth).toString(),
+        low24h: (parseFloat(wsTicker.l) * synth).toString(),
+      } as MarketPair
+    }
+    if (!rawPair) return rawPair
+    if (synth === 1) return rawPair
+    return {
+      ...rawPair,
+      price: (parseFloat(rawPair.price) * synth).toString(),
+      high24h: rawPair.high24h ? (parseFloat(rawPair.high24h) * synth).toString() : rawPair.high24h,
+      low24h: rawPair.low24h ? (parseFloat(rawPair.low24h) * synth).toString() : rawPair.low24h,
+    }
+  }, [wsTicker, rawPair, synth, base, quote])
+
+  // Order book — fetched at limit=100 for the aggregation slider. Used
+  // as warm-start while the WS handshake is in flight, and as a fallback
+  // when WS is unavailable. Polling slowed from 2s → 10s now that WS
+  // pushes book updates every ~100ms.
+  const { data: bookRest } = useEndpoint<{ bids: Array<{ price: string; amount: string }>; asks: Array<{ price: string; amount: string }> }>('api.markets.orderbook', {
+    pathParams: { pair: pairStr }, query: { limit: 100 },
+  }, { refetchInterval: 10_000 })
+
+  // Live trades feed — REST is warm-start only; WS streams individual
+  // trades into wsTrades below.
   const { data: tradesRes } = useEndpoint<{ items: Trade[] }>('api.markets.trades', {
     pathParams: { pair: pairStr }, query: { limit: 30 },
-  }, { refetchInterval: 3_000 })
-  const trades = tradesRes?.items ?? []
+  }, { refetchInterval: 30_000 })
+  const restTrades = tradesRes?.items ?? []
 
   // Candles — refetched on interval change
   const [interval, setInterval] = useState<Interval>('15m')
@@ -100,11 +179,31 @@ export function SpotTrading() {
   }, { refetchInterval: 30_000 })
   const candles = candlesRes?.items ?? []
 
-  // User wallet balances — used for % buttons + reserve check
+  // User wallet balances — used for % buttons + reserve check.
+  // The mobile balance endpoint returns per-chain entries (each row carries
+  // a `network` field). A ChangeNow swap uses ONE chain, so the "available"
+  // balance shown to the user must be the MAX single-chain balance, not the
+  // cross-chain sum (matches the web app's per-chain logic).
   const { data: balRes } = useEndpoint<{ items: Balance[] }>('api.wallet.balances.list', {}, { refetchInterval: 15_000 })
-  const balances = balRes?.items ?? []
-  const baseBalance = parseFloat(balances.find(b => b.asset.toUpperCase() === base.toUpperCase())?.amount ?? '0') || 0
-  const quoteBalance = parseFloat(balances.find(b => b.asset.toUpperCase() === quote.toUpperCase())?.amount ?? '0') || 0
+  const balances = (balRes?.items ?? []) as Array<Balance & { network?: string }>
+  const balancesByAsset = useMemo(() => {
+    const map: Record<string, Array<{ network: string; amount: number }>> = {}
+    for (const b of balances) {
+      const a = b.asset?.toUpperCase()
+      const amt = parseFloat(b.amount || '0') || 0
+      if (!a || amt <= 0) continue
+      ;(map[a] ||= []).push({ network: b.network || 'eth', amount: amt })
+    }
+    for (const a of Object.keys(map)) map[a].sort((x, y) => y.amount - x.amount)
+    return map
+  }, [balances])
+  // Best single-chain balance for each side of this pair
+  const baseBalance = (balancesByAsset[base.toUpperCase()]?.[0]?.amount ?? 0)
+  const quoteBalance = (balancesByAsset[quote.toUpperCase()]?.[0]?.amount ?? 0)
+  const baseChainPicked = balancesByAsset[base.toUpperCase()]?.[0]?.network
+  const quoteChainPicked = balancesByAsset[quote.toUpperCase()]?.[0]?.network
+  const baseSpread = balancesByAsset[base.toUpperCase()] ?? []
+  const quoteSpread = balancesByAsset[quote.toUpperCase()] ?? []
 
   // Open orders & history (filtered to this pair)
   const { data: openRes, refetch: refetchOpen } = useEndpoint<{ items: OrderRow[] }>('api.trading.orders.open', {}, { refetchInterval: 10_000 })
@@ -118,12 +217,17 @@ export function SpotTrading() {
 
   // Form state
   const [side, setSide] = useState<'buy' | 'sell'>('buy')
-  const [orderType, setOrderType] = useState<'limit' | 'market' | 'stop-limit'>('limit')
+  const [orderType, setOrderType] = useState<'limit' | 'market' | 'stop_loss' | 'take_profit' | 'oco'>('limit')
   const [price, setPrice] = useState('')
+  const [triggerPrice, setTriggerPrice] = useState('')
+  // OCO (one-cancels-other) needs two trigger prices.
+  const [ocoTakeProfit, setOcoTakeProfit] = useState('')
+  const [ocoStopLoss, setOcoStopLoss] = useState('')
   const [amount, setAmount] = useState('')
   const [bottomTab, setBottomTab] = useState<'open' | 'history'>('open')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [favs, setFavs] = useState<string[]>(() => loadFavs())
+  const [depthAgg, setDepthAgg] = useState<number>(0)
 
   // Chart mode (persisted): 'simple' = our SVG candles, 'advanced' = TradingView
   // Studies (persisted): TV indicator IDs that apply to ALL pairs the user views.
@@ -184,13 +288,35 @@ export function SpotTrading() {
     if (!amount || parseFloat(amount) <= 0) {
       toast.error('Enter an amount'); return
     }
-    if (orderType !== 'market' && (!price || parseFloat(price) <= 0)) {
-      toast.error('Enter a price'); return
+    // Order-type-specific price/trigger validation
+    if (orderType === 'limit' && (!price || parseFloat(price) <= 0)) {
+      toast.error('Enter a limit price'); return
     }
-    // Pre-flight: make sure the user has enough for what they typed
+    if ((orderType === 'stop_loss' || orderType === 'take_profit') && (!triggerPrice || parseFloat(triggerPrice) <= 0)) {
+      toast.error('Enter a trigger price'); return
+    }
+    if (orderType === 'oco') {
+      const tp = parseFloat(ocoTakeProfit), sl = parseFloat(ocoStopLoss)
+      if (!tp || tp <= 0 || !sl || sl <= 0) { toast.error('Enter both take-profit and stop-loss prices'); return }
+      const cur = parseFloat(pair?.price ?? '0')
+      if (cur > 0) {
+        if (side === 'sell') {
+          if (tp <= cur) { toast.error('Take-profit must be ABOVE current price for a sell OCO'); return }
+          if (sl >= cur) { toast.error('Stop-loss must be BELOW current price for a sell OCO'); return }
+        } else {
+          if (tp >= cur) { toast.error('Take-profit must be BELOW current price for a buy OCO'); return }
+          if (sl <= cur) { toast.error('Stop-loss must be ABOVE current price for a buy OCO'); return }
+        }
+      }
+    }
+    // Pre-flight: make sure the user has enough for what they typed.
+    // SL/TP/OCO reserve at the trigger price (worst-case execution).
+    const reservePrice = orderType === 'limit' ? parseFloat(price)
+      : (orderType === 'stop_loss' || orderType === 'take_profit') ? parseFloat(triggerPrice)
+      : orderType === 'oco' ? Math.max(parseFloat(ocoTakeProfit), parseFloat(ocoStopLoss))
+      : parseFloat(pair?.price ?? '0')
     if (side === 'buy') {
-      const px = parseFloat(orderType === 'market' ? (pair?.price ?? '0') : price)
-      const need = parseFloat(amount) * px * 1.001
+      const need = parseFloat(amount) * reservePrice * 1.001
       if (need > quoteBalance) {
         toast.error(`Insufficient ${quote} — have ${quoteBalance}, need ${need.toFixed(2)}`); return
       }
@@ -203,7 +329,16 @@ export function SpotTrading() {
     }
     haptics.medium()
     nav(ROUTES['route.trading.confirm'].path, {
-      state: { pair: pairStr, side, type: orderType, price: orderType === 'market' ? (pair?.price ?? price) : price, amount },
+      state: {
+        pair: pairStr, side, type: orderType, amount,
+        price: orderType === 'market' ? (pair?.price ?? price)
+             : orderType === 'limit' ? price
+             : (orderType === 'stop_loss' || orderType === 'take_profit') ? triggerPrice
+             : '',
+        triggerPrice: (orderType === 'stop_loss' || orderType === 'take_profit') ? triggerPrice : undefined,
+        ocoTakeProfit: orderType === 'oco' ? ocoTakeProfit : undefined,
+        ocoStopLoss:   orderType === 'oco' ? ocoStopLoss   : undefined,
+      },
     })
   }
 
@@ -292,10 +427,30 @@ export function SpotTrading() {
       {/* Order book + live trades — side-by-side on phone */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 8 }}>
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 6 }}>
             <h3 style={{ fontSize: 13, margin: 0 }}>Order Book</h3>
+            <select
+              value={depthAgg}
+              onChange={(e) => setDepthAgg(parseFloat(e.target.value))}
+              aria-label="Aggregation precision"
+              style={{
+                background: 'var(--surface-soft)', color: 'var(--text-strong)',
+                border: '1px solid rgba(255,255,255,0.06)', borderRadius: 4,
+                fontSize: 10, padding: '1px 4px', cursor: 'pointer',
+                fontFamily: "'JetBrains Mono', monospace",
+              }}
+            >
+              <option value={0}>raw</option>
+              <option value={0.0001}>0.0001</option>
+              <option value={0.001}>0.001</option>
+              <option value={0.01}>0.01</option>
+              <option value={0.1}>0.1</option>
+              <option value={1}>1</option>
+              <option value={10}>10</option>
+              <option value={100}>100</option>
+            </select>
           </div>
-          <DepthBook book={book} />
+          <DepthBook book={book} aggregation={depthAgg} rows={14} />
         </div>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -312,19 +467,118 @@ export function SpotTrading() {
       </div>
 
       {/* Order type tabs */}
-      <div className="tabs" style={{ fontSize: 11 }}>
-        {(['limit', 'market', 'stop-limit'] as const).map(t => (
-          <button key={t} className={`tab ${orderType === t ? 'a' : ''}`} onClick={() => { haptics.selection(); setOrderType(t) }}>
-            {t === 'stop-limit' ? 'Stop-Limit' : t.charAt(0).toUpperCase() + t.slice(1)}
+      <div className="tabs" style={{ fontSize: 11, flexWrap: 'wrap' }}>
+        {(['limit', 'market', 'stop_loss', 'take_profit', 'oco'] as const).map(t => {
+          const labels: Record<typeof t, string> = {
+            limit: 'Limit',
+            market: 'Market',
+            stop_loss: 'Stop',
+            take_profit: 'Take',
+            oco: 'OCO',
+          }
+          return (
+          <button key={t} className={`tab ${orderType === t ? 'a' : ''}`} onClick={() => {
+            haptics.selection()
+            setOrderType(t)
+            // Seed the relevant price input with current market price
+            if ((t === 'stop_loss' || t === 'take_profit') && pair?.price) {
+              setTriggerPrice(String(pair.price))
+            }
+            if (t === 'oco' && pair?.price) {
+              const p = parseFloat(pair.price)
+              setOcoTakeProfit((side === 'sell' ? p * 1.05 : p * 0.95).toString())
+              setOcoStopLoss((side === 'sell' ? p * 0.95 : p * 1.05).toString())
+            }
+          }}>
+            {labels[t]}
           </button>
-        ))}
+          )
+        })}
       </div>
 
-      {/* Available balance display */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-mid-40)', margin: '4px 2px 0' }}>
-        <span>Avail: <span style={{ color: 'var(--text-strong)' }}>{(side === 'buy' ? quoteBalance : baseBalance).toFixed(6)}</span> {side === 'buy' ? quote : base}</span>
-        <span>≈ ${(side === 'buy' ? quoteBalance : baseBalance * (parseFloat(pair?.price ?? '0') || 0)).toFixed(2)}</span>
-      </div>
+      {/* Trigger price input — only for stop_loss / take_profit */}
+      {(orderType === 'stop_loss' || orderType === 'take_profit') && (
+        <div style={{ margin: '6px 0 4px' }}>
+          <div className="t3" style={{ marginBottom: 2 }}>Trigger price ({quote})</div>
+          <div className="inp" style={{ padding: 6, fontSize: 13 }}>
+            <input
+              type="number" inputMode="decimal" placeholder={pair?.price ?? '0'}
+              value={triggerPrice} onChange={e => setTriggerPrice(e.target.value)}
+              style={{ flex: 1 }} step="any"
+            />
+            <span style={{ marginLeft: 'auto', color: 'var(--text-mid-40)' }}>{quote}</span>
+          </div>
+          <div style={{ fontSize: 9, color: 'var(--text-mid-40)', marginTop: 2 }}>
+            {orderType === 'stop_loss'
+              ? (side === 'buy'
+                  ? `Fires when price ≥ ${triggerPrice || '—'} (breakout buy)`
+                  : `Fires when price ≤ ${triggerPrice || '—'} (cut losses)`)
+              : (side === 'buy'
+                  ? `Fires when price ≤ ${triggerPrice || '—'} (buy on dip)`
+                  : `Fires when price ≥ ${triggerPrice || '—'} (lock gains)`)}
+          </div>
+        </div>
+      )}
+
+      {/* OCO dual-trigger inputs */}
+      {orderType === 'oco' && (
+        <div style={{ margin: '6px 0 4px' }}>
+          <div className="t3" style={{ marginBottom: 2 }}>Take-profit ({quote})</div>
+          <div className="inp" style={{ padding: 6, fontSize: 13, marginBottom: 6 }}>
+            <input
+              type="number" inputMode="decimal" placeholder="0.00"
+              value={ocoTakeProfit} onChange={e => setOcoTakeProfit(e.target.value)}
+              style={{ flex: 1 }} step="any"
+            />
+            <span style={{ marginLeft: 'auto', color: 'var(--text-mid-40)' }}>{quote}</span>
+          </div>
+          <div className="t3" style={{ marginBottom: 2 }}>Stop-loss ({quote})</div>
+          <div className="inp" style={{ padding: 6, fontSize: 13 }}>
+            <input
+              type="number" inputMode="decimal" placeholder="0.00"
+              value={ocoStopLoss} onChange={e => setOcoStopLoss(e.target.value)}
+              style={{ flex: 1 }} step="any"
+            />
+            <span style={{ marginLeft: 'auto', color: 'var(--text-mid-40)' }}>{quote}</span>
+          </div>
+          <div style={{ fontSize: 9, color: 'var(--text-mid-40)', marginTop: 2 }}>
+            {side === 'sell'
+              ? 'Whichever fires first auto-cancels the other.'
+              : 'Whichever fires first auto-cancels the other.'}
+          </div>
+        </div>
+      )}
+
+      {/* Available balance display — shows the chain that will actually
+          be used by the ChangeNow swap (best single-chain balance), not
+          the cross-chain sum. Tooltip on hover/tap reveals the breakdown. */}
+      {(() => {
+        const isBuy = side === 'buy'
+        const bal = isBuy ? quoteBalance : baseBalance
+        const chainTag = (isBuy ? quoteChainPicked : baseChainPicked) || ''
+        const spread = isBuy ? quoteSpread : baseSpread
+        const usd = isBuy ? bal : bal * (parseFloat(pair?.price ?? '0') || 0)
+        return (
+          <div style={{ margin: '4px 2px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-mid-40)' }}>
+              <span>
+                Avail: <span style={{ color: 'var(--text-strong)' }}>{bal.toFixed(6)}</span> {isBuy ? quote : base}
+                {chainTag && (
+                  <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 4px', borderRadius: 3, background: 'rgba(0,200,83,.12)', color: 'var(--gl)' }}>
+                    {chainTag.toUpperCase()}
+                  </span>
+                )}
+              </span>
+              <span>≈ ${usd.toFixed(2)}</span>
+            </div>
+            {spread.length > 1 && (
+              <div className="t3" style={{ fontSize: 9, marginTop: 2 }}>
+                Across chains: {spread.slice(0, 4).map(s => `${s.amount.toFixed(4)}@${s.network}`).join(' · ')}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Price + Amount inputs */}
       <div style={{ display: 'flex', gap: 4, margin: '4px 0' }}>
@@ -368,13 +622,64 @@ export function SpotTrading() {
         ))}
       </div>
 
-      {/* Total preview */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-mid-40)', margin: '6px 2px' }}>
-        <span>Total</span>
-        <span style={{ color: 'var(--text-strong)' }}>
-          {(parseFloat(orderType === 'market' ? (pair?.price ?? '0') : price || '0') * parseFloat(amount || '0')).toFixed(2)} {quote}
-        </span>
-      </div>
+      {/* Pre-trade summary — fee + slippage transparent for market orders.
+          Mirrors the breakdown shown on the web exchange. */}
+      {orderType === 'market' && parseFloat(amount) > 0 && pair?.price && (() => {
+        const px = parseFloat(pair.price)
+        const amt = parseFloat(amount)
+        const slippagePct = 2 // matches backend buffer in spot-trading-service
+        const feePct = 1 // ChangeNow ~0.5-1% spread; conservative estimate for display
+        const youPay = side === 'buy' ? amt * px : amt
+        const grossReceive = side === 'buy' ? amt : amt * px
+        const youReceive = grossReceive * (1 - feePct / 100)
+        const labelStyle = { color: 'var(--text-mid-50)' }
+        const valStyle = { color: 'var(--text-strong)', fontFamily: "'JetBrains Mono', monospace" }
+        return (
+          <div style={{
+            margin: '6px 2px', padding: '8px 10px',
+            background: 'var(--surface-soft)', borderRadius: 6,
+            border: '1px solid rgba(255,255,255,0.04)',
+            fontSize: 11, lineHeight: 1.5,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={labelStyle}>You pay</span>
+              <span style={valStyle}>{youPay.toFixed(6)} {side === 'buy' ? quote : base}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={labelStyle}>Provider fee (ChangeNow)</span>
+              <span style={valStyle}>~{(grossReceive - youReceive).toFixed(6)} {side === 'buy' ? base : quote}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={labelStyle}>Slippage buffer</span>
+              <span style={valStyle}>{slippagePct}%</span>
+            </div>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between',
+              paddingTop: 4, marginTop: 4,
+              borderTop: '1px dashed rgba(255,255,255,0.1)',
+              fontWeight: 600,
+            }}>
+              <span style={{ color: 'var(--text-strong)' }}>You receive (est.)</span>
+              <span style={{ ...valStyle, color: 'var(--gl)' }}>~{youReceive.toFixed(6)} {side === 'buy' ? base : quote}</span>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Total preview (limit / SL / TP / OCO) */}
+      {orderType !== 'market' && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-mid-40)', margin: '6px 2px' }}>
+          <span>Total</span>
+          <span style={{ color: 'var(--text-strong)' }}>
+            {(parseFloat(
+              orderType === 'limit' ? (price || '0')
+              : (orderType === 'stop_loss' || orderType === 'take_profit') ? (triggerPrice || '0')
+              : orderType === 'oco' ? (ocoTakeProfit || '0')
+              : (pair?.price ?? '0')
+            ) * parseFloat(amount || '0')).toFixed(2)} {quote}
+          </span>
+        </div>
+      )}
 
       <button
         className={side === 'buy' ? 'btn btn-g' : 'btn btn-r'}
@@ -505,9 +810,44 @@ function CandleChart({ candles, positive }: { candles: Array<{ t: number; o: num
   )
 }
 
-function DepthBook({ book }: { book?: { bids: Array<{ price: string; amount: string }>; asks: Array<{ price: string; amount: string }> } }) {
-  const bids = (book?.bids ?? []).slice(0, 8)
-  const asks = (book?.asks ?? []).slice(0, 8).reverse()
+// Bucket prices into the requested grid. Asks round UP, bids round DOWN
+// so the displayed spread can never collapse below real liquidity.
+function aggregateLevels(
+  levels: Array<{ price: string; amount: string }>,
+  bucket: number,
+  side: 'ask' | 'bid'
+): Array<{ price: string; amount: string }> {
+  if (!bucket || bucket <= 0) return levels
+  const map = new Map<number, number>()
+  for (const lvl of levels) {
+    const p = parseFloat(lvl.price)
+    const a = parseFloat(lvl.amount)
+    if (!Number.isFinite(p) || !Number.isFinite(a)) continue
+    const b = side === 'ask' ? Math.ceil(p / bucket) * bucket : Math.floor(p / bucket) * bucket
+    map.set(b, (map.get(b) || 0) + a)
+  }
+  const sorted = Array.from(map.entries()).sort((a, b) => side === 'ask' ? a[0] - b[0] : b[0] - a[0])
+  return sorted.map(([price, amount]) => ({
+    price: price.toString(),
+    amount: amount.toString(),
+  }))
+}
+
+function DepthBook({
+  book,
+  aggregation = 0,
+  rows = 14,
+}: {
+  book?: { bids: Array<{ price: string; amount: string }>; asks: Array<{ price: string; amount: string }> }
+  aggregation?: number
+  rows?: number
+}) {
+  const rawBids = book?.bids ?? []
+  const rawAsks = book?.asks ?? []
+  const bids = aggregation > 0 ? aggregateLevels(rawBids, aggregation, 'bid').slice(0, rows) : rawBids.slice(0, rows)
+  const asks = aggregation > 0
+    ? aggregateLevels(rawAsks, aggregation, 'ask').slice(0, rows).reverse()
+    : rawAsks.slice(0, rows).reverse()
   const allAmounts = [...bids, ...asks].map(r => parseFloat(r.amount) || 0)
   const max = Math.max(0.0001, ...allAmounts)
   return (

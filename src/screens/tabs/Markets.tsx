@@ -62,7 +62,30 @@ export function Markets() {
   const btcVol = btc ? numOr(btc.volume24hRaw, parseFloat(String(btc.volume24h).replace(/,/g, ''))) * numOr(btc.priceRaw, parseFloat(String(btc.price).replace(/,/g, ''))) : 0
   const btcDominance = totalVol > 0 ? ((btcVol / totalVol) * 100).toFixed(1) + '%' : '—'
 
-  // Tab + search filter (client-side)
+  // 24h quote-volume for ranking. Falls back to amount × price if quote
+  // volume isn't surfaced directly.
+  const quoteVol = (p: typeof allPairs[number]): number => {
+    const v = numOr(p.volume24hRaw, parseFloat(String(p.volume24h).replace(/,/g, '')))
+    const pr = numOr(p.priceRaw, parseFloat(String(p.price).replace(/,/g, '')))
+    return (isFinite(v) ? v : 0) * (isFinite(pr) ? pr : 0)
+  }
+
+  // Top-3 hottest pairs by 24h quote volume (used to render 🔥 HOT badges).
+  // Computed once over the full universe so the badge stays consistent
+  // across tab/search filtering.
+  const hotSet = useMemo(() => {
+    const top3 = [...allPairs]
+      .map(p => ({ symbol: p.symbol, vol: quoteVol(p) }))
+      .filter(x => x.vol > 1_000_000) // ignore illiquid pairs
+      .sort((a, b) => b.vol - a.vol)
+      .slice(0, 3)
+      .map(x => x.symbol)
+    return new Set(top3)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allPairs])
+
+  // Tab + search filter (client-side). Default 'all' tab now sorts by
+  // quote volume so liquid pairs surface first.
   const visiblePairs = useMemo(() => {
     let list = allPairs
     if (tab === 'favorites') {
@@ -78,12 +101,16 @@ export function Markets() {
         .slice(0, 50)
     } else if (tab === 'new') {
       list = list.slice(-50).reverse()
+    } else {
+      // 'all' — sort by 24h quote volume desc
+      list = [...list].sort((a, b) => quoteVol(b) - quoteVol(a))
     }
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(p => p.symbol.toLowerCase().includes(q) || p.base.toLowerCase().includes(q))
     }
     return list
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allPairs, tab, favs, search])
 
   return (
@@ -171,7 +198,16 @@ export function Markets() {
             >{isFav ? '★' : '☆'}</span>
             <CoinIcon symbol={p.base} size={28} />
             <div className="li-c">
-              <div className="li-n" style={{ fontSize: 14 }}>{p.symbol}</div>
+              <div className="li-n" style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 4 }}>
+                {p.symbol}
+                {hotSet.has(p.symbol) && (
+                  <span title="Top 3 by 24h volume" style={{
+                    fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3,
+                    background: 'rgba(255,122,0,0.18)', color: '#FF7A00',
+                    lineHeight: 1.4,
+                  }}>🔥 HOT</span>
+                )}
+              </div>
               <div className="li-s">${p.price}</div>
             </div>
             <div className="li-r">
