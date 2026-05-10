@@ -12,6 +12,7 @@ type AuthState = {
   token: string | null
   refreshToken: string | null
   signIn: (user: User, token: string, refreshToken?: string) => void
+  setUser: (user: User) => void
   signOut: () => void
 }
 
@@ -26,6 +27,7 @@ export const useAuth = create<AuthState>()(
         if (refreshToken) setRefreshToken(refreshToken)
         set({ user, token, refreshToken: refreshToken ?? null })
       },
+      setUser: (user) => set({ user }),
       signOut: () => {
         setToken(null)
         setRefreshToken(null)
