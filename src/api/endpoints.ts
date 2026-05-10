@@ -179,13 +179,14 @@ export const ENDPOINTS = {
   /** Live trades stream — recent fills for a pair (Binance public proxy). */
   'api.markets.trades':        { method: 'GET',  path: '/markets/:pair/trades' },
 
-  // ---- Trading ----
-  'api.trading.order.create':  { method: 'POST', path: '/trading/orders' },
+  // ---- Trading (spot-trading-service via /api/spot) ----
+  'api.trading.order.create':  { method: 'POST',  path: '/trading/orders' },
+  'api.trading.order.oco':     { method: 'POST',  path: '/trading/orders/oco' },
   'api.trading.order.cancel':  { method: 'DELETE', path: '/trading/orders/:orderId' },
-  'api.trading.orders.open':   { method: 'GET',  path: '/trading/orders?status=open' },
-  'api.trading.orders.history':{ method: 'GET',  path: '/trading/orders?status=history' },
-  'api.trading.trades':        { method: 'GET',  path: '/trading/trades' },
-  'api.trading.trade':         { method: 'GET',  path: '/trading/trades/:tradeId' },
+  'api.trading.orders.open':   { method: 'GET',   path: '/trading/orders?status=open' },
+  'api.trading.orders.history':{ method: 'GET',   path: '/trading/orders?status=history' },
+  'api.trading.trades':        { method: 'GET',   path: '/trading/trades' },
+  'api.trading.trade':         { method: 'GET',   path: '/trading/trades/:tradeId' },
 
   // ---- Earn ----
   'api.earn.savings.products': { method: 'GET',  path: '/earn/savings/products' },
