@@ -75,43 +75,61 @@ export function EarnHub() {
 
   return (
     <PhoneShell noTabs>
-      <h2>{t('earn.title') || 'Earn'}</h2>
-      <div className="t2">{t('earn.subtitle') || 'Put your crypto to work'}</div>
+      <h2 style={{ marginBottom: 4 }}>{t('earn.title') || 'Earn'}</h2>
+      <div className="t2" style={{ fontSize: 13 }}>Put your crypto to work — three battle-tested products.</div>
 
       {/* Hero stat — real total across all earning products */}
       <div
         className="g"
         style={{
-          padding: 18,
-          marginTop: 12,
-          background: 'linear-gradient(135deg, rgba(0,200,83,.06), rgba(212,165,60,.04))',
-          border: '1px solid rgba(0,200,83,.1)',
+          position: 'relative',
+          padding: 22,
+          marginTop: 16,
+          background: 'linear-gradient(135deg, rgba(0,200,83,.10) 0%, rgba(0,200,83,.04) 60%, rgba(212,165,60,.06) 100%)',
+          border: '1px solid rgba(0,200,83,.18)',
+          borderRadius: 16,
           textAlign: 'center',
+          overflow: 'hidden',
         }}
       >
-        <div className="t3" style={{ fontSize: 11, letterSpacing: '.5px', textTransform: 'uppercase' }}>
-          {t('earn.totalEarning') || 'Total earning'}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute', top: -40, right: -40,
+            width: 140, height: 140, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(0,200,83,.18) 0%, transparent 70%)',
+            filter: 'blur(8px)',
+            pointerEvents: 'none',
+          }}
+        />
+        <div className="t3" style={{ fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>
+          Your total earning balance
         </div>
         <div
           style={{
-            fontSize: 30,
+            fontSize: 36,
             fontWeight: 800,
             color: 'var(--gl)',
-            margin: '8px 0 4px',
-            textShadow: '0 0 20px rgba(0,200,83,.2)',
+            margin: '10px 0 6px',
+            textShadow: '0 0 24px rgba(0,200,83,.3)',
+            letterSpacing: '-1px',
+            lineHeight: 1.05,
           }}
         >
           ${totalEarning.toFixed(2)}
         </div>
         <div className="t3" style={{ fontSize: 12 }}>
           {totalPositions === 0
-            ? 'No active positions yet — pick a product below to start'
-            : `${totalPositions} active position${totalPositions === 1 ? '' : 's'}`}
+            ? "Nothing locked up yet — pick a product below to start earning."
+            : `${totalPositions} active position${totalPositions === 1 ? '' : 's'} working for you`}
         </div>
       </div>
 
       {/* Product tiles */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
+        <div style={{ fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, color: 'var(--text-mid-50)', marginBottom: 2 }}>
+          Earning products
+        </div>
         {TILES.map(tile => (
           <button
             key={tile.title}
@@ -119,18 +137,26 @@ export function EarnHub() {
             style={{
               padding: 16,
               borderRadius: 14,
-              background: 'rgba(0,200,83,.04)',
-              border: '1px solid rgba(255,255,255,.04)',
+              background: 'rgba(255,255,255,.025)',
+              border: '1px solid rgba(255,255,255,.06)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: 14,
               textAlign: 'left',
               fontFamily: 'Outfit',
-              transition: 'background .12s',
+              transition: 'all .15s',
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,200,83,.08)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,200,83,.04)' }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,200,83,.06)';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(0,200,83,.18)';
+              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,.025)';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,.06)';
+              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+            }}
           >
             <div
               style={{
@@ -174,7 +200,7 @@ export function EarnHub() {
                         ? 'var(--gl)'
                         : tile.badgeTone === 'gd'
                         ? 'var(--gd)'
-                        : 'var(--text-mid)',
+                        : 'var(--text-mid-60)',
                     fontWeight: 700,
                     textTransform: 'uppercase',
                     letterSpacing: '.6px',
@@ -187,7 +213,7 @@ export function EarnHub() {
                 {tile.desc}
               </div>
             </div>
-            <Icon name="arrow" size={14} color="var(--text-mid)" />
+            <Icon name="arrow" size={14} color="var(--text-mid-60)" />
           </button>
         ))}
       </div>
