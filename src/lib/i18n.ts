@@ -18,20 +18,30 @@ import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 
+// English is the master/fallback locale — bundled eagerly. The other 13
+// locales (~960 KB of JSON combined) are split into their own chunks and
+// loaded on demand via loadLocale(), so an English user never downloads
+// translations they'll never see. This is what the file header always
+// claimed; the imports below used to pull every locale into the entry chunk.
 import en from '../locales/en.json'
-import es from '../locales/es.json'
-import fr from '../locales/fr.json'
-import de from '../locales/de.json'
-import pt from '../locales/pt.json'
-import it from '../locales/it.json'
-import nl from '../locales/nl.json'
-import hi from '../locales/hi.json'
-import ar from '../locales/ar.json'
-import zh from '../locales/zh.json'
-import ja from '../locales/ja.json'
-import ko from '../locales/ko.json'
-import ru from '../locales/ru.json'
-import tr from '../locales/tr.json'
+
+// Dynamic-import loaders — Vite emits one chunk per locale. The import path
+// must stay a literal for the chunk to split.
+const LOCALE_LOADERS: Record<string, () => Promise<{ default: unknown }>> = {
+  es: () => import('../locales/es.json'),
+  fr: () => import('../locales/fr.json'),
+  de: () => import('../locales/de.json'),
+  pt: () => import('../locales/pt.json'),
+  it: () => import('../locales/it.json'),
+  nl: () => import('../locales/nl.json'),
+  hi: () => import('../locales/hi.json'),
+  ar: () => import('../locales/ar.json'),
+  zh: () => import('../locales/zh.json'),
+  ja: () => import('../locales/ja.json'),
+  ko: () => import('../locales/ko.json'),
+  ru: () => import('../locales/ru.json'),
+  tr: () => import('../locales/tr.json'),
+}
 
 export const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English',     native: 'English',    flag: 'us' },
@@ -52,21 +62,29 @@ export const SUPPORTED_LANGUAGES = [
 
 export type LanguageCode = typeof SUPPORTED_LANGUAGES[number]['code']
 
+// Only English is present at init — others are added by loadLocale().
 const resources = {
   en: { translation: en },
-  es: { translation: es },
-  fr: { translation: fr },
-  de: { translation: de },
-  pt: { translation: pt },
-  it: { translation: it },
-  nl: { translation: nl },
-  hi: { translation: hi },
-  ar: { translation: ar },
-  zh: { translation: zh },
-  ja: { translation: ja },
-  ko: { translation: ko },
-  ru: { translation: ru },
-  tr: { translation: tr },
+}
+
+/**
+ * Pull a locale's translation bundle into i18next on demand. Safe to call
+ * repeatedly — no-ops once the bundle is registered. English is always
+ * present, so it short-circuits. After the bundle lands, react-i18next
+ * re-renders subscribed components (useSuspense is off).
+ */
+export async function loadLocale(lng: string): Promise<void> {
+  const code = String(lng || '').split('-')[0]
+  if (!code || code === 'en') return
+  if (i18n.hasResourceBundle(code, 'translation')) return
+  const loader = LOCALE_LOADERS[code]
+  if (!loader) return
+  try {
+    const mod = await loader()
+    i18n.addResourceBundle(code, 'translation', mod.default, true, true)
+  } catch {
+    /* keep English fallback on load failure */
+  }
 }
 
 i18n
@@ -104,9 +122,19 @@ i18n
       caches: ['localStorage'],
     },
     react: {
-      useSuspense: false, // we don't need Suspense; resources are bundled
+      useSuspense: false, // English is bundled; other locales stream in async
     },
   })
+
+// Pull in the detected/saved locale's bundle (no-op for English). On a fresh
+// non-English session this resolves a beat after first paint — react-i18next
+// re-renders once the bundle lands; until then English shows. main.tsx
+// awaits this before the first render to avoid that flash on cold start.
+export const initialLocaleReady: Promise<void> = loadLocale(i18n.language)
+
+// When the user switches language, fetch its bundle before/while i18next
+// flips over. addResourceBundle inside loadLocale triggers the re-render.
+i18n.on('languageChanged', (lng) => { void loadLocale(lng) })
 
 // Apply text direction (RTL for Arabic) when the language changes
 function applyDirection(lng: string) {
