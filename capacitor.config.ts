@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'io.crymadx.app',
+  appId: 'com.exchange.crymadx',
   appName: 'CrymadX',
   webDir: 'dist',
   // The app's bundle still loads from local APK assets (offline-capable);
@@ -21,7 +21,12 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1500,
+      // launchShowDuration is only a SAFETY CEILING — the app calls
+      // SplashScreen.hide() from JS as soon as React paints (see
+      // useCapacitorAppState). On a fast device the splash hides well
+      // under a second; the 3s cap just guarantees it never sticks if
+      // the JS bundle hangs on a slow device.
+      launchShowDuration: 3000,
       launchAutoHide: true,
       launchFadeOutDuration: 300,
       backgroundColor: '#060d09',
