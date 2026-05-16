@@ -18,6 +18,33 @@ import type { Beneficiary } from '../../mock/db'
 
 type Net = { id: string; name: string; description: string; recommended?: boolean }
 
+// Un-merged per-(asset, chain, wallet) balance row from api.wallet.balances.list.
+type NetworkBalance = {
+  asset: string
+  network: string
+  walletType?: string
+  amountRaw?: number
+  usdValueRaw?: number
+}
+
+// Tolerant chain-id compare — covers the few aliases that reach the client
+// from older data (polygon↔matic, ethereum↔eth, …).
+const CHAIN_ALIASES: Record<string, string> = {
+  polygon: 'matic', pol: 'matic',
+  ethereum: 'eth', erc20: 'eth',
+  binance: 'bsc', bnb: 'bsc', bep20: 'bsc',
+  arbitrum: 'arb', optimism: 'op', avalanche: 'avax',
+  solana: 'sol', bitcoin: 'btc', litecoin: 'ltc',
+  dogecoin: 'doge', tron: 'trx', ripple: 'xrp', stellar: 'xlm',
+}
+function sameChain(a: string, b: string): boolean {
+  const n = (c: string) => {
+    const k = String(c || '').trim().toLowerCase()
+    return CHAIN_ALIASES[k] || k
+  }
+  return !!a && !!b && n(a) === n(b)
+}
+
 // Pre-fill payload pushed in via location.state from the QR scanner.
 type ScanPrefill = {
   asset?: string
@@ -35,7 +62,7 @@ export function Withdraw() {
   const nav = useNavigate()
   const loc = useLocation()
   const prefill = (loc.state as ScanPrefill | null) ?? null
-  const { data: bal } = useEndpoint<{ items: Balance[] }>('api.wallet.balances.list')
+  const { data: bal } = useEndpoint<{ items: Balance[]; byNetwork?: NetworkBalance[] }>('api.wallet.balances.list')
   const [asset, setAsset] = useState<string>(prefill?.asset || 'BTC')
   const [address, setAddress] = useState(prefill?.address || '')
   const [amount, setAmount] = useState(prefill?.amount || '')
@@ -88,7 +115,30 @@ export function Withdraw() {
   }
 
   const balance = bal?.items?.find(b => b.asset === asset)
-  const balanceAmount = balance ? parseFloat(balance.amount.replace(/,/g, '')) || 0 : 0
+  // Per-network, FUNDING-wallet balance for `asset`. `bal.items` is merged
+  // across chains AND wallet types — withdrawing must check the actual amount
+  // on the selected network's funding wallet, not that merged total.
+  const byNet: NetworkBalance[] = bal?.byNetwork ?? []
+  const fundingOnNetwork = (net: string): { amt: number; usd: number } => {
+    if (!net || byNet.length === 0) return { amt: NaN, usd: NaN } // NaN ⇒ no per-network data
+    let amt = 0, usd = 0
+    for (const b of byNet) {
+      if (b.asset === asset && (b.walletType ?? 'funding') === 'funding' && sameChain(b.network, net)) {
+        amt += b.amountRaw ?? 0
+        usd += b.usdValueRaw ?? 0
+      }
+    }
+    return { amt, usd }
+  }
+  const mergedAmount = balance ? parseFloat(balance.amount.replace(/,/g, '')) || 0 : 0
+  const onNetwork = fundingOnNetwork(network)
+  // Use the per-network amount once a network is chosen; fall back to the
+  // merged total only when byNetwork data is unavailable (stale cache / older
+  // API) so a valid withdrawal is never wrongly blocked.
+  const balanceAmount = Number.isNaN(onNetwork.amt) ? mergedAmount : onNetwork.amt
+  const balanceUsd = Number.isNaN(onNetwork.usd)
+    ? parseFloat((balance?.usdValue ?? '0').replace(/,/g, '')) || 0
+    : onNetwork.usd
   const { data: nets } = useEndpoint<{ networks: Net[] }>('api.wallet.networks.list', { pathParams: { asset } })
   const { data: feeData } = useEndpoint<{ fee: string; feeUsd?: string; receiveAmount?: string; minWithdrawal?: string; estimatedTime?: string }>(
     'api.wallet.withdraw.fee',
@@ -218,9 +268,12 @@ export function Withdraw() {
         <CoinIcon symbol={asset} size={36} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-strong)' }}>{asset}</div>
-          <div className="t3">{t('withdraw.available', { amount: balance?.amount ?? '0', asset })}</div>
-          {balance && parseFloat((balance.usdValue ?? '0').replace(/,/g, '')) > 0 && (
-            <div className="t3" style={{ fontSize: 11 }}>≈ ${balance.usdValue}</div>
+          <div className="t3">
+            {t('withdraw.available', { amount: fmt(balanceAmount), asset })}
+            {network ? ` · ${networkLabel}` : ''}
+          </div>
+          {balanceUsd > 0 && (
+            <div className="t3" style={{ fontSize: 11 }}>≈ ${fmt(balanceUsd)}</div>
           )}
         </div>
         <AssetPicker value={asset} onChange={setAsset} />
@@ -235,11 +288,15 @@ export function Withdraw() {
             onChange={e => setNetwork(e.target.value)}
             style={{ background: 'transparent', border: 'none', color: 'var(--gl)', fontSize: 15, fontFamily: 'Outfit', cursor: 'pointer', fontWeight: 700, textAlign: 'right' }}
           >
-            {nets!.networks.map(n => (
-              <option key={n.id} value={n.id} style={{ color: '#000' }}>
-                {n.name}{n.recommended ? ' (recommended)' : ''}
-              </option>
-            ))}
+            {nets!.networks.map(n => {
+              const nb = fundingOnNetwork(n.id)
+              const balText = Number.isNaN(nb.amt) ? '' : ` — ${fmt(nb.amt)} ${asset}`
+              return (
+                <option key={n.id} value={n.id} style={{ color: '#000' }}>
+                  {n.name}{balText}{n.recommended ? ' (rec.)' : ''}
+                </option>
+              )
+            })}
           </select>
         </div>
       )}
@@ -376,7 +433,7 @@ export function Withdraw() {
             </div>
           )}
           <div className="t3" style={{ fontSize: 11, marginTop: 8, opacity: 0.75 }}>
-            CrymadX UIDs are 6-character codes that identify another user on the platform. Internal transfers are instant and free — no on-chain fee.
+            CrymadX UIDs are 6-character codes identifying another user. UID transfers settle on-chain — a network gas fee applies and arrival takes about a minute.
           </div>
         </div>
       )}
@@ -399,14 +456,16 @@ export function Withdraw() {
           <span style={{ marginLeft: 'auto', color: 'var(--text-strong)', fontWeight: 700 }}>{asset}</span>
           <button
             className="badge badge-g"
-            onClick={() => balance && setAmount(balance.amount.replace(/,/g, ''))}
+            onClick={() => balanceAmount > 0 && setAmount(String(balanceAmount))}
             style={{ marginLeft: 4, cursor: 'pointer', background: 'rgba(0,200,83,.1)', color: 'var(--gl)', border: 'none' }}
           >
             MAX
           </button>
         </div>
         {exceedsBalance && (
-          <div className="t3 red" style={{ marginTop: 4 }}>Amount exceeds available balance ({balance?.amount ?? '0'} {asset})</div>
+          <div className="t3 red" style={{ marginTop: 4 }}>
+            Amount exceeds available balance ({fmt(balanceAmount)} {asset}{network ? ` on ${networkLabel}` : ''})
+          </div>
         )}
       </div>
 

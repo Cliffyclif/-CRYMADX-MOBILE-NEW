@@ -5,6 +5,8 @@ import { BottomNav } from '../../components/BottomNav'
 import { Icon } from '../../components/Icon'
 import { CoinIcon } from '../../components/CoinIcon'
 import { ServicesGrid } from '../../components/ServicesGrid'
+import { HomeNewsWidget } from '../../components/HomeNewsWidget'
+import { ActivitySnapshot } from '../../components/ActivitySnapshot'
 import { useEndpoint } from '../../api/hooks'
 import { ROUTES, routeFor } from '../../routes'
 import { useAuth } from '../../stores/auth'
@@ -184,6 +186,10 @@ export function Home() {
           <div className="li-r"><span className="grn">›</span></div>
         </button>
       )}
+
+      <ActivitySnapshot />
+
+      <HomeNewsWidget />
     </PhoneShell>
   )
 }

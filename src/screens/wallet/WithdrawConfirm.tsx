@@ -315,7 +315,7 @@ export function WithdrawConfirm() {
               [t('common.to'), `${(state as UidWithdrawState).recipientName || 'CrymadX user'}${(state as UidWithdrawState).recipientUsername ? ' (@' + (state as UidWithdrawState).recipientUsername + ')' : ''} · UID ${(state as UidWithdrawState).recipientUid}`],
               [t('common.network'), state.network],
               ['You send', `${fmt(amountNum)} ${state.asset}`],
-              ['Fee', 'Free — internal transfer'],
+              ['Network gas', 'Deducted from your balance'],
               ['Recipient receives', `${fmt(amountNum)} ${state.asset}`],
             ]
           : [
@@ -346,8 +346,8 @@ export function WithdrawConfirm() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Icon name="zap" size={16} color="var(--gl)" />
             <div className="t3" style={{ fontSize: 12, lineHeight: 1.4 }}>
-              <strong style={{ color: 'var(--gl)' }}>Internal transfer.</strong>{' '}
-              Funds arrive in @{(state as UidWithdrawState).recipientUid}'s wallet instantly. No on-chain fee.
+              <strong style={{ color: 'var(--gl)' }}>On-chain transfer.</strong>{' '}
+              Funds settle in @{(state as UidWithdrawState).recipientUid}'s wallet on-chain — usually within a minute. A network gas fee applies and is deducted from your balance.
             </div>
           </div>
         </div>
