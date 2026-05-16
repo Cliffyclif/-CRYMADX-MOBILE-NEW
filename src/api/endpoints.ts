@@ -155,8 +155,8 @@ export const ENDPOINTS = {
   'api.wallet.networks.list':  { method: 'GET',  path: '/wallet/networks/:asset' },
   'api.wallet.withdraw.create': { method: 'POST', path: '/wallet/withdraw' },
   'api.wallet.withdraw.fee':   { method: 'GET',  path: '/wallet/withdraw/fee' },
-  /** UID-to-UID internal transfer (instant, no fee). */
-  'api.transfer.internal.create': { method: 'POST', path: '/transfer/internal' },
+  /** UID-to-UID transfer — settles on-chain; sender pays network gas. */
+  'api.transfer.internal.create': { method: 'POST', path: '/transfer/uid' },
   'api.transfer.internal.list':   { method: 'GET',  path: '/transfers/internal' },
   'api.transfer.internal.get':    { method: 'GET',  path: '/transfers/internal/:transferId' },
   'api.wallet.convert.quote':  { method: 'POST', path: '/wallet/convert/quote' },

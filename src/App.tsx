@@ -185,6 +185,7 @@ import './stores/theme'
 import { useApplyDisplayScale } from './stores/display'
 import { useLiveNotifications } from './hooks/useLiveNotifications'
 import { useCapacitorAppState } from './hooks/useCapacitorAppState'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { NotificationToast } from './components/NotificationToast'
 import { listenForNotificationClicks, registerServiceWorker } from './lib/webPush'
 import { Toaster as SonnerToaster } from 'sonner'
@@ -276,7 +277,8 @@ function AppInner() {
         closeButton={false}
         toastOptions={{ style: { background: 'rgba(20,22,28,.95)', border: '1px solid rgba(255,255,255,.08)', color: 'var(--text-strong)' } }}
       />
-      <Suspense fallback={<RouteFallback />}>
+      <ErrorBoundary>
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
           {/* Public */}
           <Route path={ROUTES['route.splash'].path} element={<Splash />} />
@@ -435,7 +437,8 @@ function AppInner() {
           {/* Catch-all for screens not yet implemented */}
           <Route path="*" element={<ProtectedRoute><NotFound /></ProtectedRoute>} />
         </Routes>
-      </Suspense>
+        </Suspense>
+      </ErrorBoundary>
     </>
   )
 }

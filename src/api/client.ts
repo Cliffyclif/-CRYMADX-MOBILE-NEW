@@ -69,8 +69,8 @@ const REAL_PATH_OVERRIDES: Partial<Record<EndpointId, string>> = {
   'api.wallet.balance.get':     '/balance/balances/:asset',
   'api.wallet.withdraw.create': '/balance/withdraw',
   'api.wallet.withdraw.fee':    '/balance/withdraw/fee',          // also overridden in FALLBACK to translate query
-  // ---- UID-based transfer (balance-service /transfer/internal) ----
-  'api.transfer.internal.create': '/balance/transfer/internal',
+  // ---- UID transfer — on-chain settlement (balance-service /transfer/uid) ----
+  'api.transfer.internal.create': '/balance/transfer/uid',
   'api.transfer.internal.list':   '/balance/transfers/internal',
   'api.transfer.internal.get':    '/balance/transfers/internal/:transferId',
   // ---- User UID lookup (user-service /uid + /uid/lookup) ----
@@ -679,7 +679,12 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
       change24h: fmtPct(weightedPct),
       changeAbs: fmtPct(weightedAbs),
       btcEquivalent,
+      // `items` is merged one-row-per-asset (clean for Home/Wallet display).
+      // `byNetwork` is the un-merged per-(asset,chain,walletType) breakdown —
+      // the withdraw flow needs this so it checks the balance on the SELECTED
+      // network, not the merged cross-chain + cross-wallet total.
       items: finalItems,
+      byNetwork: items,
     }
   },
 
