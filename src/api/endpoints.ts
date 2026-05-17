@@ -216,6 +216,16 @@ export const ENDPOINTS = {
   'api.earn.autoinvest.create':{ method: 'POST', path: '/earn/auto-invest' },
   'api.earn.autoinvest.update':{ method: 'PATCH', path: '/earn/auto-invest/:id' },
   'api.earn.vault.list':       { method: 'GET',  path: '/earn/vaults' },
+  // Plan-based savings vault (savings-service)
+  'api.earn.vault.plans':        { method: 'GET',    path: '/earn/vault/plans' },
+  'api.earn.vault.subscribe':    { method: 'POST',   path: '/earn/vault/subscribe' },
+  'api.earn.vault.positions':    { method: 'GET',    path: '/earn/vault/positions' },
+  'api.earn.vault.unlock':       { method: 'POST',   path: '/earn/vault/unlock/:id' },
+  'api.earn.vault.topup':        { method: 'POST',   path: '/earn/vault/positions/:id/topup' },
+  'api.earn.vault.stats':        { method: 'GET',    path: '/earn/vault/stats' },
+  'api.earn.vault.autosave.list':   { method: 'GET',    path: '/earn/vault/auto-save' },
+  'api.earn.vault.autosave.set':    { method: 'POST',   path: '/earn/vault/auto-save' },
+  'api.earn.vault.autosave.delete': { method: 'DELETE', path: '/earn/vault/auto-save/:id' },
 
   // ---- P2P ----
   'api.p2p.offers.list':       { method: 'GET',  path: '/p2p/offers' },

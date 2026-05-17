@@ -107,11 +107,20 @@ const REAL_PATH_OVERRIDES: Partial<Record<EndpointId, string>> = {
   'api.earn.staking.positions': '/staking/positions',
   'api.earn.staking.stats':     '/staking/stats',
 
-  // ---- Earn — Vault / Savings (vaultService.ts; main UI surfaces both as /vault) ----
-  'api.earn.savings.products':  '/vault/positions',              // serves as "products + my positions"
+  // ---- Earn — Vault / Savings (savings-service; gateway /api/vault/*) ----
+  'api.earn.savings.products':  '/vault/positions',              // legacy: "products + my positions"
   'api.earn.savings.deposit':   '/vault/create',
   'api.earn.savings.positions': '/vault/positions',
   'api.earn.vault.list':        '/vault/positions',
+  'api.earn.vault.plans':            '/vault/plans',
+  'api.earn.vault.subscribe':        '/vault/subscribe',
+  'api.earn.vault.positions':        '/vault/positions',
+  'api.earn.vault.unlock':           '/vault/unlock/:id',
+  'api.earn.vault.topup':            '/vault/positions/:id/topup',
+  'api.earn.vault.stats':            '/vault/stats',
+  'api.earn.vault.autosave.list':    '/vault/auto-save',
+  'api.earn.vault.autosave.set':     '/vault/auto-save',
+  'api.earn.vault.autosave.delete':  '/vault/auto-save/:id',
 
   // ---- Earn — AutoInvest (autoInvestService.ts) ----
   'api.earn.autoinvest.list':   '/autoinvest/plans',
