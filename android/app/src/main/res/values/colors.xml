@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Accent colour Android applies to the push-notification small icon. -->
+    <color name="crymadx_notification_accent">#00D26A</color>
+</resources>
