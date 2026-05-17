@@ -50,3 +50,8 @@ ios/App/Podfile.lock
 *.zip
 .firebase/
 coverage/
+
+# Release signing — never commit
+android/keystore.properties
+*.jks
+*.keystore

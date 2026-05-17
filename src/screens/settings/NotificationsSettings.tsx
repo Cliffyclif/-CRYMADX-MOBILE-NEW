@@ -17,7 +17,7 @@ import { PhoneShell } from '../../components/PhoneShell'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { Icon, type IconName } from '../../components/Icon'
 import { useAuth } from '../../stores/auth'
-import { enable as enablePush, disable as disablePush, getStatus as getPushStatus, type PushStatus } from '../../lib/webPush'
+import { enable as enablePush, disable as disablePush, getStatus as getPushStatus, type PushStatus } from '../../lib/push'
 
 const STORAGE_KEY = 'crymadx_notification_settings'
 
@@ -118,9 +118,9 @@ export function NotificationsSettings() {
   ]
 
   const pushDescription = pushStatus === 'unsupported'
-    ? (t('settings.pushUnsupported') || 'Browser does not support push notifications')
+    ? (t('settings.pushUnsupported') || "Push notifications aren't supported here")
     : pushStatus === 'denied'
-      ? (t('settings.pushBlocked') || 'Blocked — enable in browser settings')
+      ? (t('settings.pushBlocked') || 'Blocked — enable notifications in settings')
       : pushStatus === 'subscribed'
         ? (t('settings.pushOn') || "You'll get pings even when the app is closed")
         : (t('settings.pushOff') || 'Tap to enable system notifications')
