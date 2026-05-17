@@ -1,14 +1,23 @@
 apply plugin: 'com.android.application'
 
+// Release signing — read from a gitignored properties file at android/keystore.properties.
+// CI can override the four values via environment variables (CRYMADX_STORE_FILE,
+// CRYMADX_STORE_PASSWORD, CRYMADX_KEY_ALIAS, CRYMADX_KEY_PASSWORD).
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystoreProps.load(new FileInputStream(keystorePropsFile))
+}
+
 android {
-    namespace "io.crymadx.app"
+    namespace "com.exchange.crymadx"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "io.crymadx.app"
+        applicationId "com.exchange.crymadx"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 1001
+        versionName "1.0.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +25,22 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            def storeFilePath = System.getenv("CRYMADX_STORE_FILE") ?: keystoreProps.getProperty("storeFile")
+            if (storeFilePath) {
+                storeFile file(storeFilePath)
+                storePassword System.getenv("CRYMADX_STORE_PASSWORD") ?: keystoreProps.getProperty("storePassword")
+                keyAlias System.getenv("CRYMADX_KEY_ALIAS") ?: keystoreProps.getProperty("keyAlias")
+                keyPassword System.getenv("CRYMADX_KEY_PASSWORD") ?: keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }

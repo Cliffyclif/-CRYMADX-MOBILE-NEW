@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "156933048576",
+    "project_id": "crymadx-8c3b6",
+    "storage_bucket": "crymadx-8c3b6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:156933048576:android:68dca535f18f48e91a0be5",
+        "android_client_info": {
+          "package_name": "com.crymadx.exchange.v2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCpbtwn73G6OC2zEYT_q5oNHij6jB6p-E8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:156933048576:android:0dfd03245fe3be8f1a0be5",
+        "android_client_info": {
+          "package_name": "com.exchange.crymadx"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCpbtwn73G6OC2zEYT_q5oNHij6jB6p-E8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

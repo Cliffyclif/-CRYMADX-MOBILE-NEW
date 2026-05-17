@@ -330,6 +330,9 @@ export const ENDPOINTS = {
   /** Web Push: register the browser push subscription with the backend */
   'api.notifications.subscribe': { method: 'POST', path: '/notifications/subscribe' },
   'api.notifications.unsubscribe': { method: 'DELETE', path: '/notifications/subscribe' },
+  /** Native push (FCM): register / drop this device's FCM token */
+  'api.notifications.registerDevice': { method: 'POST', path: '/notifications/register-device' },
+  'api.notifications.unregisterDevice': { method: 'DELETE', path: '/notifications/register-device' },
   'api.announcements.list':    { method: 'GET',  path: '/announcements' },
 
   // ---- Support ----

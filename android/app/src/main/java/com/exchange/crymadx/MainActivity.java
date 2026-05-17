@@ -1,4 +1,4 @@
-package io.crymadx.app;
+package com.exchange.crymadx;
 
 import com.getcapacitor.BridgeActivity;
 

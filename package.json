@@ -26,6 +26,7 @@
     "@capacitor/haptics": "^6.0.3",
     "@capacitor/keyboard": "^6.0.4",
     "@capacitor/preferences": "^6.0.4",
+    "@capacitor/push-notifications": "^6.0.4",
     "@capacitor/splash-screen": "^6.0.4",
     "@capacitor/status-bar": "^6.0.3",
     "@fontsource-variable/outfit": "^5.2.8",

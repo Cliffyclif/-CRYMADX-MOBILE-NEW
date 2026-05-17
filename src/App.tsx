@@ -188,6 +188,8 @@ import { useCapacitorAppState } from './hooks/useCapacitorAppState'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { NotificationToast } from './components/NotificationToast'
 import { listenForNotificationClicks, registerServiceWorker } from './lib/webPush'
+import { setNativePushNavHandler, maybePromptNativePush } from './lib/nativePush'
+import { useAuth } from './stores/auth'
 import { Toaster as SonnerToaster } from 'sonner'
 
 // Register the runtime SW cache on app boot (no-op if already registered).
@@ -261,11 +263,22 @@ function AppInner() {
   // When a user taps a system push notification while the app is closed/hidden,
   // the Service Worker postMessages us with { type: 'navigate', href }. Route to it.
   const nav = useNavigate()
+  const authUser = useAuth(s => s.user)
   useEffect(() => {
+    // Web Push (browser): the SW postMessages { type:'navigate', href } on tap.
     listenForNotificationClicks((href) => {
       try { nav(href) } catch { /* ignore bad href */ }
     })
+    // Native push (FCM): a tapped system notification routes to its deep link.
+    setNativePushNavHandler((href) => {
+      try { nav(href) } catch { /* ignore bad href */ }
+    })
   }, [nav])
+  // Auto opt-in to native OS push once, after the user is signed in (native
+  // build only — no-ops in the browser). A Settings toggle also controls it.
+  useEffect(() => {
+    if (authUser) void maybePromptNativePush()
+  }, [authUser])
   return (
     <>
       <IconSprite />
