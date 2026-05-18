@@ -222,6 +222,7 @@ export const ENDPOINTS = {
   'api.earn.vault.positions':    { method: 'GET',    path: '/earn/vault/positions' },
   'api.earn.vault.unlock':       { method: 'POST',   path: '/earn/vault/unlock/:id' },
   'api.earn.vault.topup':        { method: 'POST',   path: '/earn/vault/positions/:id/topup' },
+  'api.earn.vault.contribute':   { method: 'POST',   path: '/earn/vault/positions/:id/contribute' },
   'api.earn.vault.stats':        { method: 'GET',    path: '/earn/vault/stats' },
   'api.earn.vault.autosave.list':   { method: 'GET',    path: '/earn/vault/auto-save' },
   'api.earn.vault.autosave.set':    { method: 'POST',   path: '/earn/vault/auto-save' },

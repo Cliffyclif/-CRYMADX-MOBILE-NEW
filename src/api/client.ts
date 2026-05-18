@@ -117,6 +117,7 @@ const REAL_PATH_OVERRIDES: Partial<Record<EndpointId, string>> = {
   'api.earn.vault.positions':        '/vault/positions',
   'api.earn.vault.unlock':           '/vault/unlock/:id',
   'api.earn.vault.topup':            '/vault/positions/:id/topup',
+  'api.earn.vault.contribute':       '/vault/positions/:id/contribute',
   'api.earn.vault.stats':            '/vault/stats',
   'api.earn.vault.autosave.list':    '/vault/auto-save',
   'api.earn.vault.autosave.set':     '/vault/auto-save',
