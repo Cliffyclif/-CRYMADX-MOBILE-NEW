@@ -187,6 +187,7 @@ import { useLiveNotifications } from './hooks/useLiveNotifications'
 import { useCapacitorAppState } from './hooks/useCapacitorAppState'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { NotificationToast } from './components/NotificationToast'
+import { VersionGate } from './components/VersionGate'
 import { listenForNotificationClicks, registerServiceWorker } from './lib/webPush'
 import { setNativePushNavHandler, maybePromptNativePush } from './lib/nativePush'
 import { useAuth } from './stores/auth'
@@ -452,6 +453,9 @@ function AppInner() {
         </Routes>
         </Suspense>
       </ErrorBoundary>
+      {/* Admin-controlled update gate — overlays every route when a new
+          app version is required (hard) or available (soft). No-op on web. */}
+      <VersionGate />
     </>
   )
 }
