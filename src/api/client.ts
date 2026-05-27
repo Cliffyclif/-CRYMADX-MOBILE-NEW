@@ -2099,7 +2099,9 @@ export async function api<T = unknown>(
 
   if (!res.ok) {
     const code = json?.error?.code ?? json?.code ?? `HTTP_${res.status}`
-    const message = json?.error?.message ?? json?.message ?? json?.error ?? res.statusText
+    // Surface the specific field message from a zod/validation error (json.details[]),
+    // which is more useful than the generic json.error ("Validation failed").
+    const message = json?.details?.[0]?.message ?? json?.error?.message ?? json?.message ?? json?.error ?? res.statusText
     // Only clear the session when the 401 is actually about the token —
     // "Token expired", "Invalid token", "No token provided", etc. Some
     // microservices return 401 for unrelated reasons (feature gates,

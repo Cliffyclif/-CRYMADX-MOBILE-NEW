@@ -13,6 +13,7 @@ import { ROUTES } from '../../routes'
 import { useEndpoint } from '../../api/hooks'
 import { useEndpointMutation } from '../../api/hooks'
 import { SUPPORTED_LANGUAGES } from '../../lib/i18n'
+import { isValidName, NAME_VALIDATION_MESSAGE } from '../../lib/nameValidation'
 import { COUNTRIES, flagEmoji, type Country } from '../../data/countries'
 
 // Parse a stored phone string ("+<dial> <digits>" or raw digits) into
@@ -56,6 +57,10 @@ export function Profile() {
 
   const saveProfile = async () => {
     const fullName = [editFirst, editLast].filter(Boolean).join(' ').trim()
+    if (fullName && !isValidName(fullName)) {
+      toast.error(NAME_VALIDATION_MESSAGE)
+      return
+    }
     const digits = editPhoneDigits.replace(/[^0-9]/g, '')
     const phone = digits ? (editDial ? `+${editDial.dial} ${digits}` : digits) : ''
     try {
