@@ -8,6 +8,7 @@ import { ROUTES } from '../../routes'
 import { useEndpointMutation } from '../../api/hooks'
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn'
 import { haptics } from '../../lib/haptics'
+import { isValidName, NAME_VALIDATION_MESSAGE } from '../../lib/nameValidation'
 
 export function Register() {
   const { t } = useTranslation()
@@ -39,6 +40,10 @@ export function Register() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    if (!isValidName(name)) {
+      setError(NAME_VALIDATION_MESSAGE)
+      return
+    }
     if (!captchaToken) {
       setError(t('auth.captchaRequired'))
       return
