@@ -7,6 +7,7 @@ import { ScreenHeader } from '../../components/ScreenHeader'
 import { Icon } from '../../components/Icon'
 import { CoinIcon } from '../../components/CoinIcon'
 import { AssetPicker } from '../../components/AssetPicker'
+import { NetworkPicker } from '../../components/NetworkPicker'
 import { QRScanModal } from '../../components/QRScanModal'
 import { useEndpoint } from '../../api/hooks'
 import { useQRScanner } from '../../hooks/useQRScanner'
@@ -279,26 +280,18 @@ export function Withdraw() {
         <AssetPicker value={asset} onChange={setAsset} />
       </div>
 
-      {/* Network selector — address mode only. UID mode is chain-internal. */}
-      {mode === 'address' && (nets?.networks?.length ?? 0) > 1 && (
-        <div className="g" style={{ padding: 10, marginTop: 6, display: 'flex', alignItems: 'center' }}>
-          <div className="t3" style={{ flex: 1 }}>{t('common.network')}</div>
-          <select
-            value={network}
-            onChange={e => setNetwork(e.target.value)}
-            style={{ background: 'transparent', border: 'none', color: 'var(--gl)', fontSize: 15, fontFamily: 'Outfit', cursor: 'pointer', fontWeight: 700, textAlign: 'right' }}
-          >
-            {nets!.networks.map(n => {
-              const nb = fundingOnNetwork(n.id)
-              const balText = Number.isNaN(nb.amt) ? '' : ` — ${fmt(nb.amt)} ${asset}`
-              return (
-                <option key={n.id} value={n.id} style={{ color: '#000' }}>
-                  {n.name}{balText}{n.recommended ? ' (rec.)' : ''}
-                </option>
-              )
-            })}
-          </select>
-        </div>
+      {/* Network selector — shown in BOTH modes. UID transfers settle on-chain,
+          so the sender must be able to pick which chain to send from (same as a
+          normal withdrawal), e.g. USDC on Ethereum vs Polygon. Sleek custom
+          picker (not a native <select>) so it fits the layout cleanly. */}
+      {(nets?.networks?.length ?? 0) > 1 && (
+        <NetworkPicker
+          asset={asset}
+          networks={nets!.networks}
+          value={network}
+          onChange={setNetwork}
+          balanceFor={(id) => fundingOnNetwork(id)}
+        />
       )}
 
       {mode === 'address' ? (
@@ -471,7 +464,7 @@ export function Withdraw() {
 
       <div className="g" style={{ padding: 10, marginTop: 8 }}>
         <Row k="Network" v={networkLabel || '—'} />
-        <Row k="Network Fee" v={`${fmt(feeNum)} ${asset}${feeData?.feeUsd && parseFloat(feeData.feeUsd) > 0 ? ` ≈ $${feeData.feeUsd}` : ''}`} />
+        <Row k="Transaction Fee" v={`${fmt(feeNum)} ${asset}${feeData?.feeUsd && parseFloat(feeData.feeUsd) > 0 ? ` ≈ $${feeData.feeUsd}` : ''}`} />
         <Row k="Estimated arrival" v={feeData?.estimatedTime ?? '—'} />
         <Row k="You Send" v={`${fmt(amountNum)} ${asset}`} />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, margin: '8px 0 0', paddingTop: 8, borderTop: '1px solid var(--divider)' }}>

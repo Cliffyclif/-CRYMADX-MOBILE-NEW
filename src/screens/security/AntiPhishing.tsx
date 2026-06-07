@@ -34,7 +34,9 @@ export function AntiPhishing() {
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const isSet = !!data?.isSet
+  // The backend returns `maskedCode` when set but doesn't always send a truthy
+  // `isSet` — treat a present masked code as "set" too (matches the Security hub).
+  const isSet = !!(data?.isSet || data?.maskedCode)
   const masked = data?.maskedCode ?? null
 
   // When data first loads and there's no code yet, drop straight into edit mode.

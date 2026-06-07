@@ -245,6 +245,8 @@ export type AISettings = {
   model: string
   streaming: boolean
   autoExecuteUnderUsd: number
+  responseStyle: string
+  privacy: string
   defaultChain: string
   pinTokenTtlMin: number
   biometricForActions: boolean
@@ -968,6 +970,8 @@ export const SEED_DB: MockDb = {
       model: 'Claude Opus 4.7',
       streaming: true,
       autoExecuteUnderUsd: 50,
+      responseStyle: 'Concise',
+      privacy: 'On-device only',
       defaultChain: 'BTC',
       pinTokenTtlMin: 15,
       biometricForActions: true,

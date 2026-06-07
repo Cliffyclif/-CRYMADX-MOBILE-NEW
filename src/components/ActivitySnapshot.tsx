@@ -11,8 +11,6 @@ type Wallet = { total: string }
 const COMPLETED = new Set(['completed', 'confirmed'])
 
 function priceFor(symbol: string, markets: MarketPair[] | undefined): number {
-  // Guard against a non-array (the markets endpoint returns { items }, not a
-  // bare array) — calling .find on a non-array throws "find is not a function".
   if (!Array.isArray(markets)) return 0
   const up = symbol.toUpperCase()
   if (up === 'USDT' || up === 'USDC' || up === 'USD' || up === 'DAI' || up === 'BUSD') return 1
@@ -39,13 +37,13 @@ function fmt(n: number): string {
 export function ActivitySnapshot() {
   // Pull a generous slice of txns. ~365d worth.
   const { data: txData } = useEndpoint<{ items: Transaction[] }>('api.tx.list', { query: { limit: 1000 } })
-  // api.markets.list returns { items: MarketPair[] }, not a bare array.
+  // api.markets.list returns { items: MarketPair[] }, not a bare array — unwrap it.
   const { data: marketsData } = useEndpoint<{ items: MarketPair[] }>('api.markets.list')
+  const markets = marketsData?.items
   const { data: wallet } = useEndpoint<Wallet>('api.wallet.balances.list')
 
   const m = useMemo(() => {
     const txs = txData?.items ?? []
-    const markets = marketsData?.items ?? []
     const inWindow = txs.filter((t) => COMPLETED.has(t.status))
     let totalDeposits = 0
     let totalWithdrawals = 0
@@ -74,7 +72,7 @@ export function ActivitySnapshot() {
       realReturnPct, realReturnUsd,
       hasData: inWindow.length > 0,
     }
-  }, [txData, marketsData, wallet])
+  }, [txData, markets, wallet])
 
   if (!m.hasData) return null
 

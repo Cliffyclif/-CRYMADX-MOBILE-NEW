@@ -7,7 +7,14 @@ import { useEndpoint } from '../../api/hooks'
 import { ROUTES, type RouteId } from '../../routes'
 import type { APIKey } from '../../mock/db'
 
-interface Row { icon: IconName; name: string; desc: string; right?: string; routeId?: RouteId }
+// Web app destinations for developer features that are managed on the web
+// dashboard (not built as native mobile screens). Opens in the system browser.
+const WEB_APP = 'https://crymadx.io'
+function openExternal(url: string) {
+  try { window.open(url, '_blank', 'noopener,noreferrer') } catch { window.location.href = url }
+}
+
+interface Row { icon: IconName; name: string; desc: string; right?: string; routeId?: RouteId; href?: string }
 
 export function Developer() {
   const { t } = useTranslation()
@@ -18,20 +25,20 @@ export function Developer() {
 
   const rows: Row[] = [
     { icon: 'key',      name: t('settings.rowApiKeys'),    desc: t('settings.rowApiKeysSub', { count: data?.items?.length ?? 0, expiring: (data?.items ?? []).filter(k => k.status === 'expiring').length }), routeId: 'route.settings.api-keys' },
-    { icon: 'link',     name: t('settings.rowWebhooks'),   desc: t('settings.rowWebhooksSub') },
-    { icon: 'settings', name: t('settings.rowSandbox'),    desc: t('settings.rowSandboxSub') },
-    { icon: 'doc',      name: t('settings.rowApiDocs'),    desc: t('settings.rowApiDocsSub'), right: '↗' },
-    { icon: 'chart',    name: t('settings.rowUsage'),      desc: t('settings.rowUsageSub', { used: callsM }) },
-    { icon: 'globe',    name: t('settings.rowIp'),         desc: t('settings.rowIpSub') },
-    { icon: 'shield',   name: t('settings.rowOauth'),      desc: t('settings.rowOauthSub') },
+    { icon: 'link',     name: t('settings.rowWebhooks'),   desc: t('settings.rowWebhooksSub'), href: `${WEB_APP}/developers`, right: '↗' },
+    { icon: 'settings', name: t('settings.rowSandbox'),    desc: t('settings.rowSandboxSub'), href: `${WEB_APP}/developers`, right: '↗' },
+    { icon: 'doc',      name: t('settings.rowApiDocs'),    desc: t('settings.rowApiDocsSub'), href: `${WEB_APP}/docs`, right: '↗' },
+    { icon: 'chart',    name: t('settings.rowUsage'),      desc: t('settings.rowUsageSub', { used: callsM }), href: `${WEB_APP}/developers`, right: '↗' },
+    { icon: 'globe',    name: t('settings.rowIp'),         desc: t('settings.rowIpSub'), href: `${WEB_APP}/developers`, right: '↗' },
+    { icon: 'shield',   name: t('settings.rowOauth'),      desc: t('settings.rowOauthSub'), href: `${WEB_APP}/developers`, right: '↗' },
   ]
 
-  const QUICK = [
-    ['Postman Collection', 'One-click import'],
-    ['SDK · Node.js',      'npm install crymadx'],
-    ['SDK · Python',       'pip install crymadx'],
-    ['SDK · Go',           'go get crymadx-go'],
-    ['Status Page',        'status.crymadx.io'],
+  const QUICK: [string, string, string][] = [
+    ['Postman Collection', 'One-click import',      `${WEB_APP}/docs`],
+    ['SDK · Node.js',      'npm install crymadx',   `${WEB_APP}/docs`],
+    ['SDK · Python',       'pip install crymadx',   `${WEB_APP}/docs`],
+    ['SDK · Go',           'go get crymadx-go',     `${WEB_APP}/docs`],
+    ['Status Page',        'status.crymadx.io',     'https://status.crymadx.io'],
   ]
 
   return (
@@ -51,7 +58,7 @@ export function Developer() {
       </div>
 
       {rows.map(r => (
-        <button key={r.name} onClick={() => r.routeId && nav(ROUTES[r.routeId].path)} className="li" style={{ width: '100%', textAlign: 'left', cursor: r.routeId ? 'pointer' : 'default' }}>
+        <button key={r.name} onClick={() => { if (r.routeId) nav(ROUTES[r.routeId].path); else if (r.href) openExternal(r.href) }} className="li" style={{ width: '100%', textAlign: 'left', cursor: (r.routeId || r.href) ? 'pointer' : 'default' }}>
           <div className="li-i"><Icon name={r.icon} size={16} /></div>
           <div className="li-c">
             <div className="li-n">{r.name}</div>
@@ -63,14 +70,14 @@ export function Developer() {
 
       <h3 style={{ marginTop: 8 }}>{t('settings.quickLinks')}</h3>
       <div className="g" style={{ padding: 2 }}>
-        {QUICK.map(([n, d]) => (
-          <div key={n} className="li" style={{ margin: 0, borderRadius: 0, borderBottom: '1px solid var(--divider-soft)', boxShadow: 'none', background: 'transparent', padding: 8 }}>
+        {QUICK.map(([n, d, url]) => (
+          <button key={n} onClick={() => openExternal(url)} className="li" style={{ width: '100%', textAlign: 'left', margin: 0, borderRadius: 0, borderBottom: '1px solid var(--divider-soft)', boxShadow: 'none', background: 'transparent', padding: 8, cursor: 'pointer', border: 'none' }}>
             <div className="li-c">
               <div className="li-n" style={{ fontSize: 14 }}>{n}</div>
               <div className="li-s">{d}</div>
             </div>
             <div className="li-r"><Icon name="ext" size={12} color="var(--gl)" /></div>
-          </div>
+          </button>
         ))}
       </div>
     </PhoneShell>

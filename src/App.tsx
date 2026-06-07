@@ -1,299 +1,198 @@
 /**
  * App — top-level router.
  * Public routes are open. Anything else is wrapped in <ProtectedRoute>.
- *
- * Routes are CODE-SPLIT: every screen is a React.lazy() chunk so the
- * initial bundle is just the shell + entry screen instead of all 110+
- * screens. Vite emits one small chunk per screen; React Query / framer /
- * charts split out automatically via manualChunks (see vite.config.ts).
- * Only the Splash entry screen is eager so first paint has nothing to wait
- * on — the native Capacitor splash covers the rest while chunks stream in.
  */
 
-import { lazy, Suspense, useEffect, type ComponentType } from 'react'
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { IconSprite } from './components/Icon'
 import { ROUTES } from './routes'
 
-// Eager — the entry screen. Everything else is lazy (below).
-import { Splash } from './screens/auth/Splash'
-
-/**
- * lazyScreen — wraps a named-export screen module as a React.lazy chunk.
- * The screens use named exports, so we remap `{ X }` → `{ default: X }`.
- * The import() string must stay a literal for Vite to split the chunk.
- */
-function lazyScreen<M extends Record<string, unknown>, K extends keyof M>(
-  loader: () => Promise<M>,
-  key: K,
-) {
-  return lazy(async () => ({ default: (await loader())[key] as ComponentType }))
-}
-
 // Phase 1 — auth + tab roots + wallet flow
-const Login = lazyScreen(() => import('./screens/auth/Login'), 'Login')
-const Register = lazyScreen(() => import('./screens/auth/Register'), 'Register')
-const VerifyEmail = lazyScreen(() => import('./screens/auth/VerifyEmail'), 'VerifyEmail')
-const Home = lazyScreen(() => import('./screens/tabs/Home'), 'Home')
-const Markets = lazyScreen(() => import('./screens/tabs/Markets'), 'Markets')
-const AIChat = lazyScreen(() => import('./screens/tabs/AIChat'), 'AIChat')
-const Wallet = lazyScreen(() => import('./screens/tabs/Wallet'), 'Wallet')
-const Profile = lazyScreen(() => import('./screens/tabs/Profile'), 'Profile')
-const DepositPick = lazyScreen(() => import('./screens/wallet/DepositPick'), 'DepositPick')
-const Deposit = lazyScreen(() => import('./screens/wallet/Deposit'), 'Deposit')
-const Withdraw = lazyScreen(() => import('./screens/wallet/Withdraw'), 'Withdraw')
-const WithdrawConfirm = lazyScreen(() => import('./screens/wallet/WithdrawConfirm'), 'WithdrawConfirm')
-const TxHistory = lazyScreen(() => import('./screens/wallet/TxHistory'), 'TxHistory')
-const TxDetail = lazyScreen(() => import('./screens/wallet/TxDetail'), 'TxDetail')
+import { Splash } from './screens/auth/Splash'
+import { Login } from './screens/auth/Login'
+import { Register } from './screens/auth/Register'
+import { VerifyEmail } from './screens/auth/VerifyEmail'
+import { Home } from './screens/tabs/Home'
+import { Markets } from './screens/tabs/Markets'
+import { AIChat } from './screens/tabs/AIChat'
+import { Wallet } from './screens/tabs/Wallet'
+import { Profile } from './screens/tabs/Profile'
+import { DepositPick } from './screens/wallet/DepositPick'
+import { Deposit } from './screens/wallet/Deposit'
+import { Withdraw } from './screens/wallet/Withdraw'
+import { WithdrawConfirm } from './screens/wallet/WithdrawConfirm'
+import { TxHistory } from './screens/wallet/TxHistory'
+import { TxDetail } from './screens/wallet/TxDetail'
 
 // Phase 2 — wallet remainder
-const Convert = lazyScreen(() => import('./screens/wallet/Convert'), 'Convert')
-const ConvertConfirm = lazyScreen(() => import('./screens/wallet/ConvertConfirm'), 'ConvertConfirm')
-const AssetDetail = lazyScreen(() => import('./screens/wallet/AssetDetail'), 'AssetDetail')
-const Beneficiaries = lazyScreen(() => import('./screens/wallet/Beneficiaries'), 'Beneficiaries')
-const WhitelistConfirm = lazyScreen(() => import('./screens/wallet/WhitelistConfirm'), 'WhitelistConfirm')
+import { Convert } from './screens/wallet/Convert'
+import { ConvertConfirm } from './screens/wallet/ConvertConfirm'
+import { AssetDetail } from './screens/wallet/AssetDetail'
+import { Beneficiaries } from './screens/wallet/Beneficiaries'
 
 // Phase 2 — trading
-const SpotTrading = lazyScreen(() => import('./screens/trading/SpotTrading'), 'SpotTrading')
-const OrderConfirm = lazyScreen(() => import('./screens/trading/OrderConfirm'), 'OrderConfirm')
-const Activity = lazyScreen(() => import('./screens/trading/Activity'), 'Activity')
-const TradeDetail = lazyScreen(() => import('./screens/trading/TradeDetail'), 'TradeDetail')
+import { SpotTrading } from './screens/trading/SpotTrading'
+import { OrderConfirm } from './screens/trading/OrderConfirm'
+import { Activity } from './screens/trading/Activity'
+import { TradeDetail } from './screens/trading/TradeDetail'
 
 // Phase 2 — earn
-const EarnHub = lazyScreen(() => import('./screens/earn/EarnHub'), 'EarnHub')
-const Savings = lazyScreen(() => import('./screens/earn/Savings'), 'Savings')
-const SavingsDetail = lazyScreen(() => import('./screens/earn/SavingsDetail'), 'SavingsDetail')
-const SavingsDeposit = lazyScreen(() => import('./screens/earn/SavingsDeposit'), 'SavingsDeposit')
-const Staking = lazyScreen(() => import('./screens/earn/Staking'), 'Staking')
-const Unstake = lazyScreen(() => import('./screens/earn/Unstake'), 'Unstake')
-const AutoInvest = lazyScreen(() => import('./screens/earn/AutoInvest'), 'AutoInvest')
-const Vault = lazyScreen(() => import('./screens/earn/Vault'), 'Vault')
+import { EarnHub } from './screens/earn/EarnHub'
+import { Savings } from './screens/earn/Savings'
+import { SavingsDetail } from './screens/earn/SavingsDetail'
+import { SavingsDeposit } from './screens/earn/SavingsDeposit'
+import { Staking } from './screens/earn/Staking'
+import { Unstake } from './screens/earn/Unstake'
+import { AutoInvest } from './screens/earn/AutoInvest'
+import { Vault } from './screens/earn/Vault'
 
 // Phase 2 — fiat
-const BuyCrypto = lazyScreen(() => import('./screens/fiat/BuyCrypto'), 'BuyCrypto')
-const FiatOrderConfirm = lazyScreen(() => import('./screens/fiat/FiatOrderConfirm'), 'FiatOrderConfirm')
-const Guardarian = lazyScreen(() => import('./screens/fiat/Guardarian'), 'Guardarian')
-const FiatOrderStatus = lazyScreen(() => import('./screens/fiat/FiatOrderStatus'), 'FiatOrderStatus')
+import { BuyCrypto } from './screens/fiat/BuyCrypto'
+import { FiatOrderConfirm } from './screens/fiat/FiatOrderConfirm'
+import { Guardarian } from './screens/fiat/Guardarian'
+import { FiatOrderStatus } from './screens/fiat/FiatOrderStatus'
 
 // Phase 3 — AI
-const VoiceMode = lazyScreen(() => import('./screens/ai/VoiceMode'), 'VoiceMode')
-const ChatHistory = lazyScreen(() => import('./screens/ai/ChatHistory'), 'ChatHistory')
-const ConversationDetail = lazyScreen(() => import('./screens/ai/ConversationDetail'), 'ConversationDetail')
-const AISettingsScreen = lazyScreen(() => import('./screens/ai/AISettings'), 'AISettingsScreen')
-const AIVoiceSettings = lazyScreen(() => import('./screens/ai/AIVoiceSettings'), 'AIVoiceSettings')
-const AITools = lazyScreen(() => import('./screens/ai/AITools'), 'AITools')
-const AIMemory = lazyScreen(() => import('./screens/ai/AIMemory'), 'AIMemory')
-const AIScheduled = lazyScreen(() => import('./screens/ai/AIScheduled'), 'AIScheduled')
-const AIActionDetail = lazyScreen(() => import('./screens/ai/AIActionDetail'), 'AIActionDetail')
-const AIShareScreen = lazyScreen(() => import('./screens/ai/AIShare'), 'AIShareScreen')
-const AISharedViewer = lazyScreen(() => import('./screens/ai/AISharedViewer'), 'AISharedViewer')
-const AIPinSettings = lazyScreen(() => import('./screens/ai/AIPinSettings'), 'AIPinSettings')
-const AIOnboarding = lazyScreen(() => import('./screens/ai/AIOnboarding'), 'AIOnboarding')
-const AINotifications = lazyScreen(() => import('./screens/ai/AINotifications'), 'AINotifications')
+import { VoiceMode } from './screens/ai/VoiceMode'
+import { ChatHistory } from './screens/ai/ChatHistory'
+import { ConversationDetail } from './screens/ai/ConversationDetail'
+import { AISettingsScreen } from './screens/ai/AISettings'
+import { AIVoiceSettings } from './screens/ai/AIVoiceSettings'
+import { AITools } from './screens/ai/AITools'
+import { AIMemory } from './screens/ai/AIMemory'
+import { AIScheduled } from './screens/ai/AIScheduled'
+import { AIActionDetail } from './screens/ai/AIActionDetail'
+import { AIShareScreen } from './screens/ai/AIShare'
+import { AISharedViewer } from './screens/ai/AISharedViewer'
+import { AIPinSettings } from './screens/ai/AIPinSettings'
+import { AIOnboarding } from './screens/ai/AIOnboarding'
+import { AINotifications } from './screens/ai/AINotifications'
 
 // Phase 3 — P2P
-const Marketplace = lazyScreen(() => import('./screens/p2p/Marketplace'), 'Marketplace')
-const OfferDetail = lazyScreen(() => import('./screens/p2p/OfferDetail'), 'OfferDetail')
-const P2POrderScreen = lazyScreen(() => import('./screens/p2p/Order'), 'Order')
-const P2PChatScreen = lazyScreen(() => import('./screens/p2p/Chat'), 'Chat')
-const PaymentMethods = lazyScreen(() => import('./screens/p2p/PaymentMethods'), 'PaymentMethods')
+import { Marketplace } from './screens/p2p/Marketplace'
+import { OfferDetail } from './screens/p2p/OfferDetail'
+import { Order as P2POrderScreen } from './screens/p2p/Order'
+import { Chat as P2PChatScreen } from './screens/p2p/Chat'
+import { PaymentMethods } from './screens/p2p/PaymentMethods'
 
 // Phase 3 — Card
-const CardHub = lazyScreen(() => import('./screens/card/CardHub'), 'CardHub')
-const CardTopUp = lazyScreen(() => import('./screens/card/CardTopUp'), 'CardTopUp')
-const CardSettingsScreen = lazyScreen(() => import('./screens/card/CardSettingsScreen'), 'CardSettingsScreen')
-const CardTransactions = lazyScreen(() => import('./screens/card/CardTransactions'), 'CardTransactions')
-const CardOnboarding = lazyScreen(() => import('./screens/card/CardOnboarding'), 'CardOnboarding')
+import { CardHub } from './screens/card/CardHub'
+import { CardTopUp } from './screens/card/CardTopUp'
+import { CardSettingsScreen } from './screens/card/CardSettingsScreen'
+import { CardTransactions } from './screens/card/CardTransactions'
+import { CardOnboarding } from './screens/card/CardOnboarding'
 
 // Phase 3 — NFT
-const NFTGallery = lazyScreen(() => import('./screens/nft/NFTGallery'), 'NFTGallery')
-const NFTMarketplace = lazyScreen(() => import('./screens/nft/NFTMarketplace'), 'NFTMarketplace')
-const NFTDetail = lazyScreen(() => import('./screens/nft/NFTDetail'), 'NFTDetail')
-const NFTSend = lazyScreen(() => import('./screens/nft/NFTSend'), 'NFTSend')
+import { NFTGallery } from './screens/nft/NFTGallery'
+import { NFTMarketplace } from './screens/nft/NFTMarketplace'
+import { NFTDetail } from './screens/nft/NFTDetail'
+import { NFTSend } from './screens/nft/NFTSend'
 
 // Phase 4 — Onboarding + auth fillers
-const Onboarding = lazyScreen(() => import('./screens/auth/Onboarding'), 'Onboarding')
-const CompleteProfile = lazyScreen(() => import('./screens/auth/CompleteProfile'), 'CompleteProfile')
-const Login2FA = lazyScreen(() => import('./screens/auth/Login2FA'), 'Login2FA')
-const ForgotPassword = lazyScreen(() => import('./screens/auth/ForgotPassword'), 'ForgotPassword')
-const ResetPassword = lazyScreen(() => import('./screens/auth/ResetPassword'), 'ResetPassword')
-const BiometricSetup = lazyScreen(() => import('./screens/auth/BiometricSetup'), 'BiometricSetup')
+import { Onboarding } from './screens/auth/Onboarding'
+import { CompleteProfile } from './screens/auth/CompleteProfile'
+import { Login2FA } from './screens/auth/Login2FA'
+import { ForgotPassword } from './screens/auth/ForgotPassword'
+import { ResetPassword } from './screens/auth/ResetPassword'
+import { BiometricSetup } from './screens/auth/BiometricSetup'
 
 // Phase 4 — Security
-const SecurityHub = lazyScreen(() => import('./screens/security/SecurityHub'), 'SecurityHub')
-const TwoFactorSetup = lazyScreen(() => import('./screens/security/TwoFactorSetup'), 'TwoFactorSetup')
-const BackupCodes = lazyScreen(() => import('./screens/security/BackupCodes'), 'BackupCodes')
-const ChangePassword = lazyScreen(() => import('./screens/security/ChangePassword'), 'ChangePassword')
-const ChangePin = lazyScreen(() => import('./screens/security/ChangePin'), 'ChangePin')
-const Sessions = lazyScreen(() => import('./screens/security/Sessions'), 'Sessions')
-const AntiPhishing = lazyScreen(() => import('./screens/security/AntiPhishing'), 'AntiPhishing')
+import { SecurityHub } from './screens/security/SecurityHub'
+import { TwoFactorSetup } from './screens/security/TwoFactorSetup'
+import { BackupCodes } from './screens/security/BackupCodes'
+import { ChangePassword } from './screens/security/ChangePassword'
+import { ChangePin } from './screens/security/ChangePin'
+import { Sessions } from './screens/security/Sessions'
 
 // Phase 4 — KYC
-const KYCStatus = lazyScreen(() => import('./screens/kyc/KYCStatus'), 'KYCStatus')
-const KYCFlow = lazyScreen(() => import('./screens/kyc/KYCFlow'), 'KYCFlow')
-const KYCPending = lazyScreen(() => import('./screens/kyc/KYCPending'), 'KYCPending')
-const KYCLevelInfo = lazyScreen(() => import('./screens/kyc/KYCLevelInfo'), 'KYCLevelInfo')
+import { KYCStatus } from './screens/kyc/KYCStatus'
+import { KYCFlow } from './screens/kyc/KYCFlow'
+import { KYCPending } from './screens/kyc/KYCPending'
+import { KYCLevelInfo } from './screens/kyc/KYCLevelInfo'
 
 // Phase 4 — Settings
-const NotificationsSettings = lazyScreen(() => import('./screens/settings/NotificationsSettings'), 'NotificationsSettings')
-const Theme = lazyScreen(() => import('./screens/settings/Theme'), 'Theme')
-const Language = lazyScreen(() => import('./screens/settings/Language'), 'Language')
-const Currency = lazyScreen(() => import('./screens/settings/Currency'), 'Currency')
-const PriceAlerts = lazyScreen(() => import('./screens/settings/PriceAlerts'), 'PriceAlerts')
-const PriceAlertEdit = lazyScreen(() => import('./screens/settings/PriceAlertEdit'), 'PriceAlertEdit')
-const Developer = lazyScreen(() => import('./screens/settings/Developer'), 'Developer')
-const ApiKeys = lazyScreen(() => import('./screens/settings/ApiKeys'), 'ApiKeys')
-const ApiKeyDetail = lazyScreen(() => import('./screens/settings/ApiKeyDetail'), 'ApiKeyDetail')
-const Ecosystem = lazyScreen(() => import('./screens/settings/Ecosystem'), 'Ecosystem')
+import { NotificationsSettings } from './screens/settings/NotificationsSettings'
+import { Theme } from './screens/settings/Theme'
+import { Language } from './screens/settings/Language'
+import { Currency } from './screens/settings/Currency'
+import { PriceAlerts } from './screens/settings/PriceAlerts'
+import { PriceAlertEdit } from './screens/settings/PriceAlertEdit'
+import { Developer } from './screens/settings/Developer'
+import { ApiKeys } from './screens/settings/ApiKeys'
+import { ApiKeyDetail } from './screens/settings/ApiKeyDetail'
+import { Ecosystem } from './screens/settings/Ecosystem'
 
 // Phase 4 — Engagement
-const Rewards = lazyScreen(() => import('./screens/engage/Rewards'), 'Rewards')
-const TierDetail = lazyScreen(() => import('./screens/engage/TierDetail'), 'TierDetail')
-const Referral = lazyScreen(() => import('./screens/engage/Referral'), 'Referral')
-const EngageNotifications = lazyScreen(() => import('./screens/engage/Notifications'), 'Notifications')
-const Announcements = lazyScreen(() => import('./screens/engage/Announcements'), 'Announcements')
+import { Rewards } from './screens/engage/Rewards'
+import { TierDetail } from './screens/engage/TierDetail'
+import { Referral } from './screens/engage/Referral'
+import { Notifications as EngageNotifications } from './screens/engage/Notifications'
+import { Announcements } from './screens/engage/Announcements'
 
 // Phase 4 — Support
-const HelpCenter = lazyScreen(() => import('./screens/support/HelpCenter'), 'HelpCenter')
-const Article = lazyScreen(() => import('./screens/support/Article'), 'Article')
-const Tickets = lazyScreen(() => import('./screens/support/Tickets'), 'Tickets')
-const TicketDetail = lazyScreen(() => import('./screens/support/TicketDetail'), 'TicketDetail')
-const Contact = lazyScreen(() => import('./screens/support/Contact'), 'Contact')
+import { HelpCenter } from './screens/support/HelpCenter'
+import { Article } from './screens/support/Article'
+import { Tickets } from './screens/support/Tickets'
+import { TicketDetail } from './screens/support/TicketDetail'
+import { Contact } from './screens/support/Contact'
 
 // Phase 4 — Legal & Misc
-const Terms = lazyScreen(() => import('./screens/legal/Terms'), 'Terms')
-const Privacy = lazyScreen(() => import('./screens/legal/Privacy'), 'Privacy')
-const Cookie = lazyScreen(() => import('./screens/legal/Cookie'), 'Cookie')
-const About = lazyScreen(() => import('./screens/legal/About'), 'About')
-const Status = lazyScreen(() => import('./screens/legal/Status'), 'Status')
-const ScanQR = lazyScreen(() => import('./screens/misc/ScanQR'), 'ScanQR')
-const AssetSelector = lazyScreen(() => import('./screens/misc/AssetSelector'), 'AssetSelector')
-const PairSelector = lazyScreen(() => import('./screens/misc/PairSelector'), 'PairSelector')
-const Debug = lazyScreen(() => import('./screens/misc/Debug'), 'Debug')
-const Services = lazyScreen(() => import('./screens/misc/Services'), 'Services')
+import { Terms } from './screens/legal/Terms'
+import { Privacy } from './screens/legal/Privacy'
+import { About } from './screens/legal/About'
+import { Status } from './screens/legal/Status'
+import { ScanQR } from './screens/misc/ScanQR'
+import { AssetSelector } from './screens/misc/AssetSelector'
+import { PairSelector } from './screens/misc/PairSelector'
+import { Debug } from './screens/misc/Debug'
+import { Services } from './screens/misc/Services'
 
 // Phase 4 — System states
-const Offline = lazyScreen(() => import('./screens/system/Offline'), 'Offline')
-const ForceUpdate = lazyScreen(() => import('./screens/system/ForceUpdate'), 'ForceUpdate')
+import { Offline } from './screens/system/Offline'
+import { ForceUpdate } from './screens/system/ForceUpdate'
 
-const NotFound = lazyScreen(() => import('./screens/NotFound'), 'NotFound')
+import { NotFound } from './screens/NotFound'
 
 // Initialize theme from localStorage on app load
 import './stores/theme'
 import { useApplyDisplayScale } from './stores/display'
 import { useLiveNotifications } from './hooks/useLiveNotifications'
-import { useCapacitorAppState } from './hooks/useCapacitorAppState'
-import { ErrorBoundary } from './components/ErrorBoundary'
 import { NotificationToast } from './components/NotificationToast'
-import { VersionGate } from './components/VersionGate'
-import { listenForNotificationClicks, registerServiceWorker } from './lib/webPush'
-import { setNativePushNavHandler, maybePromptNativePush } from './lib/nativePush'
-import { useAuth } from './stores/auth'
-import { Toaster as SonnerToaster } from 'sonner'
-
-// Register the runtime SW cache on app boot (no-op if already registered).
-// Caches: app shell, hashed assets, static images, external coin icons.
-// Hard-bypassed for /api/ and any Authorization-bearing request.
-if (typeof window !== 'undefined') {
-  void registerServiceWorker()
-}
+import { PinGateProvider } from './components/PinGate'
+import { listenForNotificationClicks } from './lib/webPush'
+import { useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Tuned for a calmer feel — was very chatty (refetched every 20s + on
-      // every focus). New rule of thumb:
-      //   staleTime 60s — most data stays fresh long enough to skip a refetch
-      //                   on screen reopen / tab switch
-      //   gcTime 10min — keep results in memory after unmount so revisiting
-      //                   a screen feels instant (TanStack 5 alias for cacheTime)
-      //   refetchInterval false — opt-in per query (markets/balances do their
-      //                            own polling); avoids hammering the gateway
-      //   refetchOnWindowFocus only when stale — natural feel on tab switch.
-      //   NOTE: on the Capacitor native build, browser focus events don't
-      //   fire on app resume — useCapacitorAppState bridges that into the
-      //   focusManager so balances refresh when you reopen the app.
-      staleTime: 60_000,
-      gcTime: 10 * 60_000,
-      refetchOnWindowFocus: 'always',
-      refetchOnReconnect: true,
-      refetchInterval: false,
+      staleTime: 15_000,
+      refetchOnWindowFocus: true,
+      refetchInterval: 20_000,
       refetchIntervalInBackground: false,
-      retry: 1,
     },
   },
 })
 
-/** Minimal full-screen loader shown while a route chunk streams in. */
-function RouteFallback() {
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: '#060d09',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          border: '3px solid rgba(255,255,255,0.15)',
-          borderTopColor: '#3ddc84',
-          borderRadius: '50%',
-          animation: 'crymadx-spin 0.7s linear infinite',
-        }}
-      />
-      <style>{'@keyframes crymadx-spin{to{transform:rotate(360deg)}}'}</style>
-    </div>
-  )
-}
-
 function AppInner() {
   useApplyDisplayScale()
-  // Bridges Capacitor app-resume → React Query focus + hides the native
-  // splash once React has painted. No-op on the plain web build.
-  useCapacitorAppState()
   // Polls /api/notifications while signed in, pushes new ones to the toast queue.
   useLiveNotifications()
   // When a user taps a system push notification while the app is closed/hidden,
   // the Service Worker postMessages us with { type: 'navigate', href }. Route to it.
   const nav = useNavigate()
-  const authUser = useAuth(s => s.user)
   useEffect(() => {
-    // Web Push (browser): the SW postMessages { type:'navigate', href } on tap.
     listenForNotificationClicks((href) => {
       try { nav(href) } catch { /* ignore bad href */ }
     })
-    // Native push (FCM): a tapped system notification routes to its deep link.
-    setNativePushNavHandler((href) => {
-      try { nav(href) } catch { /* ignore bad href */ }
-    })
   }, [nav])
-  // Auto opt-in to native OS push once, after the user is signed in (native
-  // build only — no-ops in the browser). A Settings toggle also controls it.
-  useEffect(() => {
-    if (authUser) void maybePromptNativePush()
-  }, [authUser])
   return (
-    <>
+    <PinGateProvider>
       <IconSprite />
       <NotificationToast />
-      <SonnerToaster
-        position="top-center"
-        theme="dark"
-        richColors
-        closeButton={false}
-        toastOptions={{ style: { background: 'rgba(20,22,28,.95)', border: '1px solid rgba(255,255,255,.08)', color: 'var(--text-strong)' } }}
-      />
-      <ErrorBoundary>
-        <Suspense fallback={<RouteFallback />}>
-        <Routes>
+      <Routes>
           {/* Public */}
           <Route path={ROUTES['route.splash'].path} element={<Splash />} />
           <Route path={ROUTES['route.auth.login'].path} element={<Login />} />
@@ -318,10 +217,6 @@ function AppInner() {
           <Route path={ROUTES['route.wallet.tx-history'].path}     element={<ProtectedRoute><TxHistory /></ProtectedRoute>} />
           <Route path={ROUTES['route.wallet.tx-detail'].path}      element={<ProtectedRoute><TxDetail /></ProtectedRoute>} />
           <Route path={ROUTES['route.wallet.beneficiaries'].path}  element={<ProtectedRoute><Beneficiaries /></ProtectedRoute>} />
-          {/* Public — confirms an address whitelist entry from the email link.
-              Token in the URL is the proof; no auth required so the user can
-              click from any browser/device, even logged-out. */}
-          <Route path={ROUTES['route.wallet.whitelist.confirm'].path} element={<WhitelistConfirm />} />
 
           {/* Trading */}
           <Route path={ROUTES['route.trading.spot'].path}     element={<ProtectedRoute><SpotTrading /></ProtectedRoute>} />
@@ -396,7 +291,6 @@ function AppInner() {
           <Route path={ROUTES['route.security.password'].path}        element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
           <Route path={ROUTES['route.security.pin'].path}             element={<ProtectedRoute><ChangePin /></ProtectedRoute>} />
           <Route path={ROUTES['route.security.sessions'].path}        element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
-          <Route path={ROUTES['route.security.anti-phishing'].path}   element={<ProtectedRoute><AntiPhishing /></ProtectedRoute>} />
 
           {/* KYC */}
           <Route path={ROUTES['route.kyc.status'].path}    element={<ProtectedRoute><KYCStatus /></ProtectedRoute>} />
@@ -433,7 +327,6 @@ function AppInner() {
           {/* Legal & Misc */}
           <Route path={ROUTES['route.legal.terms'].path}     element={<Terms />} />
           <Route path={ROUTES['route.legal.privacy'].path}   element={<Privacy />} />
-          <Route path={ROUTES['route.legal.cookies'].path}   element={<Cookie />} />
           <Route path={ROUTES['route.legal.about'].path}     element={<About />} />
           <Route path={ROUTES['route.legal.status'].path}    element={<Status />} />
           <Route path={ROUTES['route.misc.scan-qr'].path}    element={<ProtectedRoute><ScanQR /></ProtectedRoute>} />
@@ -451,12 +344,7 @@ function AppInner() {
           {/* Catch-all for screens not yet implemented */}
           <Route path="*" element={<ProtectedRoute><NotFound /></ProtectedRoute>} />
         </Routes>
-        </Suspense>
-      </ErrorBoundary>
-      {/* Admin-controlled update gate — overlays every route when a new
-          app version is required (hard) or available (soft). No-op on web. */}
-      <VersionGate />
-    </>
+    </PinGateProvider>
   )
 }
 

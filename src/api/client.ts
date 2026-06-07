@@ -289,6 +289,44 @@ function writeLS<T>(key: string, value: T): void {
   try { localStorage.setItem(LS(key), JSON.stringify(value)) } catch { /* noop */ }
 }
 
+// AI assistant settings defaults. Merged UNDER the stored value on every read so
+// a partial localStorage object (e.g. after toggling one field) never surfaces
+// `undefined` for the others — that was the "$undefined" auto-execute bug.
+const AI_SETTINGS_DEFAULTS = {
+  model: 'CrymadX v1',
+  streaming: true,
+  autoExecuteUnderUsd: 50,
+  responseStyle: 'Concise',
+  defaultChain: 'Ethereum',
+  privacy: 'On-device only',
+  pinTokenTtlMin: 30,
+  biometricForActions: false,
+  pinForEverySend: false,
+  pinThresholdSwapUsd: 100,
+  showPinOnColdStart: true,
+  voice: 'EXAVITQu4vr4xnSDxMaL', // ElevenLabs "Sarah" (see data/aiVoices.ts)
+  voiceSpeed: 1.0,
+  pushToTalk: false,
+  wakeWord: false,
+}
+
+// AI tool-permission defaults. Shared by the list + update fallback handlers so
+// a toggle persists on first tap (the update handler used to default to an EMPTY
+// list, so on a fresh device findIndex never matched and nothing saved).
+const AI_TOOLS_SEED = {
+  items: [
+    { id: 'price.get',       name: 'Get Prices',       category: 'read',  enabled: true,  pinThresholdUsd: null },
+    { id: 'balance.get',     name: 'View Balances',    category: 'read',  enabled: true,  pinThresholdUsd: null },
+    { id: 'tx.list',         name: 'View Transactions', category: 'read', enabled: true,  pinThresholdUsd: null },
+    { id: 'alert.create',    name: 'Set Alerts',       category: 'write', enabled: true,  pinThresholdUsd: null },
+    { id: 'swap.execute',    name: 'Execute Swap',     category: 'write', enabled: false, pinThresholdUsd: 100 },
+    { id: 'send.crypto',     name: 'Send Crypto',      category: 'write', enabled: false, pinThresholdUsd: 50 },
+    { id: 'order.place',     name: 'Place Trade',      category: 'write', enabled: false, pinThresholdUsd: 200 },
+    { id: 'savings.deposit', name: 'Deposit Savings',  category: 'write', enabled: false, pinThresholdUsd: 500 },
+    { id: 'card.topup',      name: 'Top-up Card',      category: 'write', enabled: false, pinThresholdUsd: 100 },
+  ],
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Whitelist helper: real backend with graceful fallback when the route
 // hasn't been deployed yet (returns sentinel '__fallback__' on 404/503).
@@ -473,6 +511,60 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
 
   // Security summary — backend has no /security/summary endpoint, so we
   // build the SecuritySummary shape client-side by composing /user/profile,
+  // Sessions & Devices — synthesised from the real /user/* endpoints (active
+  // sessions, login history, trusted devices) into the { active, history,
+  // devices } shape the screen renders. Each call fails soft to [].
+  'api.security.sessions.list': async ({ token }: any) => {
+    const headers: Record<string, string> = { 'Accept': 'application/json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const fetchSafe = async (path: string): Promise<any> => {
+      try { const r = await fetch(`${API_BASE_URL}${path}`, { headers }); return r.ok ? await r.json() : null } catch { return null }
+    }
+    const pickArr = (r: any, ...keys: string[]): any[] =>
+      Array.isArray(r) ? r : (keys.map(k => r?.[k]).find(Array.isArray) ?? [])
+    const iconFor = (s: any): 'phone' | 'grid' | 'globe' => {
+      const k = `${s?.device ?? ''} ${s?.os ?? ''} ${s?.platform ?? ''} ${s?.userAgent ?? ''} ${s?.browser ?? ''}`.toLowerCase()
+      if (/iphone|android|mobile|ipad|phone/.test(k)) return 'phone'
+      if (/mac|windows|win|linux|desktop|laptop|chrome|firefox|safari|edge/.test(k)) return 'grid'
+      return 'globe'
+    }
+    const loc = (x: any): string => x.location ?? ([x.city, x.country].filter(Boolean).join(', ') || x.ip || '—')
+
+    const [sessRes, histRes, devRes] = await Promise.all([
+      fetchSafe('/user/sessions'),
+      fetchSafe('/user/login-history?limit=25'),
+      fetchSafe('/user/trusted-devices'),
+    ])
+
+    const active = pickArr(sessRes, 'sessions', 'items', 'data').map((s: any) => ({
+      id: String(s.id ?? s.sessionId ?? s._id ?? ''),
+      device: s.device ?? s.deviceName ?? s.browser ?? s.userAgent ?? 'Unknown device',
+      deviceIcon: iconFor(s),
+      location: loc(s),
+      os: s.os ?? s.platform ?? '',
+      app: s.app ?? s.userAgent ?? s.browser ?? '',
+      isCurrent: !!(s.isCurrent ?? s.current ?? s.is_current),
+      status: 'active' as const,
+    }))
+    const history = pickArr(histRes, 'history', 'items', 'logins', 'data').map((e: any, i: number) => ({
+      id: String(e.id ?? e._id ?? `${e.at ?? e.createdAt ?? ''}-${i}`),
+      device: e.device ?? e.deviceName ?? e.browser ?? e.userAgent ?? 'Unknown device',
+      deviceIcon: iconFor(e),
+      location: loc(e),
+      result: (e.result ?? e.status ?? (e.success === false || e.failed ? 'failed' : 'success')) === 'failed' ? 'failed' : 'success',
+      failureReason: e.failureReason ?? e.reason ?? '',
+      at: e.at ?? e.createdAt ?? e.timestamp ?? e.loginAt ?? '',
+    }))
+    const devices = pickArr(devRes, 'devices', 'items', 'data').map((d: any, i: number) => ({
+      id: String(d.id ?? d.deviceId ?? d._id ?? `dev-${i}`),
+      device: d.device ?? d.deviceName ?? d.name ?? d.userAgent ?? 'Device',
+      deviceIcon: iconFor(d),
+      os: d.os ?? d.platform ?? '',
+      lastActive: d.lastActive ?? d.lastSeen ?? d.updatedAt ?? '',
+    }))
+    return { active, history, devices }
+  },
+
   // /user/sessions, /user/anti-phishing in parallel. Failures are tolerated:
   // a missing call just leaves that field unknown rather than failing the
   // whole screen.
@@ -1253,40 +1345,33 @@ const FALLBACK_HANDLERS: Partial<Record<EndpointId, (ctx: { pathParams: Record<s
 
   // AI settings — backend may not have these. Return safe defaults from localStorage.
   'api.ai.settings.get': async () => {
-    return readLS('ai.settings', {
-      model: 'crymadx-v1',
-      streaming: true,
-      autoExecuteUnderUsd: 50,
-      voice: 'Mira',
-      voiceSpeed: 1.0,
-      pushToTalk: false,
-      wakeWord: false,
-      pinTokenTtlMin: 30,
-    })
+    // Always merge defaults UNDER the stored value so missing fields (e.g. after
+    // a partial update wrote only { streaming } to LS) fall back to a sane value
+    // instead of rendering "$undefined".
+    const stored = readLS<any>('ai.settings', null)
+    const merged = { ...AI_SETTINGS_DEFAULTS, ...(stored || {}) }
+    if (!stored) writeLS('ai.settings', merged)
+    return merged
   },
   'api.ai.settings.update': async ({ body }) => {
     const cur = readLS<any>('ai.settings', {})
-    const next = { ...cur, ...body }
+    const next = { ...AI_SETTINGS_DEFAULTS, ...cur, ...body }
     writeLS('ai.settings', next)
     return next
   },
   'api.ai.tools.list': async () => {
-    return readLS('ai.tools', {
-      items: [
-        { id: 'price.get',       name: 'Get Prices',       category: 'read',  enabled: true,  pinThresholdUsd: null },
-        { id: 'balance.get',     name: 'View Balances',    category: 'read',  enabled: true,  pinThresholdUsd: null },
-        { id: 'tx.list',         name: 'View Transactions', category: 'read', enabled: true,  pinThresholdUsd: null },
-        { id: 'alert.create',    name: 'Set Alerts',       category: 'write', enabled: true,  pinThresholdUsd: null },
-        { id: 'swap.execute',    name: 'Execute Swap',     category: 'write', enabled: false, pinThresholdUsd: 100 },
-        { id: 'send.crypto',     name: 'Send Crypto',      category: 'write', enabled: false, pinThresholdUsd: 50 },
-        { id: 'order.place',     name: 'Place Trade',      category: 'write', enabled: false, pinThresholdUsd: 200 },
-        { id: 'savings.deposit', name: 'Deposit Savings',  category: 'write', enabled: false, pinThresholdUsd: 500 },
-        { id: 'card.topup',      name: 'Top-up Card',      category: 'write', enabled: false, pinThresholdUsd: 100 },
-      ],
-    })
+    // Seed LS on first read so the update handler has something to mutate.
+    const stored = readLS<typeof AI_TOOLS_SEED | null>('ai.tools', null)
+    if (!stored || !Array.isArray(stored.items) || stored.items.length === 0) {
+      writeLS('ai.tools', AI_TOOLS_SEED)
+      return AI_TOOLS_SEED
+    }
+    return stored
   },
   'api.ai.tools.update': async ({ body }) => {
-    const tools: any = readLS('ai.tools', { items: [] })
+    // Default to the full seed (not an empty list) so a toggle persists even if
+    // the list handler hasn't seeded LS yet on this device.
+    const tools: any = readLS('ai.tools', AI_TOOLS_SEED)
     const idx = tools.items.findIndex((t: any) => t.id === body.id)
     if (idx >= 0) {
       tools.items[idx] = { ...tools.items[idx], ...body }
@@ -1739,6 +1824,7 @@ const RESPONSE_ADAPTERS: Partial<Record<EndpointId, (raw: any) => any>> = {
       items: (Array.isArray(arr) ? arr : []).map((p: any) => ({
         id:         String(p.positionId ?? p.id ?? p._id ?? ''),
         positionId: String(p.positionId ?? p.id ?? ''),
+        stakedAt:   p.stakedAt ?? p.createdAt ?? p.startedAt ?? null,
         asset:      p.stakedToken ?? p.asset ?? p.token ?? p.symbol ?? '',
         amount:     String(p.stakedAmount ?? p.amount ?? '0'),
         earned:     String(p.rewardAmount ?? p.earned ?? '0'),
@@ -1872,7 +1958,28 @@ const RESPONSE_ADAPTERS: Partial<Record<EndpointId, (raw: any) => any>> = {
   // Normalise so screens can read .items consistently.
   'api.settings.api-keys.list': (raw) => {
     const arr = raw?.keys ?? raw?.data ?? raw?.items ?? (Array.isArray(raw) ? raw : []) ?? []
-    return { items: arr }
+    // Map the real backend shape (uses `prefix`, etc.) to the shape the screens
+    // render, so missing/renamed fields can't crash the list (.slice/.scopes/…).
+    const items = (Array.isArray(arr) ? arr : []).map((k: any) => {
+      const sc = k.scopes ?? k.permissions ?? {}
+      const scopeArr = Array.isArray(sc) ? sc.map((x: any) => String(x).toLowerCase()) : null
+      const has = (name: string) => scopeArr ? scopeArr.includes(name) : !!sc[name]
+      const status = k.status ?? (k.revoked || k.expired ? 'expiring' : (k.environment === 'test' || k.test || k.sandbox) ? 'test' : 'live')
+      return {
+        id: String(k.id ?? k._id ?? k.keyId ?? k.prefix ?? ''),
+        name: k.name ?? k.label ?? 'API Key',
+        publicKey: String(k.publicKey ?? k.public_key ?? k.prefix ?? k.keyPrefix ?? k.apiKey ?? k.key ?? '—'),
+        secretKeyPreview: String(k.secretKeyPreview ?? k.secret_preview ?? ''),
+        status,
+        scopes: { read: has('read'), trade: has('trade'), withdraw: has('withdraw'), manage: has('manage') },
+        callsLast30d: Number(k.callsLast30d ?? k.calls_last_30d ?? k.calls ?? k.usage ?? 0) || 0,
+        callsQuotaMonthly: Number(k.callsQuotaMonthly ?? k.quota ?? 0) || 0,
+        ipAllowlist: Array.isArray(k.ipAllowlist) ? k.ipAllowlist : (Array.isArray(k.ip_allowlist) ? k.ip_allowlist : []),
+        expiresAt: k.expiresAt ?? k.expires_at ?? null,
+        createdAt: k.createdAt ?? k.created_at ?? '',
+      }
+    })
+    return { items }
   },
   // Create returns the new key object inline (with apiSecret). Pass through.
   'api.settings.api-keys.create': (raw) => raw,
@@ -2004,6 +2111,52 @@ function realPath(endpointId: EndpointId, pathParams?: Record<string, string | n
 // ============================================================================
 // MAIN
 // ============================================================================
+// One-time silent token refresh, shared across concurrent 401s. Keeps a signed-in
+// session alive (the "Remember me" promise) instead of logging the user out the
+// moment the short-lived access token expires after a period of inactivity.
+let _refreshInFlight: Promise<boolean> | null = null
+async function tryRefreshToken(): Promise<boolean> {
+  const rt = getRefreshToken()
+  if (!rt) return false
+  if (_refreshInFlight) return _refreshInFlight
+  _refreshInFlight = (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ refreshToken: rt }),
+        credentials: 'omit',
+      })
+      if (!res.ok) return false
+      const j: any = await res.json().catch(() => null)
+      const tokens = j?.tokens ?? j ?? {}
+      const newToken = tokens.accessToken ?? tokens.token
+      const newRefresh = tokens.refreshToken ?? rt
+      if (!newToken) return false
+      setToken(newToken)
+      setRefreshToken(newRefresh)
+      // Keep the zustand-persisted auth store in sync so a reload stays signed in.
+      try {
+        const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('crymadx.auth') : null
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (parsed?.state) {
+            parsed.state.token = newToken
+            parsed.state.refreshToken = newRefresh
+            localStorage.setItem('crymadx.auth', JSON.stringify(parsed))
+          }
+        }
+      } catch { /* noop */ }
+      return true
+    } catch {
+      return false
+    } finally {
+      _refreshInFlight = null
+    }
+  })()
+  return _refreshInFlight
+}
+
 export async function api<T = unknown>(
   endpointId: EndpointId,
   opts: CallOpts = {},
@@ -2113,6 +2266,14 @@ export async function api<T = unknown>(
       /token.*(expired|invalid|missing|provided)|invalid.*token|expired.*token|unauthenticated|jwt|session.*expired/.test(msgStr) ||
       /token|jwt|unauth/.test(codeStr)
     if (res.status === 401 && looksLikeTokenIssue) {
+      // Try a one-time silent refresh before giving up — the access token just
+      // expired but the refresh token may still be valid (Remember me).
+      if (!(opts as any)._retried && getRefreshToken()) {
+        const refreshed = await tryRefreshToken()
+        if (refreshed) {
+          return api<T>(endpointId, { ...opts, token: getToken() ?? undefined, _retried: true } as CallOpts)
+        }
+      }
       try {
         setToken(null)
         setRefreshToken(null)

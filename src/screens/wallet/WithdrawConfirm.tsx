@@ -6,6 +6,7 @@ import { PhoneShell } from '../../components/PhoneShell'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { Icon } from '../../components/Icon'
 import { WhitelistDisclaimer } from '../../components/WhitelistDisclaimer'
+import { usePinGate } from '../../components/PinGate'
 import { useEndpoint, useEndpointMutation } from '../../api/hooks'
 import { ROUTES, routeFor } from '../../routes'
 import { fmt } from '../../lib/format'
@@ -37,6 +38,7 @@ type WhitelistCheck = {
 export function WithdrawConfirm() {
   const { t } = useTranslation()
   const nav = useNavigate()
+  const requirePin = usePinGate()
   const loc = useLocation()
   const state = loc.state as WithdrawState | null
 
@@ -150,6 +152,9 @@ export function WithdrawConfirm() {
       setError(t('withdraw.enter2FA') || 'Enter the 6-digit code from your authenticator app')
       return
     }
+    // Transaction-PIN gate (opt-in: no-op if the user has no PIN). Opens the
+    // 5-min verified window the backend money-out guard enforces.
+    if (!(await requirePin())) return
     try {
       let tx: any
       if (isUidMode) {
@@ -322,7 +327,7 @@ export function WithdrawConfirm() {
               [t('common.to'), shorten((state as AddressWithdrawState).address)],
               [t('common.network'), state.network],
               ['You send', `${fmt(amountNum)} ${state.asset}`],
-              [t('withdraw.networkFee'), `${fmt(feeNum)} ${state.asset}`],
+              ['Transaction Fee', `${fmt(feeNum)} ${state.asset}`],
               ['Recipient receives', `${recipientReceives} ${state.asset}`],
             ]
         ).map(([k, v]) => (

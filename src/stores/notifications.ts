@@ -43,6 +43,9 @@ type Actions = {
   dismissToast: (id: string) => void
   /** Mark all as seen — drops unread count to 0. */
   markAllSeen: () => void
+  /** Mark every item as read locally (optimistic) — flips the unread dot/border
+   *  and advances the seen cursor. Pairs with the server-side read mutation. */
+  markAllRead: () => void
   /** Clear everything (called on signOut). */
   reset: () => void
 }
@@ -80,6 +83,11 @@ export const useNotifications = create<State & Actions>((set, get) => ({
 
   dismissToast: (id) => set(s => ({ toastQueue: s.toastQueue.filter(t => t.id !== id) })),
   markAllSeen: () => set({ seenAt: Date.now(), toastQueue: [] }),
+  markAllRead: () => set(s => ({
+    items: s.items.some(i => !i.read) ? s.items.map(i => (i.read ? i : { ...i, read: true })) : s.items,
+    seenAt: Date.now(),
+    toastQueue: [],
+  })),
   reset: () => set({ items: [], toastQueue: [], seenAt: 0 }),
 }))
 

@@ -11,6 +11,7 @@ import { useEndpoint } from '../../api/hooks'
 import { ROUTES, routeFor } from '../../routes'
 import { useAuth } from '../../stores/auth'
 import { usePrivacy, maskIfHidden } from '../../stores/privacy'
+import { useUnreadCount } from '../../stores/notifications'
 import type { Balance, Transaction } from '../../api/endpoints'
 
 type Wallet = { total: string; change24h: string; changeAbs: string; btcEquivalent?: string; items: Balance[] }
@@ -19,6 +20,7 @@ export function Home() {
   const { t } = useTranslation()
   const nav = useNavigate()
   const user = useAuth(s => s.user)
+  const unread = useUnreadCount()
   const { data: wallet, isLoading, refetch: refetchWallet } = useEndpoint<Wallet>('api.wallet.balances.list')
   const { data: txs, refetch: refetchTxs } = useEndpoint<{ items: Transaction[] }>('api.tx.list', { query: { limit: 4 } })
   const { data: kyc } = useEndpoint<{ level: number; status: string }>('api.user.kyc.status')
@@ -50,7 +52,9 @@ export function Home() {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button onClick={() => nav(ROUTES['route.engage.notifications'].path)} style={{ background: 'none', border: 'none', position: 'relative', padding: 0, display: 'flex', cursor: 'pointer' }}>
             <Icon name="bell" size={20} color="var(--text-mid-50)" />
-            <span style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, borderRadius: 4, background: 'var(--r)' }} />
+            {unread > 0 && (
+              <span style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, borderRadius: 4, background: 'var(--r)' }} />
+            )}
           </button>
           <img src="/crymadx-mark.png" alt="" style={{ width: 28, height: 28, borderRadius: 14 }} />
         </div>

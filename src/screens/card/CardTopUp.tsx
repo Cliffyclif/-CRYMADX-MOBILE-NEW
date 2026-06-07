@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { PhoneShell } from '../../components/PhoneShell'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { useEndpoint, useEndpointMutation } from '../../api/hooks'
+import { usePinGate } from '../../components/PinGate'
 import { ROUTES } from '../../routes'
 import type { Balance } from '../../api/endpoints'
 import type { CardSettings } from '../../mock/db'
@@ -11,6 +12,7 @@ import type { CardSettings } from '../../mock/db'
 export function CardTopUp() {
   const { t } = useTranslation()
   const nav = useNavigate()
+  const requirePin = usePinGate()
   const { data: card } = useEndpoint<CardSettings>('api.card.get')
   const { data: bal } = useEndpoint<{ items: Balance[] }>('api.wallet.balances.list')
   const [amount, setAmount] = useState('100')
@@ -20,6 +22,7 @@ export function CardTopUp() {
   const stables = bal?.items?.filter(b => ['USDC', 'USDT', 'BTC'].includes(b.asset)) ?? []
 
   const submit = async () => {
+    if (!(await requirePin())) return // transaction-PIN gate (opt-in)
     await m.mutateAsync({ body: { amount, fromAsset } })
     nav(ROUTES['route.card.hub'].path, { replace: true })
   }

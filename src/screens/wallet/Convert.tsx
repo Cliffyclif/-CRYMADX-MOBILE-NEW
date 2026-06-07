@@ -88,6 +88,15 @@ export function Convert() {
   const swap = () => { setFrom(to); setTo(from); setAmount('') }
   const isExpired = !!quote && validForSec <= 0
 
+  // Available balance of the `from` asset + a quick % / MAX setter.
+  const fromAvail = parseFloat(String(fromBal?.amount ?? '0').replace(/,/g, '')) || 0
+  const setPct = (p: number) => {
+    if (fromAvail <= 0) return
+    const v = (fromAvail * p) / 100
+    // Trim trailing zeros; cap precision so the field stays readable.
+    setAmount(String(parseFloat(v.toFixed(8))))
+  }
+
   const continueOrRefresh = () => {
     if (isExpired || (!quote && amount)) {
       fetchQuote()
@@ -102,49 +111,74 @@ export function Convert() {
       <ScreenHeader title={t('convert.title')} />
       <div className="t2">{t('convert.subtitle')}</div>
 
-      <div className="g" style={{ padding: 14, marginTop: 6 }}>
-        <div className="t3" style={{ marginBottom: 4 }}>{t('convert.youSend')}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      {/* FROM card */}
+      <div className="g" style={{ padding: 16, marginTop: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div className="t3">{t('convert.youSend')}</div>
+          <div className="t3" style={{ fontSize: 11 }}>Avail: {fromBal?.amount ?? '0'} {from}</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <input
             type="number" inputMode="decimal" placeholder="0.00"
             value={amount} onChange={e => setAmount(e.target.value)}
-            style={{ flex: 1, fontSize: 22, fontWeight: 800, color: 'var(--text-strong)', background: 'transparent', border: 'none', outline: 'none', fontFamily: 'Outfit' }}
+            style={{ flex: 1, minWidth: 0, width: '100%', fontSize: 26, fontWeight: 800, color: 'var(--text-strong)', background: 'transparent', border: 'none', outline: 'none', fontFamily: 'Outfit' }}
             step="any"
           />
-          <AssetPicker value={from} onChange={setFrom} options={sortedAssets} caption="From" />
+          <div style={{ flexShrink: 0 }}>
+            <AssetPicker value={from} onChange={setFrom} options={sortedAssets} caption="From" />
+          </div>
         </div>
-        <div className="t3" style={{ marginTop: 2 }}>Avail: {fromBal?.amount ?? '0'} {from}</div>
+        {/* Quick percentage / MAX selectors */}
+        <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
+          {[25, 50, 75, 100].map(p => (
+            <button
+              key={p} type="button" onClick={() => setPct(p)}
+              disabled={fromAvail <= 0}
+              style={{
+                flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 800, borderRadius: 9,
+                background: 'rgba(27,140,62,.08)', border: '1px solid rgba(27,140,62,.18)',
+                color: 'var(--gl)', cursor: fromAvail > 0 ? 'pointer' : 'not-allowed',
+                opacity: fromAvail > 0 ? 1 : 0.4, fontFamily: 'Outfit',
+              }}
+            >
+              {p === 100 ? 'MAX' : `${p}%`}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div style={{ textAlign: 'center', margin: '4px 0' }}>
-        <button onClick={swap} className="ic" style={{ width: 36, height: 36, margin: '0 auto', background: 'linear-gradient(135deg, var(--g), var(--gl))', boxShadow: '0 4px 16px rgba(27,140,62,.3)' }}>
-          <Icon name="swap" size={16} color="#fff" />
+      {/* Swap button — overlaps the cards for a modern, less-empty feel */}
+      <div style={{ textAlign: 'center', margin: '-12px 0', position: 'relative', zIndex: 2 }}>
+        <button onClick={swap} className="ic" aria-label="Swap direction" style={{ width: 40, height: 40, margin: '0 auto', background: 'linear-gradient(135deg, var(--g), var(--gl))', boxShadow: '0 4px 16px rgba(27,140,62,.35)', border: '3px solid var(--bg)' }}>
+          <Icon name="swap" size={17} color="#fff" />
         </button>
       </div>
 
-      <div className="g" style={{ padding: 14 }}>
-        <div className="t3" style={{ marginBottom: 4 }}>{t('convert.youReceiveEst')}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <div style={{ flex: 1, fontSize: 22, fontWeight: 800, color: quote ? 'var(--gl)' : 'var(--text-mid-30)' }}>
+      {/* TO card */}
+      <div className="g" style={{ padding: 16 }}>
+        <div className="t3" style={{ marginBottom: 8 }}>{t('convert.youReceiveEst')}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0, fontSize: 26, fontWeight: 800, color: quote ? 'var(--gl)' : 'var(--text-mid-30)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {quote?.toAmount ?? '0.00'}
           </div>
-          <AssetPicker value={to} onChange={setTo} options={sortedAssets.filter(s => s !== from)} caption="To" />
+          <div style={{ flexShrink: 0 }}>
+            <AssetPicker value={to} onChange={setTo} options={sortedAssets.filter(s => s !== from)} caption="To" />
+          </div>
         </div>
-        {quote && <div className="t3" style={{ marginTop: 2 }}>Rate: 1 {from} = {quote.rate} {to}</div>}
       </div>
 
-      {quote && (
-        <div className="g" style={{ padding: 8, marginTop: 8 }}>
-          <Row k={`Fee (0.25%)`} v={`${quote.feeUsdt} USDT`} />
-          <Row k="Slippage" v={`${quote.slippage}%`} valueClass="grn" />
-          <Row k="Quote valid for" v={validForSec > 0 ? `${validForSec}s` : 'expired'} />
-        </div>
-      )}
+      {/* Rate + quote details — a filled card so the screen reads complete */}
+      <div className="g" style={{ padding: 12, marginTop: 8 }}>
+        <Row k="Rate" v={quote ? `1 ${from} = ${quote.rate} ${to}` : '—'} valueClass={quote ? 'grn' : undefined} />
+        <Row k="Fee (0.25%)" v={quote ? `${quote.feeUsdt} USDT` : '—'} />
+        <Row k="Slippage" v={quote ? `${quote.slippage}%` : '—'} />
+        <Row k="Quote valid for" v={!quote ? '—' : validForSec > 0 ? `${validForSec}s` : 'expired'} valueClass={isExpired ? 'red' : undefined} />
+      </div>
 
       <button
         className="btn btn-g"
         onClick={continueOrRefresh}
-        style={{ marginTop: 8 }}
+        style={{ marginTop: 10 }}
         disabled={!amount || quoteLoading}
       >
         {!amount
@@ -162,10 +196,11 @@ export function Convert() {
 }
 
 function Row({ k, v, valueClass }: { k: string; v: string; valueClass?: string }) {
+  const color = valueClass === 'grn' ? 'var(--gl)' : valueClass === 'red' ? 'var(--r)' : 'var(--text-strong)'
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, margin: '2px 0' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, margin: '3px 0' }}>
       <span className="t3">{k}</span>
-      <span style={{ color: valueClass === 'grn' ? 'var(--gl)' : 'var(--text-strong)' }}>{v}</span>
+      <span style={{ color, fontWeight: 600 }}>{v}</span>
     </div>
   )
 }

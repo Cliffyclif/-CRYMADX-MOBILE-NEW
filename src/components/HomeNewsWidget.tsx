@@ -34,9 +34,9 @@ export function HomeNewsWidget() {
           {t('common.viewAll') || 'View all'} ›
         </button>
       </div>
-      {items.map((a) => (
+      {items.map((a, i) => (
         <button
-          key={a.id}
+          key={`${a.id}-${i}`}
           onClick={() => open(a.url)}
           disabled={!a.url}
           className="li"

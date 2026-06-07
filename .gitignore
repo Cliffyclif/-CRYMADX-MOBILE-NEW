@@ -51,6 +51,9 @@ ios/App/Podfile.lock
 .firebase/
 coverage/
 
+# Knowledge-graph build cache (regenerated locally, not source)
+graphify-out/
+
 # Release signing — never commit
 android/keystore.properties
 *.jks

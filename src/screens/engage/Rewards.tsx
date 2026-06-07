@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PhoneShell } from '../../components/PhoneShell'
 import { Icon } from '../../components/Icon'
-import { useEndpoint, useEndpointMutation } from '../../api/hooks'
+import { useEndpointMutation } from '../../api/hooks'
 import { ROUTES } from '../../routes'
-import type { Badge, RewardsSummary } from '../../mock/db'
+import { useRewardsSummary } from '../../lib/useRewardsSummary'
 
 const TABS = ['badges', 'tiers', 'activity'] as const
 
@@ -13,21 +13,23 @@ export function Rewards() {
   const { t } = useTranslation()
   const nav = useNavigate()
   const [tab, setTab] = useState<typeof TABS[number]>('badges')
-  const { data: rewards } = useEndpoint<RewardsSummary>('api.rewards.summary')
-  const { data: badges } = useEndpoint<{ items: Badge[] }>('api.rewards.badges')
-  const claim = useEndpointMutation('api.rewards.claim-daily', { invalidates: ['api.rewards.summary'] })
+  // Tier/XP are derived client-side from the same activity feeds the website
+  // uses (see useRewardsSummary) so app and web stay in sync.
+  const { data: summary, isLoading } = useRewardsSummary()
+  const claim = useEndpointMutation('api.rewards.claim-daily', { invalidates: ['api.tx.list'] })
 
-  if (!rewards) return <PhoneShell noTabs><div className="g" style={{ padding: 14 }}><div className="t3">Loading…</div></div></PhoneShell>
+  if (isLoading) return <PhoneShell noTabs><div className="g" style={{ padding: 14 }}><div className="t3">Loading…</div></div></PhoneShell>
 
-  // Defensive defaults — production rewards summary may omit fields.
-  const tier = rewards.tier || 'bronze'
-  const nextTier = (rewards as any).nextTier || 'silver'
-  const xp = Number(rewards.xp ?? 0) || 0
-  const nextTierXp = Number(rewards.nextTierXp ?? 0) || 500
-  const badgesEarned = Number(rewards.badges ?? 0) || 0
-  const badgesTotal = Number(rewards.badgesTotal ?? 0) || 0
-  const pct = nextTierXp > 0 ? Math.min(100, (xp / nextTierXp) * 100) : 0
-  const xpToNext = Math.max(0, nextTierXp - xp)
+  // Tier headline + progress come from the CANONICAL volume tier (single source
+  // of truth, shared with the website). XP + badges stay the gamification layer.
+  const c = summary.canonical
+  const tierName = c.tier.name
+  const nextName = c.nextTier?.name ?? null
+  const xp = summary.totalXP
+  const badgesEarned = summary.badgesEarned
+  const badgesTotal = summary.totalBadges
+  const pct = c.progress
+  const fmtUsd = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : `$${Math.round(n)}`
 
   return (
     <PhoneShell noTabs>
@@ -38,20 +40,26 @@ export function Rewards() {
         <div className="stats" style={{ margin: 0 }}>
           <div className="stat" style={{ background: 'transparent' }}><div className="stat-v gld" style={{ fontSize: 18 }}>{xp.toLocaleString()}</div><div className="stat-l">{t('rewards.totalXp')} ✨</div></div>
           <div className="stat" style={{ background: 'transparent' }}><div className="stat-v" style={{ fontSize: 14 }}>{badgesEarned} / {badgesTotal}</div><div className="stat-l">{t('rewards.badges')} 🎖</div></div>
-          <div className="stat" style={{ background: 'transparent' }}><div className="stat-v gld" style={{ fontSize: 14 }}>{capitalize(tier)}</div><div className="stat-l">{t('rewards.tier')}</div></div>
+          <div className="stat" style={{ background: 'transparent' }}><div className="stat-v gld" style={{ fontSize: 14 }}>{c.tier.emoji} {tierName}</div><div className="stat-l">{t('rewards.tier')}</div></div>
         </div>
       </div>
 
       <div className="g" style={{ padding: 12, marginTop: 6 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <div className="t3">Next: <span className="gld">{capitalize(nextTier)} 🥈</span></div>
-          <div className="grn" style={{ fontSize: 14, fontWeight: 700 }}>{t('rewards.xpAway', { amount: xpToNext.toLocaleString() })}</div>
-        </div>
-        <div className="bar"><div className="fl" style={{ width: `${pct}%` }} /></div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-mid-30)', marginTop: 2 }}>
-          <span>{capitalize(tier)} · {xp.toLocaleString()} XP</span>
-          <span>{capitalize(nextTier)} · {nextTierXp.toLocaleString()} XP</span>
-        </div>
+        {nextName ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div className="t3">Next: <span className="gld">{c.nextTier!.emoji} {nextName}</span></div>
+              <div className="grn" style={{ fontSize: 14, fontWeight: 700 }}>{fmtUsd(c.volumeToNext)} away ↑</div>
+            </div>
+            <div className="bar"><div className="fl" style={{ width: `${pct}%` }} /></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-mid-30)', marginTop: 2 }}>
+              <span>{tierName} · {fmtUsd(c.totalVolumeUsd)} vol</span>
+              <span>{nextName} · {fmtUsd(c.nextTier!.minVolume)} vol</span>
+            </div>
+          </>
+        ) : (
+          <div className="t3" style={{ textAlign: 'center' }}>👑 {tierName} — top tier reached</div>
+        )}
       </div>
 
       <h3 style={{ marginTop: 8 }}>{t('rewards.dailyQuests')}</h3>
@@ -79,28 +87,21 @@ export function Rewards() {
         <button className={`tab ${tab === 'activity' ? 'a' : ''}`} onClick={() => setTab('activity')}>📋 Activity Log</button>
       </div>
 
-      {tab === 'badges' && badges?.items?.map(b => {
-        const done = b.userId !== null
+      {tab === 'badges' && summary.progress.map(p => {
+        const done = p.earned
         return (
-          <div key={b.id} className="li">
+          <div key={p.badge.id} className="li">
             <div className="li-i" style={{ background: done ? 'rgba(0,200,83,.1)' : 'var(--surface-soft)' }}>
-              <Icon name={done ? 'check' : 'star'} size={14} color={done ? 'var(--gl)' : 'var(--text-mid-30)'} />
+              <span style={{ fontSize: 16, filter: done ? 'none' : 'grayscale(1)', opacity: done ? 1 : 0.45 }}>{p.badge.emoji}</span>
             </div>
             <div className="li-c">
-              <div className="li-n" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                {b.title} <span className={`badge badge-${b.rarity === 'RARE' ? 'gd' : b.rarity === 'EPIC' ? 'r' : b.rarity === 'UNCOMMON' ? 'g' : ''}`} style={{ fontSize: 8 }}>{b.rarity}</span>
-              </div>
-              <div className="li-s">{done ? `Earned ${new Date(b.earnedAt!).toLocaleDateString()}` : b.progress}</div>
+              <div className="li-n">{p.badge.name}</div>
+              <div className="li-s">{done ? 'Earned ✓' : `${p.current.toLocaleString()} / ${p.badge.target.toLocaleString()} · ${p.percentComplete}%`}</div>
             </div>
-            <div className="li-r"><span className="grn" style={{ fontSize: 13, fontWeight: 700 }}>{b.xp}</span></div>
+            <div className="li-r"><span className="grn" style={{ fontSize: 13, fontWeight: 700 }}>+{p.badge.xpReward} XP</span></div>
           </div>
         )
       })}
     </PhoneShell>
   )
-}
-
-function capitalize(s: string | null | undefined): string {
-  if (!s) return ''
-  return s.charAt(0).toUpperCase() + s.slice(1)
 }

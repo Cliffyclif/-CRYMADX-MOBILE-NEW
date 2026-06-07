@@ -122,6 +122,12 @@ export function SecurityHub() {
       routeId: 'route.security.password',
     },
     {
+      icon: 'pin',
+      name: 'Transaction PIN',
+      desc: 'Require a PIN for withdrawals & transfers',
+      routeId: 'route.security.pin',
+    },
+    {
       icon: 'key',
       name: 'Backup Codes',
       desc: data.twoFAEnabled

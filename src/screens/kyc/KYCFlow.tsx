@@ -252,6 +252,8 @@ function PersonalStep({ value, onChange, onNext, valid }: { value: PersonalT; on
 
 const fieldInputStyle: React.CSSProperties = {
   flex: 1,
+  minWidth: 0, // allow the input to shrink inside the flex row (prevents 2-col overflow)
+  width: '100%',
   background: 'transparent',
   border: 'none',
   outline: 'none',
@@ -263,10 +265,11 @@ const fieldInputStyle: React.CSSProperties = {
 
 function IconField({ label, icon, children }: { label: string; icon: 'user' | 'clock' | 'home' | 'doc' | 'flag' | 'mail'; children: React.ReactNode }) {
   return (
-    <div style={{ marginTop: 10 }}>
-      <div className="t3" style={{ marginBottom: 6, fontWeight: 600, fontSize: 12, letterSpacing: 0.3, color: 'var(--text-mid-40)', textTransform: 'uppercase' }}>{label}</div>
+    <div style={{ marginTop: 10, minWidth: 0 }}>
+      <div className="t3" style={{ marginBottom: 6, fontWeight: 600, fontSize: 12, letterSpacing: 0.3, color: 'var(--text-mid-40)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
+        minWidth: 0,
         padding: '12px 14px',
         background: 'rgba(255,255,255,.03)',
         border: '1px solid rgba(255,255,255,.07)',

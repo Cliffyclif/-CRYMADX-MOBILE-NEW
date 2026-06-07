@@ -84,11 +84,9 @@ body.light {
 html, body, #root { height: 100%; width: 100%; }
 
 /* Display-size scaling. The display store sets `--ui-scale` on <html>:
-   small=1, medium=1.12, large=1.25. The actual scaling happens via CSS
-   `zoom` on `.app-shell` further down (search for "Display-size zoom") —
-   that's what makes every px-based child (text, padding, icons, layout)
-   render uniformly larger. The font-size rule below is a soft fallback
-   for any rem-based content we add later. */
+   small=1, medium=1.12, large=1.25. We multiply the root font-size so all
+   rem-based sizes scale, and any element using `font-size: calc(N * 1px * var(--ui-scale))`
+   scales explicitly. */
 html { font-size: calc(16px * var(--ui-scale, 1)); }
 
 body {
@@ -97,39 +95,7 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
-  /* Native-feel polish: no text autosize on rotation, no double-tap zoom,
-     no iOS tap highlight flash, no callout (long-press to copy/share UI chrome). */
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-  /* No selecting UI chrome (buttons, headers, nav). Inputs/textareas re-enable below. */
-  -webkit-user-select: none;
-  user-select: none;
-  /* iOS bounce */
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
 }
-
-/* The app's actual scrollable areas need to allow scroll. PhoneShell already
-   handles its own scroll containers. Re-enable selection where a user might
-   reasonably expect to copy text. */
-input, textarea, [contenteditable="true"] {
-  -webkit-user-select: text;
-  user-select: text;
-}
-.li-n, .li-s, .t2, .t3, code, pre, .copyable {
-  -webkit-user-select: text;
-  user-select: text;
-}
-
-/* Hide scrollbars across the app — native apps don't show them. */
-::-webkit-scrollbar { width: 0; height: 0; background: transparent; }
-* { scrollbar-width: none; }
-
-/* When the QR scanner is active, hide the rest of the app behind the camera. */
-body.qr-scanner-active .app-root { visibility: hidden; }
 
 /* Vertical balance: any screen using <PhoneShell> with this class will use
    space-evenly distribution so empty bottom space doesn't cluster.
@@ -181,26 +147,10 @@ body.light ::selection { background: rgba(27, 140, 62, 0.2); color: #111; }
 }
 
 .app-shell {
-  /* Display-size zoom — scales every px-based child uniformly when the
-     user picks Medium / Large in Settings. CSS `zoom` is the only
-     mechanism that scales a px-heavy stylesheet without rewriting every
-     value to rem.
-
-     Catch #1: `zoom` ALSO scales the shell's own height (a 100vh shell
-     renders as 125vh at zoom 1.25, pushing BottomNav and footer off the
-     bottom). We compensate height by 1/scale so after zoom it lands at
-     viewport size.
-
-     Catch #2: width compensation creates black bands. .app-root has
-     justify-content: center, so a pre-zoom 80% wide shell gets centered
-     even though it renders at 100%. We keep width: 100% and let the
-     browser handle horizontal clipping naturally (body has
-     overflow: hidden, so any overscan past the viewport just clips). */
-  zoom: var(--ui-scale, 1);
   width: 100%;
   max-width: 480px;
-  height: calc(100vh / var(--ui-scale, 1));
-  height: calc(100dvh / var(--ui-scale, 1));
+  height: 100vh;
+  height: 100dvh;
   background: var(--bg);
   position: relative;
   display: flex;
@@ -381,9 +331,16 @@ body.light ::selection { background: rgba(27, 140, 62, 0.2); color: #111; }
   opacity: 0.45;
   animation: aurora-pulse 9s ease-in-out infinite;
 }
-/* Grid pattern intentionally removed — too web-app-like on auth screens.
-   Aurora orbs + vignette alone give the cleaner native feel. */
-.app-shell .aurora-bg .grid { display: none; }
+.app-shell .aurora-bg .grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 200, 83, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 200, 83, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at center, black 25%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 25%, transparent 80%);
+}
 .app-shell .aurora-bg .vignette {
   position: absolute;
   inset: 0;
@@ -486,89 +443,6 @@ body.light .auth-card {
     0 1px 0 rgba(255, 255, 255, 0.8) inset,
     0 24px 60px rgba(27, 140, 62, 0.12),
     0 4px 16px rgba(0, 0, 0, 0.06);
-}
-
-/* =========================================================================
-   Narrow-screen adaptive sizing
-   Devices like the Samsung Fold cover screen and very small Android phones
-   render the app in <=380px width, where the default 36px/24px auth-card
-   padding plus 14px screen gutter eats so much of the row that captcha
-   widgets and buttons overflow the visible area. This block compresses
-   spacing/typography enough to fit comfortably without changing layout.
-   ========================================================================= */
-@media (max-width: 380px) {
-  .screen { padding-left: 10px; padding-right: 10px; }
-  .auth-card {
-    padding: 24px 16px 22px;
-    border-radius: 22px;
-  }
-  .auth-card h2 { font-size: 22px; margin-top: 10px; }
-  .auth-card h3 { font-size: 16px; }
-  .auth-card .inp {
-    padding: 12px 12px;
-    min-height: 50px;
-    border-radius: 12px;
-    margin: 6px 0;
-  }
-  .auth-card .btn {
-    min-height: 50px;
-    padding: 14px 14px;
-    font-size: 15px;
-  }
-  /* Cloudflare Turnstile renders inside a child <div>; bound it to the
-     container and let the flexible-size widget shrink to fit. */
-  .auth-card iframe[src*="turnstile"],
-  .auth-card iframe[src*="challenges.cloudflare.com"] {
-    max-width: 100% !important;
-  }
-}
-@media (max-width: 320px) {
-  .screen { padding-left: 8px; padding-right: 8px; }
-  .auth-card { padding: 18px 12px 18px; }
-  .auth-card h2 { font-size: 20px; }
-}
-
-/* Universal: keep any embedded Cloudflare iframe (and direct child
-   wrapper of the TurnstileWidget) bound to its container so it never
-   forces horizontal scroll on narrow screens. */
-.auth-card > div > iframe,
-iframe[src*="turnstile"],
-iframe[src*="challenges.cloudflare.com"] {
-  max-width: 100%;
-}
-
-/* Turnstile host — centers a 300x65 widget; on viewports narrower than
-   320px (Fold cover, very small phones), proportionally scale the iframe
-   so it never overflows the auth-card content area. We use a CSS scale
-   transform on the iframe directly so the layout box shrinks with it
-   (transform alone leaves the box at 300×65 and clips). */
-.turnstile-host {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  margin: 10px 0;
-  min-width: 0;
-}
-.turnstile-host > div { max-width: 100%; }
-.turnstile-host iframe { max-width: 100% !important; }
-@media (max-width: 320px) {
-  .turnstile-host {
-    /* 0.92 fits a 300×65 widget into ~276px container with a 4px buffer */
-    transform: scale(0.92);
-    transform-origin: top center;
-    margin: 6px 0 0;
-  }
-}
-@media (max-width: 280px) {
-  .turnstile-host { transform: scale(0.82); }
-}
-
-/* Inputs with a trailing button (e.g. password show/hide eye) — give the
-   action button a small left margin so it doesn't sit flush against the
-   text caret. */
-.inp > button[type="button"] {
-  padding: 4px 0 4px 8px;
-  margin-right: -2px;
 }
 
 /* Desktop frame — give the appearance of a phone for review */
@@ -848,26 +722,8 @@ h3 { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 20px rgba(27, 140, 62, 0.5);
-  /* Shrink the layout footprint so it occupies only ~26px in the flex
-     column (matching the regular tab icons). Without this the 60px circle
-     pushes the label way below the other tab labels. The circle still
-     RENDERS at 60×60 and lifts visually by -16px — only its layout
-     contribution shrinks. */
-  margin-bottom: -32px;
 }
 .bt-c svg { stroke: #fff; width: 22px; height: 22px; }
-/* Label after the raised AI circle. The label sits within the visual area
-   of the circle (since we shrank the layout footprint), so it needs a
-   higher z-index AND a contrasting colour with a text-shadow so it stays
-   legible whether it falls on the green circle or the dark nav bar. */
-.bt-c + span {
-  position: relative;
-  z-index: 10;
-  color: #fff !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-  font-weight: 700;
-}
-.bt.a .bt-c + span { color: #fff !important; }
 
 /* =========================================================================
    Order book + candle chart (trading)
@@ -1001,24 +857,25 @@ h3 { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color
    ========================================================================= */
 .ring {
   width: 80px; height: 80px;
-  border-radius: 40px;
-  border: 4px solid rgba(255, 255, 255, 0.06);
+  flex: 0 0 auto;       /* never let the flex column squash it into an oval */
+  aspect-ratio: 1 / 1;  /* belt-and-suspenders: always a perfect circle */
+  border-radius: 50%;
+  /* Arc fills proportionally to --score (0–100); rest is the track. */
+  background: conic-gradient(var(--gl) calc(var(--score, 0) * 3.6deg), rgba(255, 255, 255, 0.08) 0);
   display: flex; align-items: center; justify-content: center; flex-direction: column;
   position: relative;
   margin: 8px auto;
+  transition: background 0.5s ease;
 }
 .ring::before {
   content: '';
   position: absolute;
-  inset: -4px;
-  border-radius: 44px;
-  border: 4px solid transparent;
-  border-top-color: var(--gl);
-  border-right-color: var(--gl);
-  transform: rotate(45deg);
+  inset: 5px;
+  border-radius: 50%;
+  background: var(--bg);
 }
-.ring .rv { font-size: 30px; font-weight: 800; color: var(--gl); font-family: 'Outfit', sans-serif; }
-.ring .rl { font-size: 11px; color: rgba(255, 255, 255, 0.35); }
+.ring .rv { font-size: 30px; font-weight: 800; color: var(--gl); font-family: 'Outfit', sans-serif; position: relative; z-index: 1; }
+.ring .rl { font-size: 11px; color: rgba(255, 255, 255, 0.35); position: relative; z-index: 1; }
 
 /* =========================================================================
    Chat bubble
@@ -1189,3 +1046,29 @@ body.light .ob-r.ask { background: rgba(239, 68, 68, 0.05); color: #dc2626; }
 body.light .orb-glow { background: radial-gradient(circle, rgba(27, 140, 62, 0.35) 0%, rgba(27, 140, 62, 0.1) 55%, rgba(27, 140, 62, 0) 100%); }
 body.light .orb-core { box-shadow: 0 12px 32px rgba(27, 140, 62, 0.4), 0 0 50px rgba(27, 140, 62, 0.25), inset 0 -8px 24px rgba(0, 0, 0, 0.18), inset 0 4px 16px rgba(255, 255, 255, 0.2); }
 body.light .orb-ring { border-color: var(--g); }
+
+/* ===================== Accessibility toggles (theme store) ===================== */
+/* Reduce motion — neutralise animations & transitions app-wide. */
+body.reduce-motion *,
+body.reduce-motion *::before,
+body.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+/* Bold text — uniformly heavier strokes regardless of element font-weight. */
+body.bold-text { -webkit-text-stroke: 0.4px currentColor; }
+/* High contrast — push muted text toward full opacity for readability. */
+body.high-contrast {
+  --text-mid-50: rgba(255, 255, 255, 0.82);
+  --text-mid-40: rgba(255, 255, 255, 0.76);
+  --text-mid-30: rgba(255, 255, 255, 0.66);
+  --text-mid-15: rgba(255, 255, 255, 0.4);
+}
+body.high-contrast.light {
+  --text-mid-50: #2a2a2a;
+  --text-mid-40: #383838;
+  --text-mid-30: #4a4a4a;
+  --text-mid-15: #9a9a9a;
+}

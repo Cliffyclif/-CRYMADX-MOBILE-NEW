@@ -15,7 +15,17 @@ export function Notifications() {
   // Read from the live store — populated by useLiveNotifications() at the App root
   const items = useNotifications(s => s.items)
   const markAllSeen = useNotifications(s => s.markAllSeen)
+  const markAllRead = useNotifications(s => s.markAllRead)
   const markRead = useEndpointMutation('api.notifications.read', { invalidates: ['api.notifications.list'] })
+
+  // "Mark all as read": flip every item locally for instant feedback, then
+  // persist server-side. The screen renders from the live store (not the list
+  // query), so the optimistic store update is what the user actually sees.
+  const handleMarkAllRead = () => {
+    if (!items.some(n => !n.read)) return // nothing unread — no-op
+    markAllRead()
+    markRead.mutate({})
+  }
 
   // Mark all as seen when the user lands on this screen — clears the toast queue
   // and the unread badge. The server-side read is a separate "mark all read" action.
@@ -46,7 +56,7 @@ export function Notifications() {
     <PhoneShell noTabs>
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <h2 style={{ flex: 1 }}>{t('rewards.notificationsTitle')}</h2>
-        <button className="grn t3" onClick={() => markRead.mutate({})} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Outfit' }}>{t('rewards.markAllRead')}</button>
+        <button className="grn t3" onClick={handleMarkAllRead} disabled={!items.some(n => !n.read)} style={{ background: 'none', border: 'none', cursor: items.some(n => !n.read) ? 'pointer' : 'default', fontFamily: 'Outfit', opacity: items.some(n => !n.read) ? 1 : 0.5 }}>{t('rewards.markAllRead')}</button>
       </div>
 
       <div className="tabs" style={{ marginTop: 6 }}>

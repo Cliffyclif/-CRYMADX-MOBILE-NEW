@@ -6,13 +6,16 @@ import { Icon, type IconName } from '../../components/Icon'
 import { useEndpoint, useEndpointMutation } from '../../api/hooks'
 import type { Session, LoginEvent } from '../../mock/db'
 
+type DeviceRow = { id: string; device: string; deviceIcon: 'phone' | 'grid' | 'globe'; os: string; lastActive: string }
+
 const TABS = ['active', 'history', 'devices'] as const
 
 export function Sessions() {
   const { t } = useTranslation()
   const [tab, setTab] = useState<typeof TABS[number]>('active')
-  const { data } = useEndpoint<{ active: Session[]; history: LoginEvent[] }>('api.security.sessions.list')
+  const { data } = useEndpoint<{ active: Session[]; history: LoginEvent[]; devices: DeviceRow[] }>('api.security.sessions.list')
   const revoke = useEndpointMutation('api.security.sessions.revoke', { invalidates: ['api.security.sessions.list'] })
+  const revokeAll = useEndpointMutation('api.security.sessions.revoke-all', { invalidates: ['api.security.sessions.list'] })
 
   return (
     <PhoneShell noTabs>
@@ -26,6 +29,9 @@ export function Sessions() {
 
       {tab === 'active' && <>
         <h3 style={{ marginTop: 6 }}>{t('security.activeSessionsTitle')}</h3>
+        {(data?.active?.length ?? 0) === 0 && (
+          <div className="g" style={{ padding: 14, marginTop: 4, textAlign: 'center' }}><div className="t3">No active sessions found.</div></div>
+        )}
         {data?.active?.map(s => (
           <div key={s.id} className="g" style={{ padding: 12, margin: '4px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -48,6 +54,9 @@ export function Sessions() {
 
       {tab === 'history' && <>
         <h3 style={{ marginTop: 6 }}>{t('security.loginHistoryTitle')}</h3>
+        {(data?.history?.length ?? 0) === 0 && (
+          <div className="g" style={{ padding: 14, marginTop: 4, textAlign: 'center' }}><div className="t3">No login history yet.</div></div>
+        )}
         {data?.history?.map(e => {
           const ok = e.result === 'success'
           return (
@@ -69,19 +78,29 @@ export function Sessions() {
 
       {tab === 'devices' && <>
         <h3 style={{ marginTop: 6 }}>{t('security.trustedDevicesTitle')}</h3>
-        {data?.active?.filter(s => s.status === 'active').map(s => (
-          <div key={s.id} className="li">
-            <div className="li-i"><Icon name={s.deviceIcon as IconName} size={16} /></div>
+        {(data?.devices?.length ?? 0) === 0 && (
+          <div className="g" style={{ padding: 14, marginTop: 4, textAlign: 'center' }}><div className="t3">No trusted devices yet.</div></div>
+        )}
+        {data?.devices?.map(d => (
+          <div key={d.id} className="li">
+            <div className="li-i"><Icon name={d.deviceIcon as IconName} size={16} /></div>
             <div className="li-c">
-              <div className="li-n">{s.device}</div>
-              <div className="li-s">{s.os}</div>
+              <div className="li-n">{d.device}</div>
+              <div className="li-s">{d.os || d.lastActive}</div>
             </div>
             <div className="li-r"><span className="badge badge-g" style={{ fontSize: 9 }}>{t('security.trustedBadge')}</span></div>
           </div>
         ))}
       </>}
 
-      <button className="btn btn-r" style={{ marginTop: 8 }}>{t('security.signOutAllOthers')}</button>
+      <button
+        className="btn btn-r"
+        style={{ marginTop: 8 }}
+        onClick={() => revokeAll.mutate({})}
+        disabled={revokeAll.isPending || (data?.active?.length ?? 0) <= 1}
+      >
+        {revokeAll.isPending ? t('auth.verifying') : t('security.signOutAllOthers')}
+      </button>
     </PhoneShell>
   )
 }

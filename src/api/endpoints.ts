@@ -155,8 +155,8 @@ export const ENDPOINTS = {
   'api.wallet.networks.list':  { method: 'GET',  path: '/wallet/networks/:asset' },
   'api.wallet.withdraw.create': { method: 'POST', path: '/wallet/withdraw' },
   'api.wallet.withdraw.fee':   { method: 'GET',  path: '/wallet/withdraw/fee' },
-  /** UID-to-UID transfer — settles on-chain; sender pays network gas. */
-  'api.transfer.internal.create': { method: 'POST', path: '/transfer/uid' },
+  /** UID-to-UID internal transfer (instant, no fee). */
+  'api.transfer.internal.create': { method: 'POST', path: '/transfer/internal' },
   'api.transfer.internal.list':   { method: 'GET',  path: '/transfers/internal' },
   'api.transfer.internal.get':    { method: 'GET',  path: '/transfers/internal/:transferId' },
   'api.wallet.convert.quote':  { method: 'POST', path: '/wallet/convert/quote' },
@@ -279,13 +279,20 @@ export const ENDPOINTS = {
 
   // ---- Security ----
   'api.security.summary':      { method: 'GET',  path: '/security' },
-  'api.security.2fa.enable':   { method: 'POST', path: '/security/2fa/enable' },
-  'api.security.2fa.disable':  { method: 'POST', path: '/security/2fa/disable' },
-  'api.security.backup-codes': { method: 'POST', path: '/security/backup-codes' },
+  'api.security.2fa.setup':    { method: 'POST', path: '/2fa/setup' },
+  'api.security.2fa.enable':   { method: 'POST', path: '/2fa/enable' },
+  'api.security.2fa.disable':  { method: 'POST', path: '/2fa/disable' },
+  'api.security.backup-codes': { method: 'POST', path: '/2fa/backup-codes' },
   'api.security.password.change': { method: 'POST', path: '/security/password' },
+  'api.security.pin.status':   { method: 'GET',  path: '/security/pin/status' },
+  'api.security.pin.otp':      { method: 'POST', path: '/security/pin/otp' },
+  'api.security.pin.setup':    { method: 'POST', path: '/security/pin/setup' },
   'api.security.pin.change':   { method: 'POST', path: '/security/pin' },
-  'api.security.sessions.list':{ method: 'GET',  path: '/security/sessions' },
-  'api.security.sessions.revoke': { method: 'DELETE', path: '/security/sessions/:sessionId' },
+  'api.security.pin.verify':   { method: 'POST', path: '/security/pin/verify' },
+  'api.security.pin.reset':    { method: 'POST', path: '/security/pin/reset' },
+  'api.security.sessions.list':{ method: 'GET',  path: '/user/sessions' },
+  'api.security.sessions.revoke': { method: 'DELETE', path: '/user/sessions/:sessionId' },
+  'api.security.sessions.revoke-all': { method: 'POST', path: '/user/sessions/revoke-all' },
   'api.security.anti-phishing.get': { method: 'GET',  path: '/user/anti-phishing' },
   'api.security.anti-phishing.set': { method: 'POST', path: '/user/anti-phishing' },
 
@@ -341,7 +348,7 @@ export const ENDPOINTS = {
   /** Web Push: register the browser push subscription with the backend */
   'api.notifications.subscribe': { method: 'POST', path: '/notifications/subscribe' },
   'api.notifications.unsubscribe': { method: 'DELETE', path: '/notifications/subscribe' },
-  /** Native push (FCM): register / drop this device's FCM token */
+  /** Native push (Capacitor): register/unregister the device push token */
   'api.notifications.registerDevice': { method: 'POST', path: '/notifications/register-device' },
   'api.notifications.unregisterDevice': { method: 'DELETE', path: '/notifications/register-device' },
   'api.announcements.list':    { method: 'GET',  path: '/announcements' },
