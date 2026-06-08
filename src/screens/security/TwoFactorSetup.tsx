@@ -30,8 +30,14 @@ export function TwoFactorSetup() {
   const [qrUrl, setQrUrl] = useState('')
   const [setupLoading, setSetupLoading] = useState(false)
   const [setupError, setSetupError] = useState<string | null>(null)
+  // Synchronous one-shot guard: each /2fa/setup call mints a NEW secret, so if
+  // React's dev double-invoke (or a re-render) fires it twice, the QR on screen
+  // ends up mismatched with the last-stored secret and the code never verifies.
+  const setupStarted = useRef(false)
 
   const loadSetup = async () => {
+    if (setupStarted.current) return
+    setupStarted.current = true
     setSetupLoading(true)
     setSetupError(null)
     try {
@@ -39,6 +45,7 @@ export function TwoFactorSetup() {
       setSecret(r.secret ?? '')
       setQrUrl(r.qrCodeUrl ?? '')
     } catch (e) {
+      setupStarted.current = false // allow a retry after a failure
       setSetupError((e as Error).message || 'Could not start 2FA setup.')
     } finally {
       setSetupLoading(false)
