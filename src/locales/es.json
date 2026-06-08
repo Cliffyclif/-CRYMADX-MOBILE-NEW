@@ -343,7 +343,8 @@
       "nft": "NFT",
       "account": "Cuenta",
       "engagement": "Participación",
-      "support": "Soporte"
+      "support": "Soporte",
+      "all": "Todos"
     },
     "noMatch": "Ningún servicio coincide con \"{{q}}\""
   },

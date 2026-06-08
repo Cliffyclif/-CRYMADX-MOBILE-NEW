@@ -343,7 +343,8 @@
       "nft": "NFT",
       "account": "アカウント",
       "engagement": "エンゲージメント",
-      "support": "サポート"
+      "support": "サポート",
+      "all": "すべて"
     },
     "noMatch": "「{{q}}」に一致するサービスがありません"
   },
