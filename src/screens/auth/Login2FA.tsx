@@ -15,7 +15,6 @@ export function Login2FA() {
   const signIn = useAuth(s => s.signIn)
   const state = (loc.state as { email?: string; userId?: string } | null) ?? {}
   const [code, setCode] = useState<string[]>(Array(6).fill(''))
-  const [seconds, setSeconds] = useState(28)
   const [error, setError] = useState<string | null>(null)
   const refs = useRef<Array<HTMLInputElement | null>>([])
   const m = useEndpointMutation<{ body: { userId?: string; code: string } }, AuthSession & { refreshToken?: string }>('api.auth.verify-2fa')
@@ -26,16 +25,29 @@ export function Login2FA() {
     }
   }, [state.userId, nav])
 
-  useEffect(() => {
-    if (seconds <= 0) return
-    const t = setInterval(() => setSeconds(s => s - 1), 1000)
-    return () => clearInterval(t)
-  }, [seconds])
-
   const setDigit = (i: number, v: string) => {
-    const d = v.replace(/[^0-9]/g, '').slice(-1)
+    const digits = v.replace(/[^0-9]/g, '')
+    // Support pasting the whole 6-digit code into any box.
+    if (digits.length > 1) {
+      const arr = Array(6).fill('')
+      for (let k = 0; k < Math.min(digits.length, 6); k++) arr[k] = digits[k]
+      setCode(arr)
+      refs.current[Math.min(digits.length, 6) - 1]?.focus()
+      return
+    }
+    const d = digits.slice(-1)
     setCode(prev => { const n = [...prev]; n[i] = d; return n })
     if (d && i < 5) refs.current[i + 1]?.focus()
+  }
+
+  const onPaste = (e: React.ClipboardEvent) => {
+    const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (!digits) return
+    e.preventDefault()
+    const arr = Array(6).fill('')
+    for (let k = 0; k < digits.length; k++) arr[k] = digits[k]
+    setCode(arr)
+    refs.current[Math.min(digits.length, 6) - 1]?.focus()
   }
 
   const handleKey = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -76,6 +88,7 @@ export function Login2FA() {
               value={d}
               onChange={e => setDigit(i, e.target.value)}
               onKeyDown={e => handleKey(i, e)}
+              onPaste={onPaste}
               inputMode="numeric"
               maxLength={1}
               className="g"
@@ -89,12 +102,9 @@ export function Login2FA() {
         <button type="submit" className="btn btn-g" disabled={m.isPending || code.some(c => !c)}>
           {m.isPending ? t('auth.verifying') : t('auth.verify')}
         </button>
-        <button type="button" className="btn btn-o">{t('auth.useBackupCode')}</button>
-
-        <div className="t2" style={{ textAlign: 'center', marginTop: 14, fontSize: 14 }}>
-          {seconds > 0
-            ? <span className="t3">{t('auth.resendIn2', { seconds })}</span>
-            : <span className="grn" style={{ cursor: 'pointer' }} onClick={() => setSeconds(28)}>{t('auth.resendCode')}</span>}
+        <div className="t3" style={{ textAlign: 'center', marginTop: 14, fontSize: 12, lineHeight: 1.5 }}>
+          Open your authenticator app (Google Authenticator, Authy, …) and enter the
+          current 6-digit code. It refreshes every 30 seconds — no code is emailed.
         </div>
        </div>
       </form>
