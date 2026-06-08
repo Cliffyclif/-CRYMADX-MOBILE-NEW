@@ -27,8 +27,6 @@ export function EducationLearn() {
   const [playlist, setPlaylist] = useState<string | null>(null)
   const [type, setType] = useState('video')
   const [textContent, setTextContent] = useState('')
-  const [watermark, setWatermark] = useState('')
-  const [wmPos, setWmPos] = useState({ top: '14%', left: '10%' })
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [superseded, setSuperseded] = useState(false)
@@ -69,7 +67,7 @@ export function EducationLearn() {
     educationService.play(course.id, current.id)
       .then(r => {
         if (!live) return
-        setType(r.type); setWatermark(r.watermark || ''); streamRef.current = r.stream_id || null
+        setType(r.type); streamRef.current = r.stream_id || null
         if (r.hls && r.playlist) setPlaylist(r.playlist)
         else if (r.type === 'text') setTextContent(r.text_content || current.text_content || '')
         else setMediaUrl(r.url || null)
@@ -105,12 +103,6 @@ export function EducationLearn() {
     }, 20000)
     return () => clearInterval(t)
   }, [mediaUrl, playlist])
-
-  // Moving watermark.
-  useEffect(() => {
-    const t = setInterval(() => setWmPos({ top: `${10 + Math.floor(Math.random() * 74)}%`, left: `${6 + Math.floor(Math.random() * 78)}%` }), 6500)
-    return () => clearInterval(t)
-  }, [])
 
   const go = (l?: EduLessonView) => l && nav(routeFor('route.education.player', { slug, lessonId: l.id }))
   const markComplete = async () => {
@@ -180,10 +172,6 @@ export function EducationLearn() {
           : type === 'pdf' && mediaUrl ? <iframe title="doc" src={mediaUrl} style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }} />
           : type === 'text' ? <div style={{ color: 'var(--text-strong)', padding: 20, overflow: 'auto', height: '100%', fontSize: 14, lineHeight: 1.6 }}>{textContent}</div>
           : <div className="t3" style={{ color: '#fff', opacity: 0.6 }}>No media</div>}
-
-        {isVideo && !superseded && watermark && (
-          <div style={{ position: 'absolute', top: wmPos.top, left: wmPos.left, color: 'rgba(255,255,255,.26)', fontSize: 12, fontWeight: 600, pointerEvents: 'none', transition: 'top 1.4s, left 1.4s', textShadow: '0 1px 3px rgba(0,0,0,.6)', whiteSpace: 'nowrap' }}>{watermark}</div>
-        )}
       </div>
 
       {/* Body */}
