@@ -325,7 +325,15 @@
       "helpCenter": "مركز المساعدة",
       "myTickets": "تذاكري",
       "contact": "اتصل بنا",
-      "systemStatus": "حالة النظام"
+      "systemStatus": "حالة النظام",
+      "aiAssistant": "مساعد الذكاء",
+      "aiVoice": "صوت الذكاء",
+      "aiSettings": "إعدادات الذكاء",
+      "theme": "السمة",
+      "language": "اللغة",
+      "notifications": "الإشعارات",
+      "currency": "العملة",
+      "developer": "المطور"
     },
     "cat": {
       "recommended": "موصى به",

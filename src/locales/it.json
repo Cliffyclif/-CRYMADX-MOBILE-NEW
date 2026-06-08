@@ -325,7 +325,15 @@
       "helpCenter": "Centro Assistenza",
       "myTickets": "I Miei Ticket",
       "contact": "Contatto",
-      "systemStatus": "Stato del Sistema"
+      "systemStatus": "Stato del Sistema",
+      "aiAssistant": "IA CrymadX",
+      "aiVoice": "Voce IA",
+      "aiSettings": "Impostazioni IA",
+      "theme": "Tema",
+      "language": "Lingua",
+      "notifications": "Notifiche",
+      "currency": "Valuta",
+      "developer": "Sviluppatore"
     },
     "cat": {
       "recommended": "Consigliati",

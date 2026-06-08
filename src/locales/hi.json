@@ -325,7 +325,15 @@
       "helpCenter": "सहायता केंद्र",
       "myTickets": "मेरे टिकट",
       "contact": "संपर्क",
-      "systemStatus": "सिस्टम स्थिति"
+      "systemStatus": "सिस्टम स्थिति",
+      "aiAssistant": "CrymadX एआई",
+      "aiVoice": "एआई वॉइस",
+      "aiSettings": "एआई सेटिंग्स",
+      "theme": "थीम",
+      "language": "भाषा",
+      "notifications": "सूचनाएं",
+      "currency": "मुद्रा",
+      "developer": "डेवलपर"
     },
     "cat": {
       "recommended": "अनुशंसित",

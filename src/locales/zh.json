@@ -325,7 +325,15 @@
       "helpCenter": "帮助中心",
       "myTickets": "我的工单",
       "contact": "联系我们",
-      "systemStatus": "系统状态"
+      "systemStatus": "系统状态",
+      "aiAssistant": "CrymadX AI",
+      "aiVoice": "AI语音",
+      "aiSettings": "AI设置",
+      "theme": "主题",
+      "language": "语言",
+      "notifications": "通知",
+      "currency": "货币",
+      "developer": "开发者"
     },
     "cat": {
       "recommended": "推荐",

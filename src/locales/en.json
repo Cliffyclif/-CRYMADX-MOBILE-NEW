@@ -326,7 +326,15 @@
       "myTickets": "My Tickets",
       "contact": "Contact",
       "systemStatus": "System Status",
-      "academy": "Academy"
+      "academy": "Academy",
+      "aiAssistant": "CrymadX AI",
+      "aiVoice": "AI Voice",
+      "aiSettings": "AI Settings",
+      "theme": "Theme",
+      "language": "Language",
+      "notifications": "Notifications",
+      "currency": "Currency",
+      "developer": "Developer"
     },
     "cat": {
       "recommended": "Recommended",
