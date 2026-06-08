@@ -325,7 +325,15 @@
       "helpCenter": "고객센터",
       "myTickets": "내 티켓",
       "contact": "문의",
-      "systemStatus": "시스템 상태"
+      "systemStatus": "시스템 상태",
+      "aiAssistant": "CrymadX AI",
+      "aiVoice": "AI 음성",
+      "aiSettings": "AI 설정",
+      "theme": "테마",
+      "language": "언어",
+      "notifications": "알림",
+      "currency": "통화",
+      "developer": "개발자"
     },
     "cat": {
       "recommended": "추천",

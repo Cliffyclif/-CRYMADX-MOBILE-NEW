@@ -57,8 +57,17 @@ const SERVICES: ServiceItem[] = [
   { id: 'kyc',         label: 'kyc',         icon: 'shield',    category: 'account', route: 'route.kyc.status' },
   { id: 'security',    label: 'security',    icon: 'lock',      category: 'account', route: 'route.security.hub' },
   { id: 'apikeys',     label: 'apiKeys',     icon: 'key',       category: 'account', route: 'route.settings.api-keys' },
+  { id: 'notif-settings', label: 'notifications', icon: 'bell', category: 'account', route: 'route.settings.notifications' },
+  { id: 'theme',       label: 'theme',       icon: 'eye',       category: 'account', route: 'route.settings.theme' },
+  { id: 'language',    label: 'language',    icon: 'globe',     category: 'account', route: 'route.settings.language' },
+  { id: 'currency',    label: 'currency',    icon: 'dollar',    category: 'account', route: 'route.settings.currency' },
+  { id: 'developer',   label: 'developer',   icon: 'settings',  category: 'account', route: 'route.settings.developer' },
 
-  // Engagement
+  // AI + Engagement
+  { id: 'ai',          label: 'aiAssistant', icon: 'wand',      category: 'engagement', recommended: true, route: 'route.tab.ai' },
+  { id: 'aivoice',     label: 'aiVoice',     icon: 'volume',    category: 'engagement', route: 'route.ai.voice' },
+  { id: 'aisettings',  label: 'aiSettings',  icon: 'settings',  category: 'engagement', route: 'route.ai.settings' },
+  { id: 'academy',     label: 'academy',     icon: 'cap',       category: 'engagement', recommended: true, route: 'route.education.home' },
   { id: 'rewards',     label: 'rewardsHub',  icon: 'trophy',    category: 'engagement', recommended: true, route: 'route.engage.rewards' },
   { id: 'referral',    label: 'referEarn',   icon: 'gift',      category: 'engagement', recommended: true, route: 'route.engage.referral' },
   { id: 'alerts',      label: 'priceAlerts', icon: 'bell',      category: 'engagement', route: 'route.settings.alerts' },
@@ -181,9 +190,18 @@ export function Services() {
 
       {/* Category tabs */}
       {!q && (
-        <div className="tabs" style={{ marginTop: 10, overflowX: 'auto', flexWrap: 'nowrap' }}>
+        <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {CATEGORIES.map(c => (
-            <button key={c} className={`tab ${tab === c ? 'a' : ''}`} onClick={() => setTab(c)} style={{ whiteSpace: 'nowrap' }}>
+            <button
+              key={c}
+              onClick={() => setTab(c)}
+              style={{
+                whiteSpace: 'nowrap', cursor: 'pointer', borderRadius: 999, padding: '6px 12px',
+                fontFamily: 'inherit', fontSize: 13, fontWeight: 700, border: 'none',
+                background: tab === c ? 'var(--gl)' : 'var(--surface-soft)',
+                color: tab === c ? '#fff' : 'var(--text-mid-50)',
+              }}
+            >
               {cl(c)}
             </button>
           ))}

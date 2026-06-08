@@ -325,7 +325,15 @@
       "helpCenter": "ヘルプセンター",
       "myTickets": "マイチケット",
       "contact": "お問い合わせ",
-      "systemStatus": "システム状況"
+      "systemStatus": "システム状況",
+      "aiAssistant": "CrymadX AI",
+      "aiVoice": "AI音声",
+      "aiSettings": "AI設定",
+      "theme": "テーマ",
+      "language": "言語",
+      "notifications": "通知",
+      "currency": "通貨",
+      "developer": "開発者"
     },
     "cat": {
       "recommended": "おすすめ",

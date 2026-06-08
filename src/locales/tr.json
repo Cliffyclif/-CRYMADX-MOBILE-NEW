@@ -325,7 +325,15 @@
       "helpCenter": "Yardım Merkezi",
       "myTickets": "Taleplerim",
       "contact": "İletişim",
-      "systemStatus": "Sistem Durumu"
+      "systemStatus": "Sistem Durumu",
+      "aiAssistant": "CrymadX Yapay Zekâ",
+      "aiVoice": "Yapay Ses",
+      "aiSettings": "Yapay Zekâ Ayarları",
+      "theme": "Tema",
+      "language": "Dil",
+      "notifications": "Bildirimler",
+      "currency": "Para Birimi",
+      "developer": "Geliştirici"
     },
     "cat": {
       "recommended": "Önerilen",

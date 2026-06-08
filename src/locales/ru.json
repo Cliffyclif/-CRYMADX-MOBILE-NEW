@@ -325,7 +325,15 @@
       "helpCenter": "Центр помощи",
       "myTickets": "Мои тикеты",
       "contact": "Контакты",
-      "systemStatus": "Статус системы"
+      "systemStatus": "Статус системы",
+      "aiAssistant": "CrymadX ИИ",
+      "aiVoice": "ИИ-голос",
+      "aiSettings": "Настройки ИИ",
+      "theme": "Тема",
+      "language": "Язык",
+      "notifications": "Уведомления",
+      "currency": "Валюта",
+      "developer": "Разработчик"
     },
     "cat": {
       "recommended": "Рекомендуемые",

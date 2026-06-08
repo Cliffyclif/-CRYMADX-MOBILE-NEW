@@ -325,7 +325,15 @@
       "helpCenter": "Hilfecenter",
       "myTickets": "Meine Tickets",
       "contact": "Kontakt",
-      "systemStatus": "Systemstatus"
+      "systemStatus": "Systemstatus",
+      "aiAssistant": "CrymadX KI",
+      "aiVoice": "KI-Stimme",
+      "aiSettings": "KI-Einstellungen",
+      "theme": "Design",
+      "language": "Sprache",
+      "notifications": "Benachrichtigungen",
+      "currency": "Währung",
+      "developer": "Entwickler"
     },
     "cat": {
       "recommended": "Empfohlen",

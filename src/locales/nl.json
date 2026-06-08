@@ -325,7 +325,15 @@
       "helpCenter": "Helpcentrum",
       "myTickets": "Mijn Tickets",
       "contact": "Contact",
-      "systemStatus": "Systeemstatus"
+      "systemStatus": "Systeemstatus",
+      "aiAssistant": "CrymadX AI",
+      "aiVoice": "AI-stem",
+      "aiSettings": "AI-instellingen",
+      "theme": "Thema",
+      "language": "Taal",
+      "notifications": "Meldingen",
+      "currency": "Valuta",
+      "developer": "Ontwikkelaar"
     },
     "cat": {
       "recommended": "Aanbevolen",
