@@ -67,7 +67,8 @@ const SERVICES: ServiceItem[] = [
   { id: 'ai',          label: 'aiAssistant', icon: 'wand',      category: 'engagement', recommended: true, route: 'route.tab.ai' },
   { id: 'aivoice',     label: 'aiVoice',     icon: 'volume',    category: 'engagement', route: 'route.ai.voice' },
   { id: 'aisettings',  label: 'aiSettings',  icon: 'settings',  category: 'engagement', route: 'route.ai.settings' },
-  { id: 'academy',     label: 'academy',     icon: 'cap',       category: 'engagement', recommended: true, route: 'route.education.home' },
+  // 'academy' omitted on main — depends on the education feature (route.education.home
+  // + 'cap' icon) that ships with the feature/education-academy branch.
   { id: 'rewards',     label: 'rewardsHub',  icon: 'trophy',    category: 'engagement', recommended: true, route: 'route.engage.rewards' },
   { id: 'referral',    label: 'referEarn',   icon: 'gift',      category: 'engagement', recommended: true, route: 'route.engage.referral' },
   { id: 'alerts',      label: 'priceAlerts', icon: 'bell',      category: 'engagement', route: 'route.settings.alerts' },
