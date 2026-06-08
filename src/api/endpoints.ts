@@ -233,6 +233,9 @@ export const ENDPOINTS = {
   // ---- P2P ----
   'api.p2p.offers.list':       { method: 'GET',  path: '/p2p/offers' },
   'api.p2p.offer.get':         { method: 'GET',  path: '/p2p/offers/:offerId' },
+  // Post a buy/sell ad (web exchange calls these "orders"); order.create below
+  // takes an existing offer (→ /p2p/trades), so ads need their own route.
+  'api.p2p.ad.create':         { method: 'POST', path: '/p2p/orders' },
   'api.p2p.order.create':      { method: 'POST', path: '/p2p/orders' },
   'api.p2p.order.get':         { method: 'GET',  path: '/p2p/orders/:orderId' },
   'api.p2p.order.markpaid':    { method: 'POST', path: '/p2p/orders/:orderId/mark-paid' },
