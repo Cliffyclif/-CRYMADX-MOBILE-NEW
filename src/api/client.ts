@@ -1922,6 +1922,47 @@ const RESPONSE_ADAPTERS: Partial<Record<EndpointId, (raw: any) => any>> = {
     }
   },
 
+  // Completed swaps presented as orders — mirrors the web exchange, which merges
+  // /swap/history into the order list (base/quote/side/price derived from the
+  // swap direction; a stablecoin destination ⇒ a SELL, else a BUY).
+  'api.trading.swaps.history': (raw) => {
+    const arr = raw?.orders ?? raw?.items ?? raw ?? []
+    const STABLE = ['USDT', 'USDC', 'DAI', 'BUSD']
+    const mapStatus = (s: string) => {
+      const v = (s || '').toLowerCase()
+      if (['finished', 'completed', 'filled', 'success'].includes(v)) return 'filled'
+      if (['failed', 'refunded', 'cancelled', 'expired'].includes(v)) return 'cancelled'
+      return 'filled'
+    }
+    return {
+      items: (Array.isArray(arr) ? arr : []).map((s: any) => {
+        const fromToken = String(s.fromToken ?? s.from_token ?? '').toUpperCase()
+        const toToken = String(s.toToken ?? s.to_token ?? '').toUpperCase()
+        const fromAmt = parseFloat(String(s.fromAmount ?? s.from_amount ?? '0')) || 0
+        const toAmt = parseFloat(String(s.expectedAmount ?? s.toAmount ?? s.to_amount ?? '0')) || 0
+        const stableQuote = STABLE.includes(toToken)
+        const base = stableQuote ? fromToken : toToken
+        const quote = stableQuote ? toToken : fromToken
+        const price = stableQuote ? (fromAmt > 0 ? toAmt / fromAmt : 0) : (toAmt > 0 ? fromAmt / toAmt : 0)
+        const amount = stableQuote ? fromAmt : toAmt
+        const total = stableQuote ? toAmt : fromAmt
+        return {
+          id: String(s.id ?? s.orderId ?? s._id ?? ''),
+          pair: `${base || '—'}/${quote || '—'}`,
+          side: stableQuote ? 'sell' : 'buy',
+          type: 'market',
+          price: String(price),
+          amount: String(amount),
+          filled: String(amount),
+          total: String(total),
+          status: mapStatus(s.status),
+          createdAt: s.createdAt ?? s.created_at ?? new Date().toISOString(),
+          filledAt: s.completedAt ?? s.completed_at ?? null,
+        }
+      }),
+    }
+  },
+
   // P2P — production calls listings "orders" (mobile calls them "offers")
   'api.p2p.offers.list': (raw) => {
     const arr = raw?.orders ?? raw?.offers ?? raw?.items ?? raw ?? []

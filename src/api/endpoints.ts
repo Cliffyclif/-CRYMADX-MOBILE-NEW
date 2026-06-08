@@ -200,6 +200,8 @@ export const ENDPOINTS = {
   'api.trading.order.cancel':  { method: 'DELETE', path: '/trading/orders/:orderId' },
   'api.trading.orders.open':   { method: 'GET',   path: '/trading/orders?status=open' },
   'api.trading.orders.history':{ method: 'GET',   path: '/trading/orders?status=history' },
+  // Completed swaps shown as orders (the web exchange merges these into history)
+  'api.trading.swaps.history': { method: 'GET',   path: '/swap/history' },
   'api.trading.trades':        { method: 'GET',   path: '/trading/trades' },
   'api.trading.trade':         { method: 'GET',   path: '/trading/trades/:tradeId' },
 

@@ -14,10 +14,19 @@ export function Activity() {
 
   const open = useEndpoint<{ items: TradingOrder[] }>('api.trading.orders.open', {}, { enabled: tab === 'open' })
   const history = useEndpoint<{ items: TradingOrder[] }>('api.trading.orders.history', {}, { enabled: tab === 'history' })
+  // Completed swaps are part of order history on the web exchange — merge them here too.
+  const swaps = useEndpoint<{ items: TradingOrder[] }>('api.trading.swaps.history', { query: { limit: '30' } }, { enabled: tab === 'history' })
   const trades = useEndpoint<{ items: Trade[] }>('api.trading.trades', {}, { enabled: tab === 'trades' })
   const cancel = useEndpointMutation('api.trading.order.cancel', { invalidates: ['api.trading.orders.open', 'api.trading.orders.history'] })
 
   const openCount = open.data?.items?.length ?? 0
+
+  // Order history = spot orders + completed swaps, newest first, de-duped by id.
+  const seen = new Set<string>()
+  const histItems = [...(history.data?.items ?? []), ...(swaps.data?.items ?? [])]
+    .filter(o => o.id && !seen.has(o.id) && seen.add(o.id))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const histLoading = history.isLoading || swaps.isLoading
 
   return (
     <PhoneShell noTabs>
@@ -57,7 +66,7 @@ export function Activity() {
         )
       })}
 
-      {tab === 'history' && history.data?.items?.map(o => {
+      {tab === 'history' && histItems.map(o => {
         const failed = o.status === 'cancelled'
         return (
           <div key={o.id} className="li">
@@ -76,7 +85,7 @@ export function Activity() {
         )
       })}
 
-      {tab === 'history' && (history.data?.items?.length ?? 0) === 0 && <Empty text="No order history" />}
+      {tab === 'history' && histItems.length === 0 && !histLoading && <Empty text="No order history" />}
 
       {tab === 'trades' && trades.data?.items?.map(t => (
         <button key={t.id} className="li" onClick={() => nav(routeFor('route.trading.detail', { tradeId: t.id }))} style={{ width: '100%', textAlign: 'left' }}>
