@@ -7,7 +7,6 @@ import { CoinIcon } from '../../components/CoinIcon'
 import { useEndpoint, useEndpointMutation } from '../../api/hooks'
 import { useSheetDismiss } from '../../hooks/useSheetDismiss'
 import { ROUTES, routeFor } from '../../routes'
-import { fmt } from '../../lib/format'
 import { haptics } from '../../lib/haptics'
 import { checkReserveViolation } from '../../lib/chainReserves'
 import { getActivePairs, getPairBySymbol, type TradingPairConfig } from '../../config/tradingPairs'
@@ -369,15 +368,15 @@ export function SpotTrading() {
           </button>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: positive ? 'var(--gl)' : 'var(--r)' }}>{pair?.price ?? '—'}</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: positive ? 'var(--gl)' : 'var(--r)', fontVariantNumeric: 'tabular-nums' }}>{pair ? fmtBookPrice(pair.price) : '—'}</div>
           <div style={{ fontSize: 12, color: positive ? 'var(--gl)' : 'var(--r)' }}>{pair ? `${positive ? '+' : ''}${pair.change24h}%` : '—'}</div>
         </div>
       </div>
 
       {/* Stats */}
       <div className="stats" style={{ marginTop: 4, gap: 3 }}>
-        <Stat label="24h High" value={pair?.high24h ?? '—'} />
-        <Stat label="24h Low" value={pair?.low24h ?? '—'} />
+        <Stat label="24h High" value={pair ? fmtBookPrice(pair.high24h) : '—'} />
+        <Stat label="24h Low" value={pair ? fmtBookPrice(pair.low24h) : '—'} />
         <Stat label="Volume" value={pair ? formatBig(pair.volume24h) : '—'} />
       </div>
 
@@ -450,7 +449,7 @@ export function SpotTrading() {
               <option value={100}>100</option>
             </select>
           </div>
-          <DepthBook book={book} aggregation={depthAgg} rows={14} />
+          <DepthBook book={book} aggregation={depthAgg} rows={9} />
         </div>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -851,33 +850,34 @@ function DepthBook({
   const allAmounts = [...bids, ...asks].map(r => parseFloat(r.amount) || 0)
   const max = Math.max(0.0001, ...allAmounts)
   return (
-    <div style={{ background: 'var(--surface-soft)', borderRadius: 8, padding: 4, fontSize: 10 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-mid-30)', padding: '0 4px 2px', fontSize: 9 }}>
+    <div style={{ background: 'var(--surface-soft)', borderRadius: 8, padding: 4, fontSize: 11, fontVariantNumeric: 'tabular-nums' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-mid-30)', padding: '0 4px 3px', fontSize: 9 }}>
         <span>Price</span><span>Amount</span>
       </div>
       {asks.map((r, i) => {
         const w = ((parseFloat(r.amount) || 0) / max) * 100
         return (
-          <div key={`a${i}`} style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', padding: '1px 4px', color: 'var(--r)' }}>
-            <div style={{ position: 'absolute', inset: '0 0 0 auto', width: `${w}%`, background: 'rgba(239,68,68,.12)' }} />
-            <span style={{ position: 'relative' }}>{r.price}</span>
-            <span style={{ position: 'relative', color: 'var(--text-mid-50)' }}>{r.amount}</span>
+          <div key={`a${i}`} style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', padding: '2px 4px', color: 'var(--r)' }}>
+            <div style={{ position: 'absolute', inset: '0 0 0 auto', width: `${w}%`, background: 'rgba(239,68,68,.10)' }} />
+            <span style={{ position: 'relative' }}>{fmtBookPrice(r.price)}</span>
+            <span style={{ position: 'relative', color: 'var(--text-mid-50)' }}>{fmtBookAmt(r.amount)}</span>
           </div>
         )
       })}
       {/* Spread row */}
       {asks.length > 0 && bids.length > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 0', color: 'var(--text-mid-30)', fontSize: 9, borderTop: '1px solid rgba(255,255,255,.04)', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
-          Spread {(parseFloat(asks[asks.length - 1].price) - parseFloat(bids[0].price)).toFixed(2)}
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 4px', color: 'var(--text-mid-40)', fontSize: 9, borderTop: '1px solid rgba(255,255,255,.05)', borderBottom: '1px solid rgba(255,255,255,.05)', margin: '1px 0' }}>
+          <span style={{ textTransform: 'uppercase', letterSpacing: '.5px' }}>Spread</span>
+          <span>{fmtBookPrice(parseFloat(asks[asks.length - 1].price) - parseFloat(bids[0].price))}</span>
         </div>
       )}
       {bids.map((r, i) => {
         const w = ((parseFloat(r.amount) || 0) / max) * 100
         return (
-          <div key={`b${i}`} style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', padding: '1px 4px', color: 'var(--gl)' }}>
-            <div style={{ position: 'absolute', inset: '0 0 0 auto', width: `${w}%`, background: 'rgba(0,200,83,.12)' }} />
-            <span style={{ position: 'relative' }}>{r.price}</span>
-            <span style={{ position: 'relative', color: 'var(--text-mid-50)' }}>{r.amount}</span>
+          <div key={`b${i}`} style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', padding: '2px 4px', color: 'var(--gl)' }}>
+            <div style={{ position: 'absolute', inset: '0 0 0 auto', width: `${w}%`, background: 'rgba(0,200,83,.10)' }} />
+            <span style={{ position: 'relative' }}>{fmtBookPrice(r.price)}</span>
+            <span style={{ position: 'relative', color: 'var(--text-mid-50)' }}>{fmtBookAmt(r.amount)}</span>
           </div>
         )
       })}
@@ -894,10 +894,10 @@ function TradesFeed({ trades }: { trades: Trade[] }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-mid-30)', padding: '0 4px 2px', fontSize: 9 }}>
         <span>Price</span><span>Amount</span><span>Time</span>
       </div>
-      {trades.slice(0, 14).map(t => (
-        <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 4px', fontVariantNumeric: 'tabular-nums' }}>
-          <span style={{ color: t.isBuyerMaker ? 'var(--r)' : 'var(--gl)' }}>{fmt(t.price, { grouping: false })}</span>
-          <span style={{ color: 'var(--text-mid-50)' }}>{fmt(t.amount, { grouping: false })}</span>
+      {trades.slice(0, 11).map(t => (
+        <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px', fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ color: t.isBuyerMaker ? 'var(--r)' : 'var(--gl)' }}>{fmtBookPrice(t.price)}</span>
+          <span style={{ color: 'var(--text-mid-50)' }}>{fmtBookAmt(t.amount)}</span>
           <span style={{ color: 'var(--text-mid-30)' }}>{new Date(t.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
         </div>
       ))}
@@ -1133,6 +1133,25 @@ function formatBig(s: string): string {
   if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M'
   if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K'
   return s
+}
+
+// Trim a price to a readable number of decimals based on magnitude (kills the
+// noisy 8-decimal strings: 1.28760000 → 1.2876, 43210.5 → 43,210.50).
+function fmtBookPrice(v: string | number): string {
+  const n = typeof v === 'number' ? v : parseFloat(v)
+  if (!isFinite(n)) return String(v)
+  const d = n >= 1000 ? 2 : n >= 1 ? 4 : n >= 0.01 ? 5 : 6
+  return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })
+}
+
+// Compact an order size: 29911.6 → 29.9K, 1.2M, 9.80.
+function fmtBookAmt(v: string | number): string {
+  const n = typeof v === 'number' ? v : parseFloat(v)
+  if (!isFinite(n)) return String(v)
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M'
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K'
+  if (n >= 1) return n.toLocaleString('en-US', { maximumFractionDigits: 2 })
+  return n.toLocaleString('en-US', { maximumFractionDigits: 4 })
 }
 
 // Re-export Transaction type so the file's imports stay tree-shakeable
