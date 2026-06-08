@@ -527,7 +527,17 @@
     "threeDSecure": "3D Secure:",
     "processingPayment": "Processing payment with your bank…",
     "authorizingPayment": "Authorizing payment…",
-    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa"
+    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa",
+    "continueInBrowserTitle": "تابع في متصفحك",
+    "continueInBrowserBody": "لا يمكن تحميل الدفع داخل التطبيق. اضغط فتح في المتصفح لإكمال العملية — ستُملأ بياناتك تلقائياً.",
+    "openInBrowser": "فتح في المتصفح",
+    "openedInBrowserTitle": "تم فتح الدفع في متصفحك",
+    "openedInBrowserBody": "أكمل الدفع في النافذة الجديدة. بياناتك مُعبأة مسبقاً. عُد إلى هنا عند الانتهاء.",
+    "reopenCheckout": "إعادة فتح الدفع",
+    "transactionSuccessful": "تمت المعاملة بنجاح",
+    "transactionFailed": "فشلت المعاملة",
+    "refreshingCheckout": "جارٍ تحديث الدفع…",
+    "tryEmbedAnyway": "جرّب التضمين على أي حال"
   },
   "tx": {
     "title": "المعاملات",

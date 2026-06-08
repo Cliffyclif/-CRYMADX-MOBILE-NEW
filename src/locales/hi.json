@@ -527,7 +527,17 @@
     "threeDSecure": "3D Secure:",
     "processingPayment": "Processing payment with your bank…",
     "authorizingPayment": "Authorizing payment…",
-    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa"
+    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa",
+    "continueInBrowserTitle": "अपने ब्राउज़र में जारी रखें",
+    "continueInBrowserBody": "चेकआउट ऐप में पूरी तरह लोड नहीं हो सकता। पूरा करने के लिए ब्राउज़र में खोलें दबाएं — आपकी जानकारी वहां भर जाएगी।",
+    "openInBrowser": "ब्राउज़र में खोलें",
+    "openedInBrowserTitle": "चेकआउट आपके ब्राउज़र में खुला",
+    "openedInBrowserBody": "नई विंडो में अपना भुगतान पूरा करें। आपकी जानकारी पहले से भरी है। पूरा होने पर यहां लौटें।",
+    "reopenCheckout": "चेकआउट फिर खोलें",
+    "transactionSuccessful": "लेनदेन सफल",
+    "transactionFailed": "लेनदेन विफल",
+    "refreshingCheckout": "चेकआउट रिफ्रेश हो रहा है…",
+    "tryEmbedAnyway": "फिर भी एम्बेड आज़माएं"
   },
   "tx": {
     "title": "लेनदेन",

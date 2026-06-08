@@ -527,7 +527,17 @@
     "threeDSecure": "3D Secure:",
     "processingPayment": "Processing payment with your bank…",
     "authorizingPayment": "Authorizing payment…",
-    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa"
+    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa",
+    "continueInBrowserTitle": "在浏览器中继续",
+    "continueInBrowserBody": "结账无法在应用内完整加载。点击在浏览器中打开以完成——您的信息会自动填入。",
+    "openInBrowser": "在浏览器中打开",
+    "openedInBrowserTitle": "结账已在浏览器中打开",
+    "openedInBrowserBody": "在新窗口中完成付款。您的信息已填好。完成后请返回这里。",
+    "reopenCheckout": "重新打开结账",
+    "transactionSuccessful": "交易成功",
+    "transactionFailed": "交易失败",
+    "refreshingCheckout": "正在刷新结账…",
+    "tryEmbedAnyway": "仍然尝试内嵌"
   },
   "tx": {
     "title": "交易记录",

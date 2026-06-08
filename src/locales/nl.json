@@ -527,7 +527,17 @@
     "threeDSecure": "3D Secure:",
     "processingPayment": "Processing payment with your bank…",
     "authorizingPayment": "Authorizing payment…",
-    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa"
+    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa",
+    "continueInBrowserTitle": "Ga verder in je browser",
+    "continueInBrowserBody": "De checkout laadt niet volledig in de app. Tik op Openen in browser om af te ronden — je gegevens worden vooraf ingevuld.",
+    "openInBrowser": "Openen in browser",
+    "openedInBrowserTitle": "Checkout geopend in je browser",
+    "openedInBrowserBody": "Rond je betaling af in het nieuwe venster. Je gegevens zijn ingevuld. Kom hier terug als je klaar bent.",
+    "reopenCheckout": "Checkout opnieuw openen",
+    "transactionSuccessful": "Transactie geslaagd",
+    "transactionFailed": "Transactie mislukt",
+    "refreshingCheckout": "Checkout vernieuwen…",
+    "tryEmbedAnyway": "Toch insluiten proberen"
   },
   "tx": {
     "title": "Transacties",

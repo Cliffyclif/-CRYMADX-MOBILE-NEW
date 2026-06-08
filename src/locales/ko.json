@@ -527,7 +527,17 @@
     "threeDSecure": "3D Secure:",
     "processingPayment": "Processing payment with your bank…",
     "authorizingPayment": "Authorizing payment…",
-    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa"
+    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa",
+    "continueInBrowserTitle": "브라우저에서 계속",
+    "continueInBrowserBody": "앱 내에서 결제가 완전히 로드되지 않습니다. 브라우저에서 열기를 눌러 완료하세요 — 정보는 자동 입력됩니다.",
+    "openInBrowser": "브라우저에서 열기",
+    "openedInBrowserTitle": "브라우저에서 결제가 열렸습니다",
+    "openedInBrowserBody": "새 창에서 결제를 완료하세요. 정보는 입력되어 있습니다. 완료 후 여기로 돌아오세요.",
+    "reopenCheckout": "결제 다시 열기",
+    "transactionSuccessful": "거래 성공",
+    "transactionFailed": "거래 실패",
+    "refreshingCheckout": "결제 새로고침 중…",
+    "tryEmbedAnyway": "그래도 임베드 시도"
   },
   "tx": {
     "title": "거래 내역",

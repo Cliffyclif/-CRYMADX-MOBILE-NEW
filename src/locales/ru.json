@@ -527,7 +527,17 @@
     "threeDSecure": "3D Secure:",
     "processingPayment": "Processing payment with your bank…",
     "authorizingPayment": "Authorizing payment…",
-    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa"
+    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa",
+    "continueInBrowserTitle": "Продолжить в браузере",
+    "continueInBrowserBody": "Оплата не загружается полностью в приложении. Нажмите Открыть в браузере — ваши данные подставятся автоматически.",
+    "openInBrowser": "Открыть в браузере",
+    "openedInBrowserTitle": "Оплата открыта в браузере",
+    "openedInBrowserBody": "Завершите оплату в новом окне. Ваши данные подставлены. Вернитесь сюда после оплаты.",
+    "reopenCheckout": "Открыть оплату снова",
+    "transactionSuccessful": "Транзакция выполнена",
+    "transactionFailed": "Транзакция не удалась",
+    "refreshingCheckout": "Обновление оплаты…",
+    "tryEmbedAnyway": "Всё равно встроить"
   },
   "tx": {
     "title": "Транзакции",

@@ -527,7 +527,17 @@
     "threeDSecure": "3D Secure:",
     "processingPayment": "Processing payment with your bank…",
     "authorizingPayment": "Authorizing payment…",
-    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa"
+    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa",
+    "continueInBrowserTitle": "Continúa en tu navegador",
+    "continueInBrowserBody": "El pago no carga del todo en la app. Toca Abrir en el navegador para terminar — tus datos se rellenan allí.",
+    "openInBrowser": "Abrir en el navegador",
+    "openedInBrowserTitle": "Pago abierto en tu navegador",
+    "openedInBrowserBody": "Completa el pago en la nueva ventana. Tus datos están rellenados. Vuelve aquí al terminar.",
+    "reopenCheckout": "Reabrir el pago",
+    "transactionSuccessful": "Transacción exitosa",
+    "transactionFailed": "Transacción fallida",
+    "refreshingCheckout": "Actualizando el pago…",
+    "tryEmbedAnyway": "Intentar incrustarlo igual"
   },
   "tx": {
     "title": "Transacciones",
