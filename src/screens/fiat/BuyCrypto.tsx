@@ -30,6 +30,7 @@ import { fmt } from '../../lib/format'
 import { useSheetDismiss } from '../../hooks/useSheetDismiss'
 import { haptics } from '../../lib/haptics'
 import { useAuth } from '../../stores/auth'
+import { ROUTES } from '../../routes'
 import { COUNTRIES } from '../../data/countries'
 
 type FiatCurrency = {
@@ -182,6 +183,7 @@ export function BuyCrypto() {
 
   // Debounced live quote
   useEffect(() => {
+    if (!user) { setQuote(null); return } // fiat ramp needs a signed-in account
     if (!fiatAmount || parseFloat(fiatAmount) <= 0 || !selectedCrypto || !selectedFiat || !selectedPayment) {
       setQuote(null); return
     }
@@ -210,7 +212,7 @@ export function BuyCrypto() {
       }
     }, 350)
     return () => { cancelled = true; clearTimeout(t) }
-  }, [fiatAmount, fiatCode, cryptoSymbol, network, paymentId, selectedCrypto, selectedFiat, selectedPayment])
+  }, [user, fiatAmount, fiatCode, cryptoSymbol, network, paymentId, selectedCrypto, selectedFiat, selectedPayment])
 
   const createOrder = useEndpointMutation<{ body: any }, any>('api.fiat.order.create')
   const refreshOrder = useEndpointMutation<{ pathParams: { orderId: string } }, any>('api.fiat.order.refresh')
@@ -323,6 +325,27 @@ export function BuyCrypto() {
     if (pendingOrderId) {
       nav(`/buy/status/${encodeURIComponent(pendingOrderId)}`)
     }
+  }
+
+  // Fiat on/off-ramp needs a signed-in account (the provider quote + order are
+  // user-scoped). Without it the backend returns "No token provided" — so show a
+  // clear sign-in prompt instead of a cryptic error.
+  if (!user) {
+    return (
+      <PhoneShell noTabs>
+        <ScreenHeader title={t('buy.title')} />
+        <div className="g" style={{ padding: 24, marginTop: 16, textAlign: 'center' }}>
+          <div className="ic" style={{ width: 48, height: 48, margin: '0 auto 10px', background: 'rgba(0,200,83,.12)' }}><Icon name="lock" size={22} color="var(--gl)" /></div>
+          <h3 style={{ margin: 0 }}>{t('buy.signInTitle') || 'Sign in to buy crypto'}</h3>
+          <div className="t3" style={{ marginTop: 8, lineHeight: 1.5, maxWidth: 300, marginInline: 'auto' }}>
+            The fiat on-ramp is powered by Guardarian and needs a verified account. Sign in to get a live quote and check out.
+          </div>
+          <button className="btn btn-g" style={{ marginTop: 16, maxWidth: 220, marginInline: 'auto' }} onClick={() => nav(ROUTES['route.auth.login'].path)}>
+            {t('common.signIn') || 'Sign in'}
+          </button>
+        </div>
+      </PhoneShell>
+    )
   }
 
   return (
