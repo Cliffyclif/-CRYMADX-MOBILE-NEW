@@ -48,6 +48,15 @@ import { Unstake } from './screens/earn/Unstake'
 import { AutoInvest } from './screens/earn/AutoInvest'
 import { Vault } from './screens/earn/Vault'
 
+// Education (Academy)
+import { EducationHome } from './screens/education/EducationHome'
+import { EducationExplore } from './screens/education/EducationExplore'
+import { EducationMyCourses } from './screens/education/EducationMyCourses'
+import { EducationTracks } from './screens/education/EducationTracks'
+import { EducationCertificates } from './screens/education/EducationCertificates'
+import { EducationCourse } from './screens/education/EducationCourse'
+import { EducationLearn } from './screens/education/EducationLearn'
+
 // Phase 2 — fiat
 import { BuyCrypto } from './screens/fiat/BuyCrypto'
 import { FiatOrderConfirm } from './screens/fiat/FiatOrderConfirm'
@@ -233,6 +242,15 @@ function AppInner() {
           <Route path={ROUTES['route.earn.unstake'].path}         element={<ProtectedRoute><Unstake /></ProtectedRoute>} />
           <Route path={ROUTES['route.earn.autoinvest'].path}      element={<ProtectedRoute><AutoInvest /></ProtectedRoute>} />
           <Route path={ROUTES['route.earn.vault'].path}           element={<ProtectedRoute><Vault /></ProtectedRoute>} />
+
+          {/* Education (Academy) */}
+          <Route path={ROUTES['route.education.home'].path}         element={<ProtectedRoute><EducationHome /></ProtectedRoute>} />
+          <Route path={ROUTES['route.education.explore'].path}      element={<ProtectedRoute><EducationExplore /></ProtectedRoute>} />
+          <Route path={ROUTES['route.education.my-courses'].path}   element={<ProtectedRoute><EducationMyCourses /></ProtectedRoute>} />
+          <Route path={ROUTES['route.education.tracks'].path}       element={<ProtectedRoute><EducationTracks /></ProtectedRoute>} />
+          <Route path={ROUTES['route.education.certificates'].path} element={<ProtectedRoute><EducationCertificates /></ProtectedRoute>} />
+          <Route path={ROUTES['route.education.course'].path}       element={<ProtectedRoute><EducationCourse /></ProtectedRoute>} />
+          <Route path={ROUTES['route.education.player'].path}       element={<ProtectedRoute><EducationLearn /></ProtectedRoute>} />
 
           {/* Fiat */}
           <Route path={ROUTES['route.fiat.buy'].path}     element={<ProtectedRoute><BuyCrypto /></ProtectedRoute>} />

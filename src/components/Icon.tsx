@@ -15,7 +15,7 @@ export type IconName =
   | 'info' | 'help' | 'gift' | 'pin' | 'archive' | 'bookmark' | 'thumbs-up'
   | 'flag' | 'sun' | 'moon' | 'tool' | 'trend-up' | 'users' | 'handshake'
   | 'wand' | 'paperclip' | 'trash' | 'edit' | 'link' | 'ext' | 'more' | 'rocket'
-  | 'briefcase' | 'piggy' | 'cards' | 'compass' | 'bot' | 'launch' | 'ai'
+  | 'briefcase' | 'piggy' | 'cards' | 'compass' | 'bot' | 'launch' | 'ai' | 'cap'
 
 interface Props {
   name: IconName
@@ -133,6 +133,7 @@ export function IconSprite() {
       <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></symbol>
       <symbol id="i-bot" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></symbol>
       <symbol id="i-launch" viewBox="0 0 24 24"><path d="M5 9l4 4 10-10"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+      <symbol id="i-cap" viewBox="0 0 24 24"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"/><path d="M22 10v6"/></symbol>
     </svg>
   )
 }

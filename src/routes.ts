@@ -59,6 +59,15 @@ export const ROUTES = {
   'route.earn.autoinvest':     { path: '/earn/auto-invest' },
   'route.earn.vault':          { path: '/earn/vault' },
 
+  // Education (Academy)
+  'route.education.home':      { path: '/learn' },
+  'route.education.explore':   { path: '/learn/explore' },
+  'route.education.my-courses':{ path: '/learn/my-courses' },
+  'route.education.tracks':    { path: '/learn/tracks' },
+  'route.education.certificates': { path: '/learn/certificates' },
+  'route.education.course':    { path: '/learn/course/:slug' },
+  'route.education.player':    { path: '/learn/course/:slug/lesson/:lessonId' },
+
   // P2P
   'route.p2p.market':          { path: '/p2p' },
   'route.p2p.offer':           { path: '/p2p/offer/:offerId' },

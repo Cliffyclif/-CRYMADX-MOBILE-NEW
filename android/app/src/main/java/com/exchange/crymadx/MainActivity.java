@@ -16,6 +16,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Register local plugins before the bridge boots so JS can call them.
+        registerPlugin(ScreenGuardPlugin.class);
+
         super.onCreate(savedInstanceState);
 
         // Ask for camera + mic up front so the in-app WebView KYC iframe

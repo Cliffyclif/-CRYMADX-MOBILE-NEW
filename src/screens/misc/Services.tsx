@@ -59,6 +59,7 @@ const SERVICES: ServiceItem[] = [
   { id: 'apikeys',     label: 'apiKeys',     icon: 'key',       category: 'account', route: 'route.settings.api-keys' },
 
   // Engagement
+  { id: 'academy',     label: 'academy',     icon: 'cap',       category: 'engagement', recommended: true, route: 'route.education.home' },
   { id: 'rewards',     label: 'rewardsHub',  icon: 'trophy',    category: 'engagement', recommended: true, route: 'route.engage.rewards' },
   { id: 'referral',    label: 'referEarn',   icon: 'gift',      category: 'engagement', recommended: true, route: 'route.engage.referral' },
   { id: 'alerts',      label: 'priceAlerts', icon: 'bell',      category: 'engagement', route: 'route.settings.alerts' },
