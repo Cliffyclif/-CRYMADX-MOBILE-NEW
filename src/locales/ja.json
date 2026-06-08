@@ -527,7 +527,17 @@
     "threeDSecure": "3D Secure:",
     "processingPayment": "Processing payment with your bank…",
     "authorizingPayment": "Authorizing payment…",
-    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa"
+    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa",
+    "continueInBrowserTitle": "ブラウザで続行",
+    "continueInBrowserBody": "アプリ内ではチェックアウトを完全に読み込めません。ブラウザで開くをタップして完了してください。情報は自動入力されます。",
+    "openInBrowser": "ブラウザで開く",
+    "openedInBrowserTitle": "チェックアウトをブラウザで開きました",
+    "openedInBrowserBody": "新しいウィンドウで支払いを完了してください。情報は入力済みです。完了したらここに戻ってください。",
+    "reopenCheckout": "チェックアウトを再度開く",
+    "transactionSuccessful": "取引が成功しました",
+    "transactionFailed": "取引に失敗しました",
+    "refreshingCheckout": "チェックアウトを更新中…",
+    "tryEmbedAnyway": "それでも埋め込みを試す"
   },
   "tx": {
     "title": "取引",

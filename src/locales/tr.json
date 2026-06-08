@@ -527,7 +527,17 @@
     "threeDSecure": "3D Secure:",
     "processingPayment": "Processing payment with your bank…",
     "authorizingPayment": "Authorizing payment…",
-    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa"
+    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa",
+    "continueInBrowserTitle": "Tarayıcıda devam et",
+    "continueInBrowserBody": "Ödeme uygulamada tam yüklenemiyor. Tarayıcıda Aç’a dokunup tamamlayın — bilgileriniz orada doldurulur.",
+    "openInBrowser": "Tarayıcıda aç",
+    "openedInBrowserTitle": "Ödeme tarayıcıda açıldı",
+    "openedInBrowserBody": "Ödemeyi yeni pencerede tamamlayın. Bilgileriniz dolu. Bitince buraya dönün.",
+    "reopenCheckout": "Ödemeyi yeniden aç",
+    "transactionSuccessful": "İşlem başarılı",
+    "transactionFailed": "İşlem başarısız",
+    "refreshingCheckout": "Ödeme yenileniyor…",
+    "tryEmbedAnyway": "Yine de göm"
   },
   "tx": {
     "title": "İşlemler",

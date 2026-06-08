@@ -71,16 +71,18 @@ interface Props {
 
 type Stage = 'loading' | 'ready' | 'processing' | 'preauth_failed' | 'safari_external' | 'completed' | 'failed' | 'cancelled'
 
-// Detect Safari and iOS — these browsers partition third-party storage
-// so aggressively that even iframe + storage-access can't keep
-// Guardarian's session alive across navigations. For these we go
-// straight to the in-app browser (Capacitor) or external tab (web).
-function isSafariLike(): boolean {
+// Only iOS / iPadOS truly need the external path: WKWebView partitions
+// third-party storage so aggressively that Guardarian's in-iframe session
+// can't survive. Everything else — Android WebView (the real mobile app),
+// desktop Chrome AND desktop Safari — keeps the in-app iframe (it degrades
+// gracefully to a "continue in browser" button if pre-auth fails).
+function shouldOpenExternally(): boolean {
   if (typeof navigator === 'undefined') return false
   const ua = navigator.userAgent
-  const isIOS = /iPad|iPhone|iPod/.test(ua)
-  const isSafariBrowser = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua)
-  return isIOS || isSafariBrowser
+  const isIOSUA = /iPad|iPhone|iPod/.test(ua)
+  // iPadOS 13+ reports as "Macintosh"; distinguish it by touch support.
+  const isIPadOS = /Macintosh/.test(ua) && typeof document !== 'undefined' && 'ontouchend' in document
+  return isIOSUA || isIPadOS
 }
 
 export function CheckoutModal({ open, url, onClose, onComplete, title, provider = 'Guardarian', orderId, onRefreshUrl }: Props) {
@@ -97,7 +99,7 @@ export function CheckoutModal({ open, url, onClose, onComplete, title, provider 
     // Safari/iOS: skip iframe entirely, go straight to external browser.
     // Storage partitioning makes Guardarian's session unreliable inside
     // any iframe on these browsers, even with storage-access + credentialless.
-    if (isSafariLike()) {
+    if (shouldOpenExternally()) {
       setStage('safari_external')
       // Fire the open synchronously so it's still inside the user-gesture
       // chain that started this modal — popup blockers stay quiet.

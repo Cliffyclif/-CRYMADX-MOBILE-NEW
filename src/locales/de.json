@@ -527,7 +527,17 @@
     "threeDSecure": "3D Secure:",
     "processingPayment": "Processing payment with your bank…",
     "authorizingPayment": "Authorizing payment…",
-    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa"
+    "poweredByGuardarian": "Powered by Guardarian · MasterCard · Visa",
+    "continueInBrowserTitle": "Im Browser fortfahren",
+    "continueInBrowserBody": "Die Kasse kann in der App nicht vollständig laden. Tippe auf Im Browser öffnen — deine Daten werden vorausgefüllt.",
+    "openInBrowser": "Im Browser öffnen",
+    "openedInBrowserTitle": "Kasse im Browser geöffnet",
+    "openedInBrowserBody": "Schließe die Zahlung im neuen Fenster ab. Deine Daten sind vorausgefüllt. Komm danach zurück.",
+    "reopenCheckout": "Kasse erneut öffnen",
+    "transactionSuccessful": "Transaktion erfolgreich",
+    "transactionFailed": "Transaktion fehlgeschlagen",
+    "refreshingCheckout": "Kasse wird aktualisiert…",
+    "tryEmbedAnyway": "Trotzdem einbetten"
   },
   "tx": {
     "title": "Transaktionen",
