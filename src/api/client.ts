@@ -1965,8 +1965,34 @@ const RESPONSE_ADAPTERS: Partial<Record<EndpointId, (raw: any) => any>> = {
 
   // P2P — production calls listings "orders" (mobile calls them "offers")
   'api.p2p.offers.list': (raw) => {
+    // Backend "orders" carry { trader:{name,…}, crypto, fiat, price, available, … }.
+    // Map them to the mobile P2POffer card shape (the screen reads sellerName,
+    // asset, fiatCurrency, etc.) — without this the cards render blank.
     const arr = raw?.orders ?? raw?.offers ?? raw?.items ?? raw ?? []
-    return { items: Array.isArray(arr) ? arr : [] }
+    return {
+      items: (Array.isArray(arr) ? arr : []).map((o: any) => {
+        const tr = o.trader ?? {}
+        const name = String(tr.name ?? o.sellerName ?? o.userName ?? 'Trader')
+        return {
+          id: String(o.id ?? o._id ?? ''),
+          side: o.type ?? o.side ?? 'sell',
+          sellerName: name,
+          sellerInitial: (name.trim()[0] ?? 'T').toUpperCase(),
+          verified: !!(tr.verified ?? o.verified),
+          online: !!(tr.online ?? o.online),
+          reputationPct: String(tr.completionRate ?? tr.reputationPct ?? o.reputationPct ?? 100),
+          reputationCount: Number(tr.totalTrades ?? tr.reputationCount ?? o.reputationCount ?? 0),
+          avgReleaseMin: Number(tr.avgReleaseMin ?? o.avgReleaseMin ?? o.timeLimit ?? 15),
+          asset: o.crypto ?? o.asset ?? '',
+          fiatCurrency: o.fiat ?? o.fiatCurrency ?? 'NGN',
+          price: String(o.price ?? '0'),
+          available: String(o.available ?? '0'),
+          minLimit: String(o.minLimit ?? '0'),
+          maxLimit: String(o.maxLimit ?? o.available ?? '0'),
+          paymentMethods: Array.isArray(o.paymentMethods) ? o.paymentMethods : [],
+        }
+      }),
+    }
   },
   'api.p2p.payments.list': (raw) => {
     const arr = raw?.methods ?? raw?.items ?? raw ?? []
