@@ -343,7 +343,8 @@
       "nft": "NFT",
       "account": "账户",
       "engagement": "互动",
-      "support": "支持"
+      "support": "支持",
+      "all": "全部"
     },
     "noMatch": "没有匹配 \"{{q}}\" 的服务"
   },

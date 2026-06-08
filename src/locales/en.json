@@ -344,7 +344,8 @@
       "nft": "NFT",
       "account": "Account",
       "engagement": "Engagement",
-      "support": "Support"
+      "support": "Support",
+      "all": "All"
     },
     "noMatch": "No services match \"{{q}}\""
   },

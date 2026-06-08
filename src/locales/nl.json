@@ -343,7 +343,8 @@
       "nft": "NFT",
       "account": "Account",
       "engagement": "Betrokkenheid",
-      "support": "Ondersteuning"
+      "support": "Ondersteuning",
+      "all": "Alles"
     },
     "noMatch": "Geen diensten komen overeen met \"{{q}}\""
   },

@@ -80,7 +80,7 @@ const SERVICES: ServiceItem[] = [
   { id: 'status',      label: 'systemStatus', icon: 'info',     category: 'support', route: 'route.legal.status' },
 ]
 
-const CATEGORIES: ('recommended' | Category)[] = ['recommended', 'buyCrypto', 'trade', 'earn', 'nft', 'account', 'engagement', 'support']
+const CATEGORIES: ('all' | 'recommended' | Category)[] = ['all', 'recommended', 'buyCrypto', 'trade', 'earn', 'nft', 'account', 'engagement', 'support']
 
 const FAV_KEY = 'crymadx.services.favorites'
 
@@ -99,7 +99,7 @@ function saveFavs(ids: string[]) {
 export function Services() {
   const { t } = useTranslation()
   const nav = useNavigate()
-  const [tab, setTab] = useState<typeof CATEGORIES[number]>('recommended')
+  const [tab, setTab] = useState<typeof CATEGORIES[number]>('all')
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState(false)
   const [favs, setFavs] = useState<string[]>(() => loadFavs())
@@ -107,7 +107,7 @@ export function Services() {
   useEffect(() => { saveFavs(favs) }, [favs])
 
   const sl = (item: ServiceItem) => t(`services.item.${item.label}`)
-  const cl = (cat: 'recommended' | Category) => t(`services.cat.${cat}`)
+  const cl = (cat: 'all' | 'recommended' | Category) => t(`services.cat.${cat}`)
 
   const navigateTo = (item: ServiceItem) => {
     const dest = item.path ?? (item.route ? ROUTES[item.route].path : null)
@@ -123,6 +123,7 @@ export function Services() {
     if (filter) {
       return SERVICES.filter(s => sl(s).toLowerCase().includes(filter) || cl(s.category).toLowerCase().includes(filter))
     }
+    if (tab === 'all') return SERVICES
     if (tab === 'recommended') return SERVICES.filter(s => s.recommended)
     return SERVICES.filter(s => s.category === tab)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -211,7 +212,7 @@ export function Services() {
       {/* Grouped service tiles */}
       {grouped.map(([cat, items]) => (
         <div key={cat} style={{ marginTop: 12 }}>
-          {(q || tab === 'recommended') && (
+          {(q || tab === 'recommended' || tab === 'all') && (
             <div className="t3" style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text-mid-50)' }}>{cl(cat)}</div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>

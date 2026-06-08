@@ -343,7 +343,8 @@
       "nft": "NFT",
       "account": "Hesap",
       "engagement": "Etkileşim",
-      "support": "Destek"
+      "support": "Destek",
+      "all": "Tümü"
     },
     "noMatch": "\"{{q}}\" ile eşleşen hizmet yok"
   },
