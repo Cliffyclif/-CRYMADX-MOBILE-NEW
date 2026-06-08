@@ -17,17 +17,25 @@ const FIAT_SYM: Record<string, string> = { NGN: '₦', USD: '$', EUR: '€', GBP
 
 const num = (v: string | number) => (Number(v) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })
 
+type MyAd = P2POffer & { status?: string }
+
 export function Marketplace() {
   const { t } = useTranslation()
   const nav = useNavigate()
+  const [view, setView] = useState<'browse' | 'mine'>('browse')
   const [side, setSide] = useState<'buy' | 'sell'>('buy')
   const [asset, setAsset] = useState<typeof ASSETS[number]>('USDT')
   const [fiat, setFiat] = useState('NGN')
   const [posting, setPosting] = useState(false)
-  // Backend filters on crypto + fiat + type (the web exchange's convention).
-  const { data, isLoading } = useEndpoint<{ items: P2POffer[] }>('api.p2p.offers.list', { query: { crypto: asset, fiat, type: side } })
+  // Binance convention: the **Buy** tab shows merchants' SELL ads (what you buy
+  // from); the **Sell** tab shows BUY ads. So query the opposite type.
+  const browseType = side === 'buy' ? 'sell' : 'buy'
+  const { data, isLoading } = useEndpoint<{ items: P2POffer[] }>('api.p2p.offers.list', { query: { crypto: asset, fiat, type: browseType } }, { enabled: view === 'browse' })
+  const mine = useEndpoint<{ items: MyAd[] }>('api.p2p.ads.mine', {}, { enabled: view === 'mine' })
+  const cancelAd = useEndpointMutation('api.p2p.ad.cancel', { invalidates: ['api.p2p.ads.mine', 'api.p2p.offers.list'] })
 
   const offers = data?.items ?? []
+  const myAds = mine.data?.items ?? []
 
   return (
     <PhoneShell noTabs>
@@ -42,6 +50,19 @@ export function Marketplace() {
         </button>
       </div>
 
+      {/* Market / My Ads toggle */}
+      <div style={{ display: 'flex', gap: 18, marginTop: 8, borderBottom: '1px solid var(--divider-soft)' }}>
+        {([['browse', 'Market'], ['mine', 'My Ads']] as const).map(([v, label]) => (
+          <button key={v} onClick={() => setView(v)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 800, padding: '4px 0 8px', color: view === v ? 'var(--text-strong)' : 'var(--text-mid-40)', borderBottom: view === v ? '2px solid var(--gl)' : '2px solid transparent', marginBottom: -1 }}>
+            {label}{v === 'mine' && myAds.length > 0 ? ` (${myAds.length})` : ''}
+          </button>
+        ))}
+      </div>
+
+      {view === 'mine' ? (
+        <MyAdsList ads={myAds} loading={mine.isLoading} onPost={() => setPosting(true)} onCancel={id => cancelAd.mutate({ pathParams: { orderId: id } })} canceling={cancelAd.isPending} />
+      ) : (
+      <>
       {/* Buy / Sell segmented control */}
       <div style={{ display: 'flex', background: 'var(--surface-soft)', borderRadius: 14, padding: 4, marginTop: 12 }}>
         {(['buy', 'sell'] as const).map(s => {
@@ -90,7 +111,7 @@ export function Marketplace() {
       {!isLoading && offers.length === 0 && (
         <div className="g" style={{ padding: 28, marginTop: 14, textAlign: 'center', borderRadius: 16 }}>
           <div className="ic" style={{ width: 44, height: 44, margin: '0 auto 8px', background: 'var(--surface-soft)' }}><Icon name="handshake" size={20} color="var(--text-mid-40)" /></div>
-          <div className="t3">No {side} offers for {asset}/{fiat} right now</div>
+          <div className="t3">No one's {side === 'buy' ? 'selling' : 'buying'} {asset}/{fiat} right now</div>
           <button className="btn btn-g" style={{ marginTop: 12, maxWidth: 200, marginInline: 'auto' }} onClick={() => setPosting(true)}>
             <Icon name="plus" size={14} color="#fff" /> Post the first ad
           </button>
@@ -153,9 +174,57 @@ export function Marketplace() {
           </div>
         )
       })}
+      </>
+      )}
 
       {posting && <PostAdSheet defaultSide={side} defaultAsset={asset} defaultFiat={fiat} onClose={() => setPosting(false)} />}
     </PhoneShell>
+  )
+}
+
+function MyAdsList({ ads, loading, onPost, onCancel, canceling }: { ads: MyAd[]; loading: boolean; onPost: () => void; onCancel: (id: string) => void; canceling: boolean }) {
+  if (loading && ads.length === 0) {
+    return <div style={{ textAlign: 'center', padding: 24, marginTop: 12 }}><div className="t3">Loading…</div></div>
+  }
+  if (ads.length === 0) {
+    return (
+      <div className="g" style={{ padding: 28, marginTop: 14, textAlign: 'center', borderRadius: 16 }}>
+        <div className="ic" style={{ width: 44, height: 44, margin: '0 auto 8px', background: 'var(--surface-soft)' }}><Icon name="handshake" size={20} color="var(--text-mid-40)" /></div>
+        <div className="t3">You haven't posted any ads yet</div>
+        <button className="btn btn-g" style={{ marginTop: 12, maxWidth: 200, marginInline: 'auto' }} onClick={onPost}><Icon name="plus" size={14} color="#fff" /> Post an ad</button>
+      </div>
+    )
+  }
+  return (
+    <>
+      {ads.map(o => {
+        const isSell = o.side === 'sell'
+        const sym = FIAT_SYM[o.fiatCurrency] ?? ''
+        const active = (o.status ?? 'active').toLowerCase() === 'active'
+        return (
+          <div key={o.id} style={{ marginTop: 12, background: 'var(--surface-soft)', borderRadius: 16, border: '1px solid var(--divider-soft)', padding: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <CoinIcon symbol={o.asset} size={30} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 15, fontWeight: 700, color: 'var(--text-strong)' }}>
+                  <span style={{ color: isSell ? 'var(--r)' : 'var(--gl)' }}>{isSell ? 'SELL' : 'BUY'}</span> {o.asset}
+                  <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '.5px', background: active ? 'rgba(0,200,83,.14)' : 'rgba(255,255,255,.06)', color: active ? 'var(--gl)' : 'var(--text-mid-40)' }}>{o.status ?? 'active'}</span>
+                </div>
+                <div className="t3" style={{ fontSize: 11, marginTop: 3 }}>{sym}{num(o.price)} {o.fiatCurrency} · {num(o.available)} {o.asset} available</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 11, alignItems: 'center', gap: 8 }}>
+              <span className="t3" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Limit {sym}{num(o.minLimit)}–{sym}{num(o.maxLimit)} · {o.paymentMethods.join(', ')}</span>
+              {active && (
+                <button onClick={() => onCancel(o.id)} disabled={canceling} className="badge badge-r" style={{ fontSize: 10, cursor: 'pointer', border: 'none', padding: '5px 11px', flexShrink: 0 }}>
+                  {canceling ? '…' : 'Cancel'}
+                </button>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </>
   )
 }
 
