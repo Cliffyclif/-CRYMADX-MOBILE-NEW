@@ -248,6 +248,8 @@ body.light ::selection { background: rgba(27, 140, 62, 0.2); color: #111; }
   from { transform: translateY(-120%); opacity: 0; }
   to   { transform: translateY(0);     opacity: 1; }
 }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }
 @media (prefers-reduced-motion: reduce) {
   /* Skip the slide; just fade so motion-sensitive users still see it */
   @keyframes toast-slide-in {

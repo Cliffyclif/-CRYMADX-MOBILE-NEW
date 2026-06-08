@@ -195,8 +195,17 @@ export function Vault() {
       {/* Auto-Save */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
         <h3 style={{ margin: 0 }}>Auto-Save</h3>
-        <button onClick={() => { setShowAuto(s => !s); setAutoPlan(plans[0]?.planId || ''); setMsg('') }}
-          style={{ background: 'none', border: 'none', display: 'flex', cursor: 'pointer' }} disabled={plans.length === 0}>
+        <button
+          aria-label="Add auto-save rule"
+          onClick={() => {
+            if (plans.length === 0) {
+              setMsg('No savings plans are available yet — auto-save opens once a plan is published.')
+              return
+            }
+            setShowAuto(s => !s); setAutoPlan(plans[0]?.planId || ''); setMsg('')
+          }}
+          style={{ background: 'none', border: 'none', display: 'flex', cursor: 'pointer', padding: 6, opacity: plans.length === 0 ? 0.45 : 1 }}
+        >
           <Icon name="plus" size={16} color="var(--gl)" />
         </button>
       </div>

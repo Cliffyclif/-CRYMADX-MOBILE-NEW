@@ -244,6 +244,9 @@ export const ENDPOINTS = {
   // ---- Card ----
   'api.card.get':              { method: 'GET',  path: '/card' },
   'api.card.apply':            { method: 'POST', path: '/card/apply' },
+  // AlchemyPay KYC (PageMode) — same routes the web exchange uses
+  'api.card.kyc.init':         { method: 'POST', path: '/card/kyc/init' },
+  'api.card.kyc.status':       { method: 'GET',  path: '/card/kyc/status' },
   'api.card.topup':            { method: 'POST', path: '/card/top-up' },
   'api.card.freeze':           { method: 'POST', path: '/card/freeze' },
   'api.card.settings.update':  { method: 'PATCH', path: '/card/settings' },
