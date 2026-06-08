@@ -391,7 +391,7 @@ export function BuyCrypto() {
           {[
             ['You pay', `${selectedFiat?.symbol ?? ''}${fmt(fiatAmount)} ${selectedFiat?.code ?? ''}`],
             ['Service fee', `${selectedFiat?.symbol ?? ''}${fmt(quote.fee)}`],
-            ['Network fee', `~${selectedFiat?.symbol ?? ''}${fmt(quote.networkFee)}`],
+            ['Transaction fee', `~${selectedFiat?.symbol ?? ''}${fmt(quote.networkFee)}`],
             ['Rate', `1 ${cryptoSymbol} = ${selectedFiat?.symbol ?? ''}${fmt(quote.rate)}`],
             ['You receive', `${fmt(quote.cryptoAmount)} ${cryptoSymbol}`],
           ].map(([k, v]) => (
