@@ -1994,6 +1994,35 @@ const RESPONSE_ADAPTERS: Partial<Record<EndpointId, (raw: any) => any>> = {
       }),
     }
   },
+  // The user's own posted ads (My Ads) — same shape + the ad's own type/status.
+  'api.p2p.ads.mine': (raw) => {
+    const arr = raw?.orders ?? raw?.items ?? raw ?? []
+    return {
+      items: (Array.isArray(arr) ? arr : []).map((o: any) => {
+        const tr = o.trader ?? {}
+        const name = String(tr.name ?? o.sellerName ?? 'You')
+        return {
+          id: String(o.id ?? o._id ?? ''),
+          side: (o.type ?? o.side ?? 'sell') as 'buy' | 'sell',
+          sellerName: name,
+          sellerInitial: (name.trim()[0] ?? 'Y').toUpperCase(),
+          verified: !!(tr.verified ?? o.verified),
+          online: !!(tr.online ?? o.online),
+          reputationPct: String(tr.completionRate ?? o.reputationPct ?? 100),
+          reputationCount: Number(tr.totalTrades ?? o.reputationCount ?? 0),
+          avgReleaseMin: Number(o.timeLimit ?? o.avgReleaseMin ?? 15),
+          asset: o.crypto ?? o.asset ?? '',
+          fiatCurrency: o.fiat ?? o.fiatCurrency ?? 'NGN',
+          price: String(o.price ?? '0'),
+          available: String(o.available ?? '0'),
+          minLimit: String(o.minLimit ?? '0'),
+          maxLimit: String(o.maxLimit ?? o.available ?? '0'),
+          paymentMethods: Array.isArray(o.paymentMethods) ? o.paymentMethods : [],
+          status: String(o.status ?? 'active'),
+        }
+      }),
+    }
+  },
   'api.p2p.payments.list': (raw) => {
     const arr = raw?.methods ?? raw?.items ?? raw ?? []
     return { items: Array.isArray(arr) ? arr : [] }
