@@ -47,7 +47,7 @@ export function EduTabs() {
     { id: 'route.education.certificates', label: 'Certs', icon: 'trophy' },
   ]
   return (
-    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 6, marginBottom: 14, WebkitOverflowScrolling: 'touch' }}>
+    <div className="hscroll" style={{ display: 'flex', gap: 8, paddingBottom: 6, marginBottom: 14 }}>
       {tabs.map(t => {
         const active = pathname === ROUTES[t.id].path
         return (

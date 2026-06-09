@@ -36,7 +36,7 @@ export function NFTMarketplace() {
         <input placeholder={t('nft.marketSearch')} style={{ flex: 1 }} />
       </div>
 
-      <div style={{ display: 'flex', gap: 4, margin: '6px 0', overflowX: 'auto' }}>
+      <div className="hscroll" style={{ display: 'flex', gap: 4, margin: '6px 0' }}>
         {CATEGORIES.map(c => (
           <button key={c} className={`badge ${cat === c ? 'badge-g' : ''}`} style={{ whiteSpace: 'nowrap', cursor: 'pointer', background: cat === c ? 'var(--g)' : 'var(--surface-soft)', color: cat === c ? '#fff' : 'var(--text-mid-50)', border: 'none', padding: '4px 8px' }} onClick={() => setCat(c)}>{catLabel(c)}</button>
         ))}

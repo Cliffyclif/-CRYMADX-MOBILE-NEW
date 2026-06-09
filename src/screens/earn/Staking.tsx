@@ -67,7 +67,7 @@ export function Staking() {
       <ScreenHeader title={t('earn.stakingTitle')} rightIcons={['refresh', 'search']} />
       <div className="t2">{t('earn.stakingSubtitle')}</div>
 
-      <div style={{ display: 'flex', gap: 4, margin: '6px 0', overflowX: 'auto' }}>
+      <div className="hscroll" style={{ display: 'flex', gap: 4, margin: '6px 0' }}>
         <button className={`tab ${protocol === 'all' ? 'a' : ''}`} onClick={() => setProtocol('all')}>{t('earn.tabAll')}</button>
         {protocols.map(p => (
           <button key={p} className={`tab ${protocol === p ? 'a' : ''}`} onClick={() => setProtocol(p)}>{p}</button>

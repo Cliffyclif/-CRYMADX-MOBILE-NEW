@@ -220,6 +220,10 @@ body.light ::selection { background: rgba(27, 140, 62, 0.2); color: #111; }
   gap: 0;
 }
 .screen::-webkit-scrollbar { display: none; }
+/* Horizontal scroll rows (chip selectors etc.) — scroll but hide the ugly
+   scrollbar track that otherwise draws a line under the row. */
+.hscroll { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.hscroll::-webkit-scrollbar { display: none; height: 0; }
 .screen.no-tabs { padding-bottom: calc(var(--safe-bottom, 0px) + 32px); }
 /* Last child (typically a CTA button) auto-pushes to the bottom of remaining
    space — eliminates the awkward void below the fold. Opt in via `.balanced`

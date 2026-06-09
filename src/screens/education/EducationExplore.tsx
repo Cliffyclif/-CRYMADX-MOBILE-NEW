@@ -39,7 +39,7 @@ export function EducationExplore() {
       </div>
 
       {/* Category chips */}
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '12px 0 4px' }}>
+      <div className="hscroll" style={{ display: 'flex', gap: 8, padding: '12px 0 4px' }}>
         {chips.map(c => {
           const active = cat === c.id
           return (

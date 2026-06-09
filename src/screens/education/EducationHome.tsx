@@ -69,7 +69,7 @@ export function EducationHome() {
       {cont.length > 0 && (
         <>
           <SectionTitle>Continue learning</SectionTitle>
-          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6, margin: '0 -16px', padding: '0 16px 6px' }}>
+          <div className="hscroll" style={{ display: 'flex', gap: 12, margin: '0 -16px', padding: '0 16px 6px' }}>
             {cont.map(c => <CourseCard key={c.id} course={c} compact />)}
           </div>
         </>
@@ -81,7 +81,7 @@ export function EducationHome() {
       </SectionTitle>
       {isLoading ? <CardSkeletons n={2} />
         : feat.length === 0 ? <EmptyState title="No courses yet" sub="New courses are on the way — check back soon." />
-        : <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6, margin: '0 -16px', padding: '0 16px 6px' }}>
+        : <div className="hscroll" style={{ display: 'flex', gap: 12, margin: '0 -16px', padding: '0 16px 6px' }}>
             {feat.map(c => <CourseCard key={c.id} course={c} compact />)}
           </div>}
 
