@@ -63,34 +63,41 @@ export function Marketplace() {
         <MyAdsList ads={myAds} loading={mine.isLoading} onPost={() => setPosting(true)} onCancel={id => cancelAd.mutate({ pathParams: { orderId: id } })} canceling={cancelAd.isPending} />
       ) : (
       <>
-      {/* Buy / Sell segmented control */}
-      <div style={{ display: 'flex', background: 'var(--surface-soft)', borderRadius: 14, padding: 4, marginTop: 12 }}>
+      {/* Buy / Sell — two clear semantic buttons */}
+      <div style={{ display: 'flex', gap: 9, marginTop: 12 }}>
         {(['buy', 'sell'] as const).map(s => {
           const on = side === s
+          const isBuy = s === 'buy'
+          const c = isBuy ? '0,200,83' : '239,68,68'
           return (
             <button
               key={s}
               onClick={() => setSide(s)}
+              aria-pressed={on}
               style={{
-                flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 15,
-                background: on ? (s === 'buy' ? 'var(--gl)' : 'var(--r)') : 'transparent',
-                color: on ? '#fff' : 'var(--text-mid-40)', transition: 'all .15s',
-                boxShadow: on ? `0 4px 14px ${s === 'buy' ? 'rgba(0,200,83,.3)' : 'rgba(239,68,68,.3)'}` : 'none',
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                padding: '13px 0', borderRadius: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 15,
+                background: on ? `rgb(${c})` : `rgba(${c},.10)`,
+                color: on ? '#fff' : `rgb(${c})`,
+                border: on ? '1px solid transparent' : `1px solid rgba(${c},.28)`,
+                boxShadow: on ? `0 6px 16px rgba(${c},.32)` : 'none',
+                transition: 'all .15s',
               }}
             >
-              {s === 'buy' ? t('p2p.tabBuy') : t('p2p.tabSell')}
+              <Icon name={isBuy ? 'dl' : 'send'} size={15} color={on ? '#fff' : `rgb(${c})`} />
+              {isBuy ? t('p2p.tabBuy') : t('p2p.tabSell')}
             </button>
           )
         })}
       </div>
 
       {/* Asset chips */}
-      <div style={{ display: 'flex', gap: 7, marginTop: 12, overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 2 }}>
+      <div className="hscroll" style={{ display: 'flex', gap: 8, marginTop: 14 }}>
         {ASSETS.map(a => {
           const on = asset === a
           return (
-            <button key={a} onClick={() => setAsset(a)} style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, cursor: 'pointer', borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, border: on ? '1px solid var(--gl)' : '1px solid var(--divider-soft)', background: on ? 'rgba(0,200,83,.12)' : 'transparent', color: on ? 'var(--gl)' : 'var(--text-mid-50)' }}>
-              <CoinIcon symbol={a} size={17} /> {a}
+            <button key={a} onClick={() => setAsset(a)} style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, cursor: 'pointer', borderRadius: 999, padding: '8px 13px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, border: on ? '1px solid rgba(0,200,83,.45)' : '1px solid rgba(255,255,255,.07)', background: on ? 'rgba(0,200,83,.14)' : 'var(--surface-soft)', color: on ? 'var(--gl)' : 'var(--text-mid-50)', transition: 'all .15s' }}>
+              <CoinIcon symbol={a} size={18} /> {a}
             </button>
           )
         })}

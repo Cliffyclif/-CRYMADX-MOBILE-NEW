@@ -985,7 +985,7 @@ function PairPicker({ current, favs, setFavs, onPick, onClose }: { current: stri
           <Icon name="search" size={13} color="var(--text-mid-30)" />
           <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search pairs (e.g. BTC, ETH/USDT)" style={{ flex: 1 }} />
         </div>
-        <div className="tabs" style={{ fontSize: 11, marginBottom: 4, overflowX: 'auto', flexWrap: 'nowrap' }}>
+        <div className="tabs hscroll" style={{ fontSize: 11, marginBottom: 4, flexWrap: 'nowrap' }}>
           <button className={`tab ${tab === 'favs' ? 'a' : ''}`} onClick={() => setTab('favs')}>★ ({favs.length})</button>
           <button className={`tab ${tab === 'all' ? 'a' : ''}`} onClick={() => setTab('all')}>All ({allConfigured.length})</button>
           {categories.map(c => (

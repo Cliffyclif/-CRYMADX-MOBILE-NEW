@@ -112,7 +112,7 @@ export function MarkdownBlock({ content }: { content: string }) {
             return <CodeBlock text={text} />
           },
           table: ({ children }) => (
-            <div style={{ overflowX: 'auto', margin: '4px 0 8px' }}>
+            <div className="hscroll" style={{ margin: '4px 0 8px' }}>
               <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '0.92em' }}>
                 {children}
               </table>
@@ -174,6 +174,7 @@ function CodeBlock({ text }: { text: string }) {
   }
   return (
     <div
+      className="hscroll"
       style={{
         position: 'relative',
         background: 'rgba(0,0,0,0.35)',
@@ -183,7 +184,6 @@ function CodeBlock({ text }: { text: string }) {
         margin: '4px 0 8px',
         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
         fontSize: '0.88em',
-        overflowX: 'auto',
       }}
     >
       <button
