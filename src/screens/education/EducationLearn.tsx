@@ -31,6 +31,10 @@ export function EducationLearn() {
   const [err, setErr] = useState('')
   const [superseded, setSuperseded] = useState(false)
   const [showList, setShowList] = useState(false)
+  const [noteText, setNoteText] = useState('')
+  const [noteState, setNoteState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const notesRef = useRef<Record<string, string>>({})
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -54,10 +58,25 @@ export function EducationLearn() {
     educationService.getCourse(slug).then(async ({ course }) => {
       if (!live) return
       setCourse(course)
-      try { const { progress } = await educationService.getProgress(course.id); if (live) setCompleted(new Set(progress.completed_lesson_ids)) } catch { /* ignore */ }
+      try {
+        const { progress } = await educationService.getProgress(course.id)
+        if (live) {
+          setCompleted(new Set(progress.completed_lesson_ids))
+          const n = progress.notes || {}
+          notesRef.current = n
+          setNoteText(n[lessonId] || '')
+        }
+      } catch { /* ignore */ }
     }).catch(e => live && setErr(e.message || 'Could not load course'))
     return () => { live = false }
   }, [slug])
+
+  // Load the saved note for the lesson being viewed.
+  useEffect(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    setNoteText(notesRef.current[lessonId] || '')
+    setNoteState('idle')
+  }, [lessonId])
 
   // Resolve media for the current lesson.
   useEffect(() => {
@@ -120,6 +139,27 @@ export function EducationLearn() {
     educationService.play(course.id, current.id).then(r => { streamRef.current = r.stream_id || null; if (r.hls && r.playlist) setPlaylist(r.playlist); else setMediaUrl(r.url || null) })
   }
   const noCtx = (e: React.MouseEvent) => e.preventDefault()
+
+  const persistNote = async (text: string) => {
+    if (!course || !current) return
+    const key = current.id
+    if ((notesRef.current[key] || '') === text) return
+    setNoteState('saving')
+    try {
+      await educationService.saveNote(course.id, key, text)
+      const n = { ...notesRef.current }
+      if (text.trim()) n[key] = text; else delete n[key]
+      notesRef.current = n
+      setNoteState('saved')
+      setTimeout(() => setNoteState(s => (s === 'saved' ? 'idle' : s)), 1600)
+    } catch { setNoteState('error') }
+  }
+  const onNoteChange = (v: string) => {
+    setNoteText(v)
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => persistNote(v), 1200)
+  }
+  const onNoteBlur = () => { if (saveTimer.current) clearTimeout(saveTimer.current); persistNote(noteText) }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg, #060d09)', display: 'flex', flexDirection: 'column' }}>
@@ -184,10 +224,50 @@ export function EducationLearn() {
           </div>
         </div>
         <h2 style={{ fontSize: 18, margin: '10px 0 0' }}>{current?.title}</h2>
-        {current?.description && <p className="t2" style={{ fontSize: 13.5, lineHeight: 1.6, marginTop: 8 }}>{current.description}</p>}
+
+        {/* About this lesson */}
+        {current?.description && (
+          <div style={cardBox}>
+            <div style={sectionHead}><Icon name="info" size={14} color="var(--gl)" /> <span>ABOUT THIS LESSON</span></div>
+            <p className="t2" style={{ fontSize: 13.5, lineHeight: 1.65, margin: '10px 0 0' }}>{current.description}</p>
+          </div>
+        )}
+
+        {/* Key points */}
+        {current?.key_points && current.key_points.length > 0 && (
+          <div style={cardBox}>
+            <div style={sectionHead}><Icon name="check" size={14} color="var(--gl)" /> <span>KEY POINTS</span></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 11 }}>
+              {current.key_points.map((kp, i) => (
+                <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                  <span style={{ marginTop: 2, flexShrink: 0, display: 'flex' }}><Icon name="check" size={14} color="var(--gl)" /></span>
+                  <span style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--text-strong)' }}>{kp}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Your notes */}
+        <div style={cardBox}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={sectionHead}><Icon name="edit" size={14} color="var(--gl)" /> <span>YOUR NOTES</span></div>
+            <span style={{ fontSize: 11, color: noteState === 'error' ? '#e5714e' : 'var(--text-mid-50)' }}>
+              {noteState === 'saving' ? 'Saving…' : noteState === 'saved' ? 'Saved' : noteState === 'error' ? 'Not saved' : 'Private to you'}
+            </span>
+          </div>
+          <textarea
+            value={noteText}
+            onChange={e => onNoteChange(e.target.value)}
+            onBlur={onNoteBlur}
+            placeholder="Write your own notes and takeaways. They save automatically and stay private to you."
+            aria-label="Your notes for this lesson"
+            style={{ width: '100%', minHeight: 108, resize: 'vertical', marginTop: 11, background: 'rgba(0,0,0,.25)', color: 'var(--text-strong)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 12, padding: '10px 12px', fontFamily: 'Outfit', fontSize: 13.5, lineHeight: 1.5, outline: 'none', boxSizing: 'border-box' }}
+          />
+        </div>
 
         {playlist && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-mid-50)', fontSize: 11, marginTop: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-mid-50)', fontSize: 11, marginTop: 12 }}>
             <Icon name="lock" size={12} color="var(--gl)" /> Encrypted, screen-capture protected · do not share
           </div>
         )}
@@ -234,3 +314,6 @@ const navBtn = (disabled: boolean): React.CSSProperties => ({
   width: 38, height: 38, borderRadius: 10, border: '1px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.04)',
   cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
 })
+
+const cardBox: React.CSSProperties = { marginTop: 14, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, padding: 14 }
+const sectionHead: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontWeight: 800, letterSpacing: 0.6, color: 'var(--text-mid-60)' }

@@ -24,6 +24,7 @@ export interface EduLessonView {
   duration: number
   is_preview: boolean
   description?: string
+  key_points?: string[]
   text_content?: string
   has_media: boolean
   locked: boolean
@@ -152,7 +153,9 @@ export const educationService = {
   toggleFavourite: (courseId: string, is_favourite: boolean) =>
     authed(`/enrollments/${courseId}`, { method: 'PATCH', body: JSON.stringify({ is_favourite }) }),
   getProgress: (courseId: string) =>
-    authed<{ progress: { completed_lesson_ids: string[]; current_lesson: string | null; percent_complete: number } }>(`/progress/${courseId}`),
+    authed<{ progress: { completed_lesson_ids: string[]; current_lesson: string | null; percent_complete: number; notes?: Record<string, string> } }>(`/progress/${courseId}`),
+  saveNote: (courseId: string, lessonId: string, note: string) =>
+    authed<{ saved: boolean }>(`/progress/${courseId}/notes/${lessonId}`, { method: 'PUT', body: JSON.stringify({ note }) }),
   play: (courseId: string, lessonId: string) =>
     authed<EduPlayResponse>(`/progress/${courseId}/play/${lessonId}`),
   playPing: (streamId: string) =>
